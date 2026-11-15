@@ -2,71 +2,95 @@ name: Build APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
+    tags: ["v*"]
   pull_request:
-    branches: [ main, master ]
   workflow_dispatch:
+
+permissions:
+  contents: write   # perlu untuk melampirkan APK ke Releases
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-    name: Build Debug & Release APK
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
+    env:
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'gradle'
+          distribution: temurin
+          java-version: "17"
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+      - name: Setup Gradle (cache)
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Accept licenses
-        run: yes | sdkmanager --licenses >/dev/null 2>&1 || true
+      - name: Izinkan gradlew dieksekusi
+        run: chmod +x ./gradlew
 
-      - name: Generate Gradle Wrapper if needed
+      - name: Siapkan keystore (opsional)
         run: |
-          if [ ! -f "./gradlew" ] || [ ! -f "./gradle/wrapper/gradle-wrapper.jar" ]; then
-            echo "Generating Gradle Wrapper..."
-            GRADLE_VERSION=8.9
-            wget -q https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip -O /tmp/gradle.zip
-            unzip -q /tmp/gradle.zip -d /tmp
-            /tmp/gradle-${GRADLE_VERSION}/bin/gradle wrapper --gradle-version ${GRADLE_VERSION} || true
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/mitoon.jks"
+            echo "KEYSTORE_PATH=$RUNNER_TEMP/mitoon.jks" >> "$GITHUB_ENV"
+            echo "Keystore rilis dipakai."
+          else
+            echo "Tidak ada KEYSTORE_BASE64, APK ditandatangani debug key."
           fi
-          chmod +x ./gradlew || true
 
-      - name: Build Debug APK
-        run: ./gradlew clean assembleDebug --stacktrace --no-daemon
-        env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx3g -Dorg.gradle.workers.max=2"
+      - name: Tentukan versi & API URL
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "VERSION_NAME=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION_NAME=1.0.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          fi
+          echo "VERSION_CODE=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          # Pakai nilai default di gradle.properties kalau variable kosong
+          if [ -n "$API_BASE_URL" ]; then
+            case "$API_BASE_URL" in */) ;; *) API_BASE_URL="$API_BASE_URL/" ;; esac
+            echo "GRADLE_API_ARG=-PAPI_BASE_URL=$API_BASE_URL" >> "$GITHUB_ENV"
+          else
+            echo "GRADLE_API_ARG=" >> "$GITHUB_ENV"
+          fi
 
-      - name: Upload Debug APK
+      - name: Build APK release
+        run: >
+          ./gradlew assembleRelease --stacktrace --no-daemon
+          -PVERSION_CODE="$VERSION_CODE"
+          -PVERSION_NAME="$VERSION_NAME"
+          $GRADLE_API_ARG
+
+      - name: Rename APK
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/MiToon-${VERSION_NAME}.apk"
+          ls -lh dist
+
+      - name: Upload APK (Artifacts)
         uses: actions/upload-artifact@v4
         with:
-          name: Komikta-debug
-          path: app/build/outputs/apk/debug/*.apk
-          retention-days: 14
+          name: MiToon-apk
+          path: dist/*.apk
           if-no-files-found: error
 
-      - name: Build Release APK
-        run: ./gradlew assembleRelease --stacktrace --no-daemon
-        continue-on-error: true
-        env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx3g"
-
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v4
-        if: success()
+      - name: Lampirkan ke GitHub Release (tag v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
         with:
-          name: Komikta-release-unsigned
-          path: app/build/outputs/apk/release/*.apk
-          retention-days: 14
-          if-no-files-found: warn
+          files: dist/*.apk
+          generate_release_notes: true
+          

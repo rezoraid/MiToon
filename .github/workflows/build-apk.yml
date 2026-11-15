@@ -3,17 +3,17 @@ name: Build APK
 on:
   push:
     branches: [main, master]
-    tags: ['v*']          # tag v1.2.3 -> APK otomatis dilampirkan ke GitHub Release
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
     inputs:
       api_base_url:
-        description: 'URL backend, diakhiri "/" (kosong = pakai repository variable API_BASE_URL)'
+        description: 'URL backend, diakhiri "/" (kosong = pakai default)'
         required: false
         type: string
 
 permissions:
-  contents: write         # hanya dipakai untuk membuat GitHub Release saat tag v*
+  contents: write
 
 concurrency:
   group: build-apk-${{ github.ref }}
@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      API_BASE_URL: ${{ inputs.api_base_url || vars.API_BASE_URL }}
+      API_BASE_URL: ${{ inputs.api_base_url || vars.API_BASE_URL || 'https://crot-theta.vercel.app/' }}
       KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
       KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
       KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
@@ -34,13 +34,8 @@ jobs:
 
       - name: Validasi API_BASE_URL
         run: |
-          if [ -z "$API_BASE_URL" ]; then
-            echo "::error::API_BASE_URL belum diisi. Buka Settings > Secrets and variables > Actions > Variables > New repository variable, nama API_BASE_URL, isi mis. https://api-kamu.vercel.app/"
-            exit 1
-          fi
           case "$API_BASE_URL" in http://*|https://*) ;; *) echo "::error::API_BASE_URL harus diawali http:// atau https://"; exit 1 ;; esac
           case "$API_BASE_URL" in */) ;; *) echo "::error::API_BASE_URL harus diakhiri '/'"; exit 1 ;; esac
-          case "$API_BASE_URL" in *GANTI*) echo "::error::API_BASE_URL masih placeholder"; exit 1 ;; esac
 
       - name: Tentukan versi
         run: |
@@ -64,9 +59,8 @@ jobs:
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
             echo "KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
-            echo "APK ditandatangani dengan keystore rilis."
           else
-            echo "::warning::Secret KEYSTORE_BASE64 tidak ada: APK ditandatangani dengan debug key (bisa dipasang, tapi tidak bisa menimpa APK bertanda tangan lain)."
+            echo "::warning::KEYSTORE_BASE64 tidak ada: APK ditandatangani debug key."
           fi
 
       - name: Build APK rilis
@@ -90,4 +84,3 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" "MiToon-${VERSION_NAME}.apk" --title "MiToon $VERSION_NAME" --generate-notes
-        

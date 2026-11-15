@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.MiToon" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/app_bg</item>
+        <item name="android:statusBarColor">@color/app_bg</item>
+        <item name="android:navigationBarColor">@color/app_bg</item>
+        <!-- Splash Android 12+: memakai ikon aplikasi di atas warna latar logo -->
+        <item name="android:windowSplashScreenBackground">@color/ic_launcher_background</item>
+    </style>
+</resources>

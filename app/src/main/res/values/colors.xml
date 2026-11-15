@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Warna latar logo (diambil dari gambar logo) -->
+    <color name="ic_launcher_background">#202125</color>
+    <!-- Warna dasar aplikasi (sama dengan Bg di Ui.kt) -->
+    <color name="app_bg">#17181C</color>
+</resources>

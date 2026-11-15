@@ -42,8 +42,9 @@ import kotlinx.coroutines.delay
 val Bg = Color(0xFF17181C)
 val CardBg = Color(0xFF1E1F25)
 val Line = Color(0xFF2C2E36)
-val Accent = Color(0xFFFF3355)
-val Star = Color(0xFFFFC107)
+val Accent = Color.White          // aksen = putih (tema hitam-putih)
+val OnAccent = Color.Black        // teks/ikon di atas permukaan Accent
+val Star = Color.White
 val Muted = Color(0xFF9EA2AD)
 val R6 = RoundedCornerShape(6.dp)
 private const val COVER_RATIO = 0.5f // rasio kartu mengikuti Siikomik (1:2)
@@ -76,7 +77,7 @@ private val AppTypography = with(Typography()) {
 
 @Composable
 fun MiToonTheme(content: @Composable () -> Unit) = MaterialTheme(
-    colorScheme = darkColorScheme(primary = Accent, background = Bg, surface = Bg, onBackground = Color.White, onSurface = Color.White),
+    colorScheme = darkColorScheme(primary = Accent, onPrimary = OnAccent, background = Bg, surface = Bg, onBackground = Color.White, onSurface = Color.White),
     typography = AppTypography,
     content = content
 )
@@ -102,7 +103,7 @@ fun SeriesCard(s: Series, up: Boolean, sub: String? = null, onClick: () -> Unit)
                 Text("%.1f".format(it), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
-        if (up) Text("UP", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+        if (up) Text("UP", color = OnAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.TopEnd).padding(5.dp).background(Accent, RoundedCornerShape(5.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 6.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(s.title, color = Color.White, fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
@@ -131,7 +132,7 @@ fun Header(onSearch: () -> Unit, onBack: (() -> Unit)? = null) = Column {
         Spacer(Modifier.width(8.dp))
         Text(buildAnnotatedString {
             withStyle(SpanStyle(color = Color.White)) { append("Mi") }
-            withStyle(SpanStyle(color = Accent)) { append("Toon") }
+            withStyle(SpanStyle(color = Muted)) { append("Toon") }
         }, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
         IconButton(onSearch) { Icon(Icons.Default.Search, "Cari", tint = Muted, modifier = Modifier.size(26.dp)) }
         IconButton({}) { Icon(Icons.Default.Person, "Profil", tint = Muted, modifier = Modifier.size(26.dp)) }
@@ -141,7 +142,7 @@ fun Header(onSearch: () -> Unit, onBack: (() -> Unit)? = null) = Column {
 
 @Composable
 fun Chip(text: String, on: Boolean, onClick: () -> Unit) =
-    Text(text, fontSize = 14.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, color = if (on) Color.White else Muted, maxLines = 1,
+    Text(text, fontSize = 14.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, color = if (on) OnAccent else Muted, maxLines = 1,
         modifier = Modifier.clip(R6).then(if (on) Modifier.background(Accent) else Modifier.border(1.dp, Color(0xFF3A3C45), R6))
             .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp))
 
@@ -158,7 +159,7 @@ fun CategoryTabs(genres: List<Genre>, selected: String?, onSelect: (String?) -> 
         items(genres, key = { it.slug }) { g -> Chip(g.name, selected == g.slug) { onSelect(g.slug) } }
     }
 
-private val tones = listOf(Triple(Color(0xFF1E5C2E), Color(0xFF4ADE80), Color(0xFF0E2A16)), Triple(Color(0xFF7A2430), Color(0xFFFF6B7A), Color(0xFF2A1015)))
+private val tones = listOf(Triple(Color(0xFF3A3C45), Color.White, Color(0xFF1E1F25)), Triple(Color(0xFF4A4D57), Color(0xFFD0D3DA), Color(0xFF17181C)))
 
 @Composable
 private fun GenreTag(name: String) {
@@ -181,8 +182,8 @@ fun Spotlight(items: List<Series>, onOpen: (Series) -> Unit) {
                 Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.5f)
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xF2000000)))))
                 Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
-                    Text("🔥 Hot", color = Color(0xFF3A2400), fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.background(Color(0xFFF5B82E), R6).padding(horizontal = 10.dp, vertical = 4.dp))
+                    Text("Hot", color = OnAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.background(Accent, R6).padding(horizontal = 10.dp, vertical = 4.dp))
                     Text(s.title, color = Color.White, fontSize = 22.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, maxLines = 2,
                         overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp, bottom = 10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { s.genres.take(3).forEach { GenreTag(it) } }

@@ -28,4 +28,4 @@ Butuh JDK 17 dan Android SDK (platform 34). Hasil: `app/build/outputs/apk/releas
 ## Catatan
 - Font: `app/src/main/res/font/urbanist_*.ttf` (instance statis 400–800 dari font variable Urbanist, lisensi SIL OFL).
 - Ikon: `res/mipmap-*` (adaptive + legacy), logo header: `res/drawable-nodpi/logo.png`, `playstore-icon.png` (512 px).
-- Warna dasar/aksen ada di `Ui.kt` (`Bg`, `CardBg`, `Accent`).
+- Warna dasar/aksen ada di `Ui.kt` (`Bg`, `CardBg`, `Accent`, `OnAccent`); tema saat ini hitam-putih (Accent = putih).

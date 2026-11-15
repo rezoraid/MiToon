@@ -35,8 +35,10 @@ object Library {
         prefs.edit().putString("v", json.encodeToString(entries.values.toList())).apply()
     }
 
-    fun toggleBookmark(d: Detail) {
-        val e = entries[d.id] ?: LibEntry(d.id, d.title, d.cover, d.provider)
+    fun toggleBookmark(d: Detail) { toggleBookmark(d.id, d.title, d.cover, d.provider) }
+
+    fun toggleBookmark(id: String, title: String, cover: String, provider: String) {
+        val e = entries[id] ?: LibEntry(id, title, cover, provider)
         put(e.copy(bookmarked = !e.bookmarked))
     }
 

@@ -216,7 +216,7 @@ fun Notices(items: List<Notice>) {
 @Composable
 fun SeriesGrid(vm: PagedVm, onOpen: (Series) -> Unit, upCount: Int = 0, modifier: Modifier = Modifier, header: LazyGridScope.() -> Unit = {}) {
     val st = rememberLazyGridState()
-    val near by remember { derivedStateOf { val l = st.layoutInfo; (l.visibleItemsInfo.lastOrNull()?.index ?: 0) >= l.totalItemsCount - 9 } }
+    val near by remember { derivedStateOf { val l = st.layoutInfo; (l.visibleItemsInfo.lastOrNull()?.index ?: 0) >= l.totalItemsCount - 15 } }
     LaunchedEffect(near, vm.items.size) { if (near) vm.more() }
     LazyVerticalGrid(GridCells.Fixed(3), modifier, st, PaddingValues(12.dp, 0.dp, 12.dp, 16.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {

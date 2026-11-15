@@ -35,6 +35,7 @@ class MainActivity : ComponentActivity() {
 }
 
 private fun NavHostController.detail(id: String) = navigate("series/${Uri.encode(id)}")
+private fun NavHostController.detail(s: Series) { Net.previews[s.id] = s; detail(s.id) }
 private fun NavHostController.reader(sid: String, cid: String, replace: Boolean = false) =
     navigate("reader/${Uri.encode(sid)}/${Uri.encode(cid)}") { if (replace) popUpTo("reader/{sid}/{cid}") { inclusive = true } }
 
@@ -56,15 +57,15 @@ private fun App() {
     }) { pad ->
         NavHost(nav, "home", Modifier.padding(pad)) {
             composable("home") {
-                HomeScreen({ nav.detail(it.id) }, { nav.navigate("search") }) {
+                HomeScreen({ nav.detail(it) }, { nav.navigate("search") }) {
                     nav.navigate("explore") { popUpTo("home"); launchSingleTop = true; restoreState = true }
                 }
             }
-            composable("explore") { ExploreScreen({ nav.detail(it.id) }, { nav.navigate("search") }) }
+            composable("explore") { ExploreScreen({ nav.detail(it) }, { nav.navigate("search") }) }
             composable("library") {
                 LibraryScreen({ nav.detail(it) }, { e -> e.lastChapterId?.let { nav.reader(e.id, it) } ?: nav.detail(e.id) }, { nav.navigate("search") })
             }
-            composable("search") { SearchScreen(nav::popBackStack) { nav.detail(it.id) } }
+            composable("search") { SearchScreen(nav::popBackStack) { nav.detail(it) } }
             composable("series/{id}") { e ->
                 DetailScreen(e.arguments?.getString("id").orEmpty(), nav::popBackStack, { nav.navigate("search") }, { nav.detail(it) }) { sid, cid -> nav.reader(sid, cid) }
             }

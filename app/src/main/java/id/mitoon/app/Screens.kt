@@ -20,7 +20,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -76,6 +78,14 @@ private fun OptionRow(label: String, options: List<Pair<String?, String>>, selec
 }
 
 @Composable
+private fun SortIcon(tint: Color) = Canvas(Modifier.size(22.dp)) {
+    val sw = 2.4.dp.toPx(); val r = sw / 2
+    listOf(0.22f to 1f, 0.5f to 0.7f, 0.78f to 0.4f).forEach { (y, len) ->
+        drawLine(tint, Offset(r, size.height * y), Offset(size.width * len - r, size.height * y), sw, StrokeCap.Round)
+    }
+}
+
+@Composable
 fun ExploreScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit) {
     val genres by produceState(emptyList<Genre>()) { value = runCatching { Net.genres().sortedByDescending { it.count } }.getOrDefault(emptyList()) }
     var g by rememberSaveable { mutableStateOf<String?>(null) }
@@ -98,15 +108,30 @@ fun ExploreScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit) {
         Header(onSearch)
         SeriesGrid(vm, onOpen, modifier = Modifier.weight(1f)) {
             full {
-                Row(Modifier.padding(top = 12.dp).fillMaxWidth().clip(R6).background(CardBg).border(1.dp, Line, R6).clickable(onClick = onSearch).padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Search, null, tint = Muted); Spacer(Modifier.width(8.dp)); Text("Cari komik / novel", color = Muted, fontSize = 14.sp)
+                Row(Modifier.padding(top = 12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.weight(1f).height(46.dp).clip(R6).background(CardBg).border(1.dp, Line, R6).clickable(onClick = onSearch).padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Search, null, tint = Muted); Spacer(Modifier.width(8.dp)); Text("Cari komik / novel", color = Muted, fontSize = 14.sp)
+                    }
+                    Box {
+                        var menuOpen by remember { mutableStateOf(false) }
+                        val sortOn = ss != "latest"
+                        Box(Modifier.size(46.dp).clip(R6).background(CardBg).border(1.dp, if (sortOn) Accent else Line, R6).clickable { menuOpen = true }, Alignment.Center) {
+                            SortIcon(if (sortOn) Accent else Muted)
+                        }
+                        DropdownMenu(menuOpen, { menuOpen = false }, Modifier.background(CardBg)) {
+                            sorts.forEach { (v, t) ->
+                                DropdownMenuItem(
+                                    text = { Text(t, color = if (ss == v) Accent else Color.White, fontWeight = if (ss == v) FontWeight.Bold else FontWeight.Normal) },
+                                    onClick = { sort = v ?: "latest"; menuOpen = false })
+                            }
+                        }
+                    }
                 }
             }
             full { CategoryTabs(genres, gs) { g = it; if (it == null && (sort == "rating" || sort == "az")) sort = "latest"; if (it == null) status = null } }
             full {
                 Column {
-                    OptionRow("Urutkan", sorts, ss) { sort = it ?: "latest" }
                     if (!(gs == null && ss == "popular")) OptionRow("Format", types, ts) { type = it }
                     if (gs != null) OptionRow("Status", statuses, st) { status = it }
                 }

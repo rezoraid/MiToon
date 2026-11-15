@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -43,8 +44,8 @@ private fun relTime(iso: String?): String? {
 }
 
 @Composable
-private fun ActionButton(text: String, filled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) =
-    Box(modifier.height(40.dp).clip(R6).then(if (filled) Modifier.background(Accent) else Modifier.border(1.5.dp, Accent, R6)).clickable(onClick = onClick),
+private fun ActionButton(text: String, filled: Boolean, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) =
+    Box(modifier.alpha(if (enabled) 1f else 0.45f).height(40.dp).clip(R6).then(if (filled) Modifier.background(Accent) else Modifier.border(1.5.dp, Accent, R6)).clickable(enabled = enabled, onClick = onClick),
         Alignment.Center) {
         Text(text, color = if (filled) Color.White else Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
@@ -71,67 +72,98 @@ private fun DetailTabs(tab: Int, onTab: (Int) -> Unit) = Column(Modifier.padding
 
 // ------------------------------------------------------------------ DETAIL KOMIK (mengikuti layout Siikomik)
 @Composable
+private fun ChapterSkeleton() = Column {
+    repeat(6) { Box(Modifier.fillMaxWidth().padding(bottom = 10.dp).height(66.dp).clip(R6).background(CardBg)) }
+}
+
+@Composable
+private fun RetryBox(text: String, onRetry: () -> Unit) =
+    Column(Modifier.fillMaxWidth().padding(vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(text, color = Muted); TextButton(onRetry) { Text("Coba lagi", color = Accent) }
+    }
+
+@Composable
 fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onOpenSeries: (String) -> Unit, onChapter: (seriesId: String, chapterId: String) -> Unit) {
     var tick by remember { mutableIntStateOf(0) }
-    val res by produceState<Result<Detail>?>(null, id, tick) { value = null; value = runCatching { Net.api.detail(id).data } }
-    val rec by produceState<List<Series>>(emptyList(), id) {
-        value = runCatching { Net.api.popular(limit = 7).data.filter { it.id != id }.take(6) }.getOrDefault(emptyList())
+    // Detail yang pernah dibuka langsung tampil dari cache memori; data terbaru tetap diambil di belakang layar.
+    val res by produceState<Result<Detail>?>(Net.detailCache[id]?.let { Result.success(it) }, id, tick) {
+        if (tick > 0) value = null
+        val r = runCatching { Net.api.detail(id).data }
+        r.getOrNull()?.let { Net.detailCache[id] = it }
+        if (r.isSuccess || value == null) value = r
     }
+    // Info dasar dari kartu yang diklik / pustaka -> header detail muncul seketika, tanpa menunggu server.
+    val pv = remember(id) { Net.previews[id] ?: Library.entries[id]?.toSeries() }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var newestFirst by rememberSaveable { mutableStateOf(true) }
     var shown by rememberSaveable { mutableIntStateOf(6) }
     val d = res?.getOrNull()
+    val failed = res != null && d == null
     val entry = Library.entries[id]
+
+    val title = d?.title?.takeIf { it.isNotBlank() } ?: pv?.title.orEmpty()
+    val cover = d?.cover?.takeIf { it.isNotBlank() } ?: pv?.cover.orEmpty()
+    val provider = d?.provider?.takeIf { it.isNotBlank() } ?: pv?.provider.orEmpty()
+    val genres = d?.genres?.takeIf { it.isNotEmpty() } ?: pv?.genres.orEmpty()
+    val rating = d?.rating ?: pv?.rating
+    val type = d?.type ?: pv?.type
+
+    val chapters = remember(d, newestFirst) { d?.let { if (newestFirst) it.chapters else it.chapters.asReversed() }.orEmpty() }
+    val resumeId = entry?.lastChapterId
+    val resume = d?.chapters?.firstOrNull { it.id == resumeId }
+    val first = d?.chapters?.lastOrNull()
+    val last = d?.chapters?.firstOrNull()
+    val saved = entry?.bookmarked == true
+    val useResume = resumeId != null && (d == null || resume != null)
+    fun open(c: Chap) { d?.let { Library.open(it, c) }; onChapter(id, c.id) }
+
     Column(Modifier.fillMaxSize()) {
         Header(onSearch, onBack)
-        when {
-            res == null -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = Accent) }
-            d == null -> Failed { tick++ }
-            else -> {
-                val chapters = remember(d, newestFirst) { if (newestFirst) d.chapters else d.chapters.asReversed() }
-                val resume = d.chapters.firstOrNull { it.id == entry?.lastChapterId }
-                val first = d.chapters.lastOrNull()
-                val last = d.chapters.firstOrNull()
-                val saved = entry?.bookmarked == true
-                fun open(c: Chap) { Library.open(d, c); onChapter(d.id, c.id) }
-                LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 24.dp)) {
-                    item { Img(d.cover, d.provider, Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(8.dp))) }
-                    item { Column {
-                        Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            val start = resume ?: first
-                            ActionButton(if (resume != null) "Lanjutkan Ch. ${resume.number}" else "Baca awal", true, Modifier.weight(1f)) { start?.let(::open) }
-                            ActionButton("Baca akhir", true, Modifier.weight(1f)) { last?.let(::open) }
-                        }
-                        ActionButton(if (saved) "Tersimpan di pustaka" else "Tambah pustaka", false, Modifier.fillMaxWidth().padding(top = 10.dp)) { Library.toggleBookmark(d) }
-                    } }
-                    item { Column {
-                        Text(d.title, color = Color.White, fontSize = 24.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 24.dp))
-                        if (d.genres.isNotEmpty()) Text(d.genres.joinToString("  ·  "), color = Muted, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp, bottom = 10.dp))
-                        d.rating?.takeIf { it > 0 }?.let { r ->
-                            val five = if (r > 5) r / 2 else r
-                            Info("Rating") {
-                                Text(buildAnnotatedString {
-                                    for (i in 1..5) withStyle(SpanStyle(color = if (i <= Math.round(five)) Star else Color(0xFF55585F))) { append("★ ") }
-                                    withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) { append(" %.1f".format(r)) }
-                                }, fontSize = 15.sp)
-                            }
-                        }
-                        d.type?.let { Info("Type") { Text(it.replaceFirstChar { c -> c.uppercase() }, color = Color.White, fontSize = 14.sp) } }
-                        d.status?.let { st ->
-                            Info("Status") { Text(when (st) { "ongoing" -> "OnGoing"; "completed" -> "Tamat"; "hiatus" -> "Hiatus"; else -> st }, color = Color.White, fontSize = 14.sp) }
-                        }
-                        if (d.author.isNotBlank()) Info("Penulis") { Text(d.author, color = Color.White, fontSize = 14.sp) }
-                        DetailTabs(tab) { tab = it }
-                    } }
-                    if (tab == 0) {
-                        item {
-                            Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text("Chapters: ${d.chapters.size}", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                                Text(if (newestFirst) "Terlama ⇅" else "Terbaru ⇅", color = Muted, fontSize = 14.sp,
-                                    modifier = Modifier.clickable { newestFirst = !newestFirst }.padding(8.dp))
-                            }
-                        }
-                        if (chapters.isEmpty()) item { Text("Belum ada chapter.", color = Muted, modifier = Modifier.padding(vertical = 16.dp)) }
+        LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 24.dp)) {
+            item { Img(cover, provider, Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(8.dp))) }
+            item { Column {
+                Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ActionButton(if (useResume) "Lanjutkan Ch. ${entry?.lastChapterNumber.orEmpty()}" else "Baca awal", true, Modifier.weight(1f),
+                        enabled = useResume || first != null) {
+                        if (useResume) { if (resume != null) open(resume) else resumeId?.let { onChapter(id, it) } } else first?.let { open(it) }
+                    }
+                    ActionButton("Baca akhir", true, Modifier.weight(1f), enabled = last != null) { last?.let { open(it) } }
+                }
+                ActionButton(if (saved) "Tersimpan di pustaka" else "Tambah pustaka", false, Modifier.fillMaxWidth().padding(top = 10.dp),
+                    enabled = title.isNotBlank()) { Library.toggleBookmark(id, title, cover, provider) }
+            } }
+            item { Column {
+                Text(title, color = Color.White, fontSize = 24.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 24.dp))
+                if (genres.isNotEmpty()) Text(genres.joinToString("  ·  "), color = Muted, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp, bottom = 10.dp))
+                rating?.takeIf { it > 0 }?.let { r ->
+                    val five = if (r > 5) r / 2 else r
+                    Info("Rating") {
+                        Text(buildAnnotatedString {
+                            for (i in 1..5) withStyle(SpanStyle(color = if (i <= Math.round(five)) Star else Color(0xFF55585F))) { append("★ ") }
+                            withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) { append(" %.1f".format(r)) }
+                        }, fontSize = 15.sp)
+                    }
+                }
+                type?.let { Info("Type") { Text(it.replaceFirstChar { c -> c.uppercase() }, color = Color.White, fontSize = 14.sp) } }
+                d?.status?.let { st ->
+                    Info("Status") { Text(when (st) { "ongoing" -> "OnGoing"; "completed" -> "Tamat"; "hiatus" -> "Hiatus"; else -> st }, color = Color.White, fontSize = 14.sp) }
+                }
+                if (d != null && d.author.isNotBlank()) Info("Penulis") { Text(d.author, color = Color.White, fontSize = 14.sp) }
+                DetailTabs(tab) { tab = it }
+            } }
+            if (tab == 0) {
+                item {
+                    Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(if (d != null) "Chapters: ${d.chapters.size}" else "Chapters", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        if (d != null) Text(if (newestFirst) "Terlama ⇅" else "Terbaru ⇅", color = Muted, fontSize = 14.sp,
+                            modifier = Modifier.clickable { newestFirst = !newestFirst }.padding(8.dp))
+                    }
+                }
+                when {
+                    d == null && failed -> item { RetryBox("Gagal memuat chapter") { tick++ } }
+                    d == null -> item { ChapterSkeleton() }
+                    chapters.isEmpty() -> item { Text("Belum ada chapter.", color = Muted, modifier = Modifier.padding(vertical = 16.dp)) }
+                    else -> {
                         items(chapters.take(shown), key = { it.id }) { c ->
                             val read = entry?.read?.contains(c.id) == true
                             Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(R6).background(CardBg).border(1.dp, Line, R6)
@@ -142,23 +174,21 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onOpenSer
                                 relTime(c.date)?.let { Text(it, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp)) }
                             }
                         }
+                        // Sekali tekan = tampilkan SEMUA chapter (daftar tetap lazy, jadi ringan).
                         if (shown < chapters.size) item {
-                            Box(Modifier.fillMaxWidth().height(46.dp).border(1.dp, Line, R6).clip(R6).clickable { shown += 20 }, Alignment.Center) {
-                                Text("Lainnya  ⌄", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            Box(Modifier.fillMaxWidth().height(46.dp).border(1.dp, Line, R6).clip(R6).clickable { shown = Int.MAX_VALUE }, Alignment.Center) {
+                                Text("Lainnya (${chapters.size - shown})  ⌄", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                             }
                         }
-                    } else item {
-                        Text(d.synopsis.ifBlank { "Belum ada sinopsis." }, color = Color(0xFFD0D3DA), fontSize = 14.sp, lineHeight = 21.sp, modifier = Modifier.padding(top = 16.dp))
                     }
-                    if (rec.isNotEmpty()) item { Column {
-                        SectionTitle("Rekomendasi")
-                        rec.chunked(3).forEach { row ->
-                            Row(Modifier.fillMaxWidth().padding(bottom = 7.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                                row.forEach { s -> Box(Modifier.weight(1f)) { SeriesCard(s, false) { onOpenSeries(s.id) } } }
-                                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
-                            }
-                        }
-                    } }
+                }
+            } else item {
+                when {
+                    d != null -> Text(d.synopsis.ifBlank { "Belum ada sinopsis." }, color = Color(0xFFD0D3DA), fontSize = 14.sp, lineHeight = 21.sp, modifier = Modifier.padding(top = 16.dp))
+                    failed -> RetryBox("Gagal memuat detail") { tick++ }
+                    else -> Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        repeat(4) { Box(Modifier.fillMaxWidth(if (it == 3) 0.6f else 1f).height(14.dp).clip(R6).background(CardBg)) }
+                    }
                 }
             }
         }
@@ -197,4 +227,3 @@ private fun NavButtons(c: Content, onChapter: (String) -> Unit) =
         Button({ c.prev?.let(onChapter) }, Modifier.weight(1f).height(40.dp), enabled = c.prev != null, colors = colors, shape = R6) { Text("Sebelumnya", fontWeight = FontWeight.Bold) }
         Button({ c.next?.let(onChapter) }, Modifier.weight(1f).height(40.dp), enabled = c.next != null, colors = colors, shape = R6) { Text("Berikutnya", fontWeight = FontWeight.Bold) }
     }
-    

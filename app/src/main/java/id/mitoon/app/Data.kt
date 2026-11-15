@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.Cache
+import okhttp3.Dispatcher
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
@@ -63,12 +64,22 @@ object Net {
     /** Header gambar per provider (referer), diisi sekali dari /v1/providers. */
     var hdr by mutableStateOf<Map<String, Map<String, String>>>(emptyMap())
 
+    private fun <V> lru(max: Int): MutableMap<String, V> = object : LinkedHashMap<String, V>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, V>?): Boolean = size > max
+    }
+    /** Info dasar seri dari kartu yang diklik: dipakai untuk menampilkan halaman detail seketika. */
+    val previews: MutableMap<String, Series> = lru(200)
+    /** Detail lengkap yang pernah dimuat: buka ulang = langsung tampil. */
+    val detailCache: MutableMap<String, Detail> = lru(40)
+
     private var genreCache: List<Genre>? = null
     suspend fun genres(): List<Genre> = genreCache ?: api.genres().data.also { genreCache = it }
 
     fun init(ctx: Context) {
         // Backend mengirim ETag + Cache-Control: cache HTTP 20 MB mencegah request berulang.
-        client = OkHttpClient.Builder().cache(Cache(File(ctx.cacheDir, "http"), 20L * 1024 * 1024)).build()
+        // Dispatcher default hanya 5 request paralel per host -> gambar antre. Dinaikkan supaya cover/halaman chapter lebih cepat.
+        val dispatcher = Dispatcher().apply { maxRequests = 64; maxRequestsPerHost = 16 }
+        client = OkHttpClient.Builder().cache(Cache(File(ctx.cacheDir, "http"), 20L * 1024 * 1024)).dispatcher(dispatcher).build()
         val json = Json { ignoreUnknownKeys = true; coerceInputValues = true; explicitNulls = false }
         api = Retrofit.Builder().baseUrl(BuildConfig.API_BASE_URL).client(client)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))

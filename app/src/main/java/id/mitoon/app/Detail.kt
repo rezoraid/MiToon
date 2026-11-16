@@ -288,7 +288,7 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
             }
         }
         AnimatedVisibility(bars, Modifier.align(Alignment.TopCenter), fadeIn(tween(90)), fadeOut(tween(90))) {
-            TopBar(c?.number?.let { "Chapter $it" } ?: "Baca", onBack) { showList = true }
+            ReaderTopBar(c?.number?.let { "Chapter $it" } ?: "Baca", onBack) { showList = true }
         }
         if (c != null && total > 0) AnimatedVisibility(bars, Modifier.align(Alignment.BottomCenter), fadeIn(tween(90)), fadeOut(tween(90))) {
             BottomBar(page, total, { i -> scope.launch { listState.scrollToItem(i) } }, playing, c.prev != null, c.next != null,
@@ -322,7 +322,7 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
 private fun Modifier.noTap(): Modifier = clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
 
 @Composable
-private fun TopBar(title: String, onBack: () -> Unit, onMenu: () -> Unit) =
+private fun ReaderTopBar(title: String, onBack: () -> Unit, onMenu: () -> Unit) =
     Column(Modifier.fillMaxWidth().background(Pill).noTap()) {
         Row(Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             BarIcon(true, onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }

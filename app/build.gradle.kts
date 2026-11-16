@@ -14,7 +14,7 @@ if (apiBase.contains("GANTI")) logger.warn("PERINGATAN: API_BASE_URL masih place
 val versionCodeProp = (findProperty("VERSION_CODE") as String?)?.toIntOrNull() ?: 1
 val versionNameProp = (findProperty("VERSION_NAME") as String?) ?: "1.0"
 // Keystore rilis (opsional). Tanpa ini, APK rilis ditandatangani dengan debug key supaya tetap bisa dipasang.
-val keystoreFile: File? = System.getenv("KEYSTORE_PATH")?.takeIf { it.isNotBlank() }?.let { file(it) }?.takeIf { it.exists() }
+val keystoreFile: File? = (System.getenv("KEYSTORE_PATH")?.takeIf { it.isNotBlank() }?.let { file(it) } ?: file("mitoon.jks")).takeIf { it.exists() }
 
 android {
     namespace = "id.mitoon.app"
@@ -29,9 +29,9 @@ android {
         if (keystoreFile != null) {
             create("release") {
                 storeFile = keystoreFile
-                storePassword = System.getenv("KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("KEY_ALIAS")
-                keyPassword = System.getenv("KEY_PASSWORD")
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "f96dc0eb585cca0a"
+                keyAlias = System.getenv("KEY_ALIAS") ?: "mitoon"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: "f96dc0eb585cca0a"
             }
         }
     }
@@ -64,4 +64,8 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-kotlinx-serialization:2.11.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    // Masuk dengan Google (Credential Manager)
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 }

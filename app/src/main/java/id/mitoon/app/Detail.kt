@@ -128,6 +128,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
     // Info dasar dari kartu yang diklik / pustaka -> header detail muncul seketika, tanpa menunggu server.
     val pv = remember(id) { Net.previews[id] ?: Library.entries[id]?.toSeries() }
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    var showComments by rememberSaveable { mutableStateOf(false) }
     var newestFirst by rememberSaveable { mutableStateOf(true) }
     val d = res?.getOrNull()
     val failed = res != null && d == null
@@ -153,6 +154,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
 
     Column(Modifier.fillMaxSize()) {
         Header(onSearch, onBack)
+        if (showComments) CommentsSheet("s:$id", title) { showComments = false }
         LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 24.dp)) {
             // Kepala: cover kecil (2:3) di kiri, judul + info ringkas di kanan -> muat di layar HP tanpa scroll panjang.
             item {
@@ -189,8 +191,11 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
                     }
                     ActionButton("Baca akhir", true, Modifier.weight(1f), enabled = last != null) { last?.let { open(it) } }
                 }
-                ActionButton(if (saved) "Tersimpan di pustaka" else "Tambah pustaka", false, Modifier.fillMaxWidth().padding(top = 10.dp),
-                    enabled = title.isNotBlank()) { Library.toggleBookmark(id, title, cover, provider) }
+                Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ActionButton(if (saved) "Tersimpan" else "Tambah pustaka", false, Modifier.weight(1f),
+                        enabled = title.isNotBlank()) { Library.toggleBookmark(id, title, cover, provider) }
+                    ActionButton("Komentar", false, Modifier.weight(1f)) { showComments = true }
+                }
             } }
             item { Column {
                 DetailTabs(tab) { tab = it }
@@ -253,6 +258,7 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     var playing by remember { mutableStateOf(false) }
     var showList by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    var showComments by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
@@ -321,10 +327,11 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
         if (c != null && total > 0) AnimatedVisibility(bars, Modifier.align(Alignment.BottomCenter), fadeIn(tween(90)), fadeOut(tween(90))) {
             BottomBar(page, total, { i -> scope.launch { listState.scrollToItem(i) } }, playing, c.prev != null, c.next != null,
                 onPrev = { c.prev?.let(onChapter) }, onNext = { c.next?.let(onChapter) },
-                onSettings = { showSettings = true }, onPlay = { playing = !playing; if (playing) bars = false }, onInfo = onSeries)
+                onSettings = { showSettings = true }, onPlay = { playing = !playing; if (playing) bars = false }, onComments = { showComments = true })
         }
     }
 
+    if (showComments) CommentsSheet("c:$chapterId", c?.number?.let { "Chapter $it" }.orEmpty()) { showComments = false }
     if (showList) ChapterSheet(detail, chapterId, onDismiss = { showList = false }) { id -> showList = false; if (id != chapterId) onChapter(id) }
     if (showSettings) AlertDialog(
         onDismissRequest = { showSettings = false },
@@ -379,7 +386,7 @@ private fun RowScope.NavCell(label: String, enabled: Boolean = true, active: Boo
 @Composable
 private fun BottomBar(
     page: Int, total: Int, onSeek: (Int) -> Unit, playing: Boolean, canPrev: Boolean, canNext: Boolean,
-    onPrev: () -> Unit, onNext: () -> Unit, onSettings: () -> Unit, onPlay: () -> Unit, onInfo: () -> Unit
+    onPrev: () -> Unit, onNext: () -> Unit, onSettings: () -> Unit, onPlay: () -> Unit, onComments: () -> Unit
 ) {
     Column(Modifier.fillMaxWidth().background(Pill).noTap()) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(Line))
@@ -394,7 +401,7 @@ private fun BottomBar(
             NavCell(if (playing) "Jeda" else "Putar", active = playing, onClick = onPlay) {
                 if (playing) PauseIcon(Color.Black) else Icon(Icons.Default.PlayArrow, "Auto-scroll", tint = Color.White, modifier = Modifier.size(26.dp))
             }
-            NavCell("Seri", onClick = onInfo) { Icon(Icons.Default.Info, "Info seri", tint = Color.White, modifier = Modifier.size(22.dp)) }
+            NavCell("Komentar", onClick = onComments) { CommentIcon(Color.White, 22.dp) }
             NavCell("Next", canNext, onClick = onNext) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Chapter berikutnya", tint = Color.White, modifier = Modifier.size(26.dp)) }
         }
     }

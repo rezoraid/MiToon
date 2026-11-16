@@ -28,7 +28,13 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.RequestBody
+import retrofit2.http.Body
+import retrofit2.http.DELETE
+import retrofit2.http.PUT
 import retrofit2.http.GET
+import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 import java.io.File
@@ -66,6 +72,16 @@ interface Api {
     @GET("v1/chapters/{id}") suspend fun chapter(@Path("id") id: String): Env<Content>
     @GET("v1/providers") suspend fun providers(): Env<List<ProviderInfo>>
     @GET("v1/announcements") suspend fun announcements(): Env<List<Notice>>
+    @GET("v1/auth/config") suspend fun authConfig(): Env<AuthConfig>
+    @POST("v1/auth/login") suspend fun login(@Body b: LoginReq): Env<AuthRes>
+    @POST("v1/auth/register") suspend fun register(@Body b: RegisterReq): Env<AuthRes>
+    @POST("v1/auth/google") suspend fun googleLogin(@Body b: GoogleReq): Env<AuthRes>
+    @GET("v1/auth/me") suspend fun me(): Env<AuthUser>
+    @PUT("v1/auth/me/avatar") suspend fun putAvatar(@Body jpeg: RequestBody): Env<AuthUser>
+    @DELETE("v1/auth/me/avatar") suspend fun deleteAvatar(): Env<AuthUser>
+    @GET("v1/comments") suspend fun comments(@Query("target") target: String, @Query("limit") limit: Int = 20, @Query("before") before: Long? = null): Env<CommentPage>
+    @POST("v1/comments") suspend fun addComment(@Body b: CommentReq): Env<Comment>
+    @DELETE("v1/comments/{id}") suspend fun deleteComment(@Path("id") id: Long): Env<Ok>
 }
 
 object Net {
@@ -175,6 +191,7 @@ object Net {
         // Backend mengirim ETag + Cache-Control: cache HTTP 20 MB mencegah request berulang.
         // Dispatcher default hanya 5 request paralel per host -> gambar antre. Dinaikkan supaya cover/halaman chapter lebih cepat.
         val dispatcher = Dispatcher().apply { maxRequests = 64; maxRequestsPerHost = 16 }
+        val apiHost = BuildConfig.API_BASE_URL.toHttpUrl().host
         client = OkHttpClient.Builder()
             .cache(Cache(File(ctx.cacheDir, "http"), 20L * 1024 * 1024)).dispatcher(dispatcher)
             .connectionPool(ConnectionPool(10, 5, TimeUnit.MINUTES)) // koneksi TLS dipakai ulang -> request berikutnya tanpa handshake
@@ -182,6 +199,11 @@ object Net {
             .addInterceptor { chain -> // GET yang gagal sesaat (sinyal goyang) diulang sekali, langsung
                 val req = chain.request()
                 try { chain.proceed(req) } catch (e: java.io.IOException) { if (req.method == "GET") chain.proceed(req) else throw e }
+            }
+            .addInterceptor { chain -> // token login hanya dikirim ke server API, tidak pernah ke host gambar
+                val req = chain.request()
+                val t = Auth.token
+                chain.proceed(if (t != null && req.url.host == apiHost) req.newBuilder().header("Authorization", "Bearer $t").build() else req)
             }.build()
         val json = Json { ignoreUnknownKeys = true; coerceInputValues = true; explicitNulls = false }
         api = Retrofit.Builder().baseUrl(BuildConfig.API_BASE_URL).client(client)
@@ -195,11 +217,13 @@ class MiToonApp : Application(), ImageLoaderFactory {
         super.onCreate()
         Net.init(this)
         Library.init(this)
+        Auth.init(this)
         // "Lanjutkan" instan: chapter terakhir dibaca + detail 3 seri terakhir disiapkan sejak aplikasi dibuka.
         val recent = Library.entries.values.filter { it.readAt > 0 }.sortedByDescending { it.readAt }
         recent.firstOrNull()?.lastChapterId?.let { Net.prefetchChapter(it) }
         recent.take(3).forEach { Net.prefetchDetail(it.id) }
         MainScope().launch { runCatching { Net.hdr = Net.api.providers().data.associate { it.key to it.imageHeaders } } }
+        MainScope().launch { Auth.validate() }
     }
 
     override fun newImageLoader() = ImageLoader.Builder(this)

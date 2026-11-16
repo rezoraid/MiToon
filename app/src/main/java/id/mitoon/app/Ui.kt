@@ -150,7 +150,11 @@ fun Header(onSearch: () -> Unit, onBack: (() -> Unit)? = null) = Column {
             withStyle(SpanStyle(color = Muted)) { append("Toon") }
         }, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
         IconButton(onSearch) { Icon(Icons.Default.Search, "Cari", tint = Muted, modifier = Modifier.size(26.dp)) }
-        IconButton({}) { Icon(Icons.Default.Person, "Profil", tint = Muted, modifier = Modifier.size(26.dp)) }
+        IconButton({ Auth.menuOpen = true }) {
+            val u = Auth.user
+            if (u != null && u.avatarV > 0) Avatar(u.id, u.username, u.avatarV, 30.dp)
+            else Icon(Icons.Default.Person, "Akun", tint = Muted, modifier = Modifier.size(26.dp))
+        }
     }
     HorizontalDivider(color = Line, thickness = 1.dp)
 }

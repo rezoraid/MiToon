@@ -43,9 +43,17 @@ private fun NavHostController.reader(sid: String, cid: String, replace: Boolean 
 
 @Composable
 private fun App() {
+    // Login wajib: selama belum ada sesi, hanya layar login yang tampil.
+    if (Auth.token == null) AuthScreen() else AppContent()
+}
+
+@Composable
+private fun AppContent() {
     val nav = rememberNavController()
     val tabs = listOf(Tab("home", "Home", Icons.Default.Home), Tab("explore", "Explore", Icons.Default.Search), Tab("library", "Library", Icons.Default.Favorite))
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
+    // Ikon akun di header membuka halaman profil.
+    LaunchedEffect(Auth.menuOpen) { if (Auth.menuOpen) { Auth.menuOpen = false; nav.navigate("profile") { launchSingleTop = true } } }
     Scaffold(containerColor = Bg, bottomBar = {
         if (tabs.any { it.route == route }) NavigationBar(containerColor = CardBg) {
             tabs.forEach { t ->
@@ -71,6 +79,7 @@ private fun App() {
                 LibraryScreen({ nav.detail(it) }, { e -> e.lastChapterId?.let { nav.reader(e.id, it) } ?: nav.detail(e.id) }, { nav.navigate("search") })
             }
             composable("search") { SearchScreen(nav::popBackStack) { nav.detail(it) } }
+            composable("profile") { ProfileScreen(nav::popBackStack) }
             composable("series/{id}") { e ->
                 DetailScreen(e.arguments?.getString("id").orEmpty(), nav::popBackStack, { nav.navigate("search") },
                     { slug -> ExploreRequest.genre = slug; nav.navigate("explore") { popUpTo("home"); launchSingleTop = true; restoreState = true } }) { sid, cid -> nav.reader(sid, cid) }

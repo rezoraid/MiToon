@@ -216,7 +216,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onOpenSer
 
 // ------------------------------------------------------------------ BACA CHAPTER
 // Scroll vertikal. Tap = tampil/sembunyi bar. Bar atas: kembali + judul + daftar chapter.
-// Bar bawah: slider halaman, lalu  <  pengaturan  putar(auto-scroll)  info seri  >.
+// Bar bawah (rata, menempel ke tepi): slider halaman, lalu Prev | Atur | Putar | Seri | Next (ikon + label).
 private val Pill = Color(0xFF202125)
 private val speeds = listOf("Lambat" to 70, "Sedang" to 130, "Cepat" to 230) // dp per detik
 private var readSpeed by mutableIntStateOf(1)
@@ -288,12 +288,17 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
             }
         }
         AnimatedVisibility(bars, Modifier.align(Alignment.TopCenter), fadeIn(tween(90)), fadeOut(tween(90))) {
-            TopPill(c?.number?.let { "Chapter $it" } ?: "Baca", onBack) { showList = true }
+            TopBar(c?.number?.let { "Chapter $it" } ?: "Baca", onBack) { showList = true }
         }
         if (c != null && total > 0) AnimatedVisibility(bars, Modifier.align(Alignment.BottomCenter), fadeIn(tween(90)), fadeOut(tween(90))) {
-            BottomPill(page, total, { i -> scope.launch { listState.scrollToItem(i) } }, playing, c.prev != null, c.next != null,
+            BottomBar(page, total, { i -> scope.launch { listState.scrollToItem(i) } }, playing, c.prev != null, c.next != null,
                 onPrev = { c.prev?.let(onChapter) }, onNext = { c.next?.let(onChapter) },
-                onSettings = { showSettings = true }, onPlay = { playing = !playing }, onInfo = onSeries)
+                onSettings = { showSettings = true }, onPlay = { playing = !playing; if (playing) bars = false }, onInfo = onSeries)
+        }
+        // Saat bar tersembunyi: penanda halaman kecil di pojok, tidak menutupi gambar.
+        if (c != null && total > 0) AnimatedVisibility(!bars, Modifier.align(Alignment.BottomEnd), fadeIn(tween(90)), fadeOut(tween(90))) {
+            Text("$page / $total", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(10.dp).background(Color(0xB3000000), RoundedCornerShape(2.dp)).padding(horizontal = 8.dp, vertical = 3.dp))
         }
     }
 
@@ -317,13 +322,15 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
 private fun Modifier.noTap(): Modifier = clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
 
 @Composable
-private fun TopPill(title: String, onBack: () -> Unit, onMenu: () -> Unit) =
-    Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp).height(52.dp).shadow(6.dp, R6).background(Pill, R6).border(1.dp, Line, R6).noTap(),
-        verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
-        Text(title, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f).padding(start = 4.dp))
-        IconButton(onMenu) { Icon(Icons.Default.Menu, "Daftar chapter", tint = Color.White) }
+private fun TopBar(title: String, onBack: () -> Unit, onMenu: () -> Unit) =
+    Column(Modifier.fillMaxWidth().background(Pill).noTap()) {
+        Row(Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            BarIcon(true, onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
+            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).padding(horizontal = 6.dp))
+            BarIcon(true, onMenu) { Icon(Icons.Default.Menu, "Daftar chapter", tint = Color.White) }
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Line))
     }
 
 @Composable
@@ -331,32 +338,41 @@ private fun BarIcon(enabled: Boolean, onClick: () -> Unit, content: @Composable 
     Box(Modifier.size(48.dp).alpha(if (enabled) 1f else 0.35f).clip(R6).clickable(enabled = enabled, onClick = onClick), Alignment.Center) { content() }
 
 @Composable
-private fun PauseIcon() = Canvas(Modifier.size(24.dp)) {
+private fun PauseIcon(color: Color = Color.White) = Canvas(Modifier.size(20.dp)) {
     val w = size.width; val h = size.height; val r = CornerRadius(1.dp.toPx())
-    drawRoundRect(Color.White, Offset(w * 0.18f, h * 0.12f), Size(w * 0.24f, h * 0.76f), r)
-    drawRoundRect(Color.White, Offset(w * 0.58f, h * 0.12f), Size(w * 0.24f, h * 0.76f), r)
+    drawRoundRect(color, Offset(w * 0.18f, h * 0.12f), Size(w * 0.24f, h * 0.76f), r)
+    drawRoundRect(color, Offset(w * 0.58f, h * 0.12f), Size(w * 0.24f, h * 0.76f), r)
 }
 
+/** Satu tombol bar bawah: ikon + label kecil, lebar sama rata sehingga mudah dijangkau jempol. */
 @Composable
-private fun BottomPill(
+private fun RowScope.NavCell(label: String, enabled: Boolean = true, active: Boolean = false, onClick: () -> Unit, icon: @Composable () -> Unit) =
+    Column(Modifier.weight(1f).height(56.dp).alpha(if (enabled) 1f else 0.3f).clickable(enabled = enabled, onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Box(Modifier.size(width = 40.dp, height = 28.dp).clip(R6).background(if (active) Color.White else Color.Transparent), Alignment.Center) { icon() }
+        Text(label, color = if (active) Color.White else Muted, fontSize = 10.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 2.dp))
+    }
+
+@Composable
+private fun BottomBar(
     page: Int, total: Int, onSeek: (Int) -> Unit, playing: Boolean, canPrev: Boolean, canNext: Boolean,
     onPrev: () -> Unit, onNext: () -> Unit, onSettings: () -> Unit, onPlay: () -> Unit, onInfo: () -> Unit
 ) {
-    val shape = R6
-    Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp).shadow(6.dp, shape).background(Pill, shape).border(1.dp, Line, shape).noTap().padding(top = 10.dp, bottom = 8.dp)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("$page", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.widthIn(min = 22.dp))
+    Column(Modifier.fillMaxWidth().background(Pill).noTap()) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Line))
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("$page", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.widthIn(min = 24.dp))
             PageSlider(page, total, onSeek, Modifier.weight(1f).padding(horizontal = 10.dp))
-            Text("$total", color = Muted, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text("$total", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-            BarIcon(canPrev, onPrev) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Chapter sebelumnya", tint = Color.White, modifier = Modifier.size(30.dp)) }
-            BarIcon(true, onSettings) { Icon(Icons.Default.Settings, "Pengaturan", tint = Color.White) }
-            Box(Modifier.size(56.dp).clip(R6).background(Color(0xFF3A3C42)).clickable(onClick = onPlay), Alignment.Center) {
-                if (playing) PauseIcon() else Icon(Icons.Default.PlayArrow, "Auto-scroll", tint = Color.White, modifier = Modifier.size(32.dp))
+        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            NavCell("Prev", canPrev, onClick = onPrev) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Chapter sebelumnya", tint = Color.White, modifier = Modifier.size(26.dp)) }
+            NavCell("Atur", onClick = onSettings) { Icon(Icons.Default.Settings, "Pengaturan", tint = Color.White, modifier = Modifier.size(22.dp)) }
+            NavCell(if (playing) "Jeda" else "Putar", active = playing, onClick = onPlay) {
+                if (playing) PauseIcon(Color.Black) else Icon(Icons.Default.PlayArrow, "Auto-scroll", tint = Color.White, modifier = Modifier.size(26.dp))
             }
-            BarIcon(true, onInfo) { Icon(Icons.Default.Info, "Info seri", tint = Color.White) }
-            BarIcon(canNext, onNext) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Chapter berikutnya", tint = Color.White, modifier = Modifier.size(30.dp)) }
+            NavCell("Seri", onClick = onInfo) { Icon(Icons.Default.Info, "Info seri", tint = Color.White, modifier = Modifier.size(22.dp)) }
+            NavCell("Next", canNext, onClick = onNext) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Chapter berikutnya", tint = Color.White, modifier = Modifier.size(26.dp)) }
         }
     }
 }
@@ -368,7 +384,7 @@ private fun PageSlider(page: Int, total: Int, onSeek: (Int) -> Unit, modifier: M
     val frac = if (total > 1) (page - 1).toFloat() / (total - 1) else 0f
     fun at(x: Float, w: Int) = if (total > 1 && w > 0) ((x / w).coerceIn(0f, 1f) * (total - 1)).roundToInt() else 0
     Canvas(
-        modifier.height(32.dp)
+        modifier.height(36.dp)
             .pointerInput(total) { detectTapGestures { o -> seek(at(o.x, size.width)) } }
             .pointerInput(total) {
                 detectHorizontalDragGestures(onDragStart = { o -> seek(at(o.x, size.width)) }) { change, _ ->
@@ -376,11 +392,11 @@ private fun PageSlider(page: Int, total: Int, onSeek: (Int) -> Unit, modifier: M
                 }
             }
     ) {
-        val th = 8.dp.toPx(); val cy = size.height / 2
+        val th = 4.dp.toPx(); val cy = size.height / 2
         drawRoundRect(Color(0xFF4A4C53), Offset(0f, cy - th / 2), Size(size.width, th), CornerRadius(2.dp.toPx()))
         val x = (size.width * frac).coerceIn(2.dp.toPx(), size.width - 2.dp.toPx())
         drawRoundRect(Color(0xFF9EA2AD), Offset(0f, cy - th / 2), Size(x, th), CornerRadius(2.dp.toPx()))
-        drawRoundRect(Color.White, Offset(x - 2.dp.toPx(), cy - 12.dp.toPx()), Size(4.dp.toPx(), 24.dp.toPx()), CornerRadius(1.dp.toPx()))
+        drawRoundRect(Color.White, Offset(x - 1.5.dp.toPx(), cy - 9.dp.toPx()), Size(3.dp.toPx(), 18.dp.toPx()), CornerRadius(1.dp.toPx()))
     }
 }
 

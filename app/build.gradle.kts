@@ -37,7 +37,11 @@ android {
     }
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8: kode lebih ringkas & cepat start. Bila ada masalah di runtime, build dengan -PMINIFY=false.
+            val minify = (findProperty("MINIFY") as String?)?.toBooleanStrictOrNull() ?: true
+            isMinifyEnabled = minify
+            isShrinkResources = minify
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }

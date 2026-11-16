@@ -21,7 +21,9 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import okhttp3.Cache
+import okhttp3.ConnectionPool
 import okhttp3.Dispatcher
+import java.util.concurrent.TimeUnit
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
@@ -157,7 +159,14 @@ object Net {
         // Backend mengirim ETag + Cache-Control: cache HTTP 20 MB mencegah request berulang.
         // Dispatcher default hanya 5 request paralel per host -> gambar antre. Dinaikkan supaya cover/halaman chapter lebih cepat.
         val dispatcher = Dispatcher().apply { maxRequests = 64; maxRequestsPerHost = 16 }
-        client = OkHttpClient.Builder().cache(Cache(File(ctx.cacheDir, "http"), 20L * 1024 * 1024)).dispatcher(dispatcher).build()
+        client = OkHttpClient.Builder()
+            .cache(Cache(File(ctx.cacheDir, "http"), 20L * 1024 * 1024)).dispatcher(dispatcher)
+            .connectionPool(ConnectionPool(10, 5, TimeUnit.MINUTES)) // koneksi TLS dipakai ulang -> request berikutnya tanpa handshake
+            .connectTimeout(8, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS).retryOnConnectionFailure(true)
+            .addInterceptor { chain -> // GET yang gagal sesaat (sinyal goyang) diulang sekali, langsung
+                val req = chain.request()
+                try { chain.proceed(req) } catch (e: java.io.IOException) { if (req.method == "GET") chain.proceed(req) else throw e }
+            }.build()
         val json = Json { ignoreUnknownKeys = true; coerceInputValues = true; explicitNulls = false }
         api = Retrofit.Builder().baseUrl(BuildConfig.API_BASE_URL).client(client)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
@@ -175,7 +184,8 @@ class MiToonApp : Application(), ImageLoaderFactory {
 
     override fun newImageLoader() = ImageLoader.Builder(this)
         .okHttpClient(Net.client.newBuilder().cache(null).build())
-        .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.2).build() }
+        .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.25).build() }
+        .respectCacheHeaders(false) // gambar yang sudah ada di disk dipakai langsung, tanpa cek ulang ke server
         .diskCache { DiskCache.Builder().directory(cacheDir.resolve("img")).maxSizeBytes(150L * 1024 * 1024).build() }
         .allowRgb565(true).crossfade(false).build()
 }

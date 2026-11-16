@@ -109,6 +109,7 @@ object Net {
     // jadi layar langsung terisi data terakhir sementara data terbaru diambil di belakang layar ----
     private lateinit var snapDir: File
     private lateinit var chapterDir: File
+    private lateinit var commentDir: File
     private lateinit var appCtx: Context
     private fun <T> readIn(dir: File, key: String, ser: KSerializer<T>): T? =
         runCatching { hashed(dir, key).takeIf { it.exists() }?.let { detailJson.decodeFromString(ser, it.readText()) } }.getOrNull()
@@ -127,6 +128,10 @@ object Net {
     val chapterCache: MutableMap<String, Content> = lru(30)
     fun cachedChapter(id: String): Content? = chapterCache[id] ?: readIn(chapterDir, id, Content.serializer())?.also { chapterCache[id] = it }
     fun storeChapter(id: String, c: Content) { chapterCache[id] = c; writeIn(chapterDir, id, Content.serializer(), c, 150) }
+
+    // ---- komentar halaman pertama per target (40 terakhir): tampil instan saat tab/sheet dibuka, dibaca di thread IO ----
+    suspend fun readComments(target: String): CommentPage? = withContext(Dispatchers.IO) { readIn(commentDir, target, CommentPage.serializer()) }
+    fun storeComments(target: String, p: CommentPage) = writeIn(commentDir, target, CommentPage.serializer(), p, 40)
 
     /** Unduh gambar ke cache disk di belakang layar (tanpa memakai memori) supaya saat di-scroll sudah siap. */
     fun preloadImages(urls: List<String>, headers: Map<String, String>) {
@@ -187,6 +192,7 @@ object Net {
         detailDir = File(ctx.cacheDir, "detail").also { it.mkdirs() }
         snapDir = File(ctx.cacheDir, "snap").also { it.mkdirs() }
         chapterDir = File(ctx.cacheDir, "chapters").also { it.mkdirs() }
+        commentDir = File(ctx.cacheDir, "comments").also { it.mkdirs() }
         appCtx = ctx.applicationContext
         // Backend mengirim ETag + Cache-Control: cache HTTP 20 MB mencegah request berulang.
         // Dispatcher default hanya 5 request paralel per host -> gambar antre. Dinaikkan supaya cover/halaman chapter lebih cepat.

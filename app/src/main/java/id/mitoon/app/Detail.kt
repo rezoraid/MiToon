@@ -31,6 +31,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -90,7 +91,7 @@ private fun Info(label: String, content: @Composable () -> Unit) =
 @Composable
 private fun DetailTabs(tab: Int, onTab: (Int) -> Unit) = Column(Modifier.padding(top = 20.dp)) {
     Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-        listOf("Chapter", "Detail").forEachIndexed { i, t ->
+        listOf("Chapter", "Komentar").forEachIndexed { i, t ->
             Column(Modifier.width(IntrinsicSize.Max).clickable { onTab(i) }) {
                 Text(t, fontSize = 16.sp, color = if (i == tab) Color.White else Muted, fontWeight = if (i == tab) FontWeight.Bold else FontWeight.Normal,
                     modifier = Modifier.padding(vertical = 10.dp, horizontal = 2.dp))
@@ -128,7 +129,6 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
     // Info dasar dari kartu yang diklik / pustaka -> header detail muncul seketika, tanpa menunggu server.
     val pv = remember(id) { Net.previews[id] ?: Library.entries[id]?.toSeries() }
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    var showComments by rememberSaveable { mutableStateOf(false) }
     var newestFirst by rememberSaveable { mutableStateOf(true) }
     val d = res?.getOrNull()
     val failed = res != null && d == null
@@ -151,11 +151,17 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
     fun open(c: Chap) { d?.let { Library.open(it, c) }; onChapter(id, c.id) }
     // Chapter yang kemungkinan dibuka ("Lanjutkan" / "Baca awal") disiapkan lebih dulu supaya terbuka instan.
     LaunchedEffect(d) { if (d != null) (resumeId ?: first?.id)?.let { Net.prefetchChapter(it) } }
+    // Komentar seri disiapkan diam-diam sesaat setelah halaman tampil (1 request kecil, tidak berebut dengan cover/chapter),
+    // jadi saat tab Komentar dibuka isinya sudah ada. Membuka tab hanya menyegarkan bila data > 30 dtk.
+    val feed = remember(id) { Comments.of("s:$id") }
+    LaunchedEffect(id) { delay(700); feed.refresh() }
+    LaunchedEffect(tab) { if (tab == 1) feed.refresh() }
+    var synopsisOpen by rememberSaveable(id) { mutableStateOf(false) }
+    var synopsisLong by remember(id) { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
         Header(onSearch, onBack)
-        if (showComments) CommentsSheet("s:$id", title) { showComments = false }
-        LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 24.dp)) {
+        LazyColumn(Modifier.imePadding(), contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 24.dp)) {
             // Kepala: cover kecil (2:3) di kiri, judul + info ringkas di kanan -> muat di layar HP tanpa scroll panjang.
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -178,6 +184,22 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
                     }
                 }
             }
+            // Detail (sinopsis) tepat di bawah cover, di atas genre. Ringkas 4 baris; ketuk untuk membuka penuh.
+            if (d == null && !failed) item("synopsis-skel") {
+                Column(Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.fillMaxWidth().height(12.dp).background(Color(0xFF24262C), R6))
+                    Box(Modifier.fillMaxWidth().height(12.dp).background(Color(0xFF24262C), R6))
+                    Box(Modifier.fillMaxWidth(0.6f).height(12.dp).background(Color(0xFF24262C), R6))
+                }
+            } else if (d != null && d.synopsis.isNotBlank()) item("synopsis") {
+                Column(Modifier.padding(top = 14.dp).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { if (synopsisLong || synopsisOpen) synopsisOpen = !synopsisOpen }) {
+                    Text(d.synopsis, color = Color(0xFFD0D3DA), fontSize = 14.sp, lineHeight = 21.sp,
+                        maxLines = if (synopsisOpen) Int.MAX_VALUE else 4, overflow = TextOverflow.Ellipsis,
+                        onTextLayout = { if (!synopsisOpen) synopsisLong = it.hasVisualOverflow })
+                    if (synopsisLong || synopsisOpen) Text(if (synopsisOpen) "Tutup" else "Selengkapnya", color = Color.White, fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+                }
+            }
             if (genres.isNotEmpty()) item {
                 FlowRow(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     genres.forEach { gn -> GenreBox(gn) { onGenre(genreSlug(gn)) } }
@@ -192,9 +214,8 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
                     ActionButton("Baca akhir", true, Modifier.weight(1f), enabled = last != null) { last?.let { open(it) } }
                 }
                 Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ActionButton(if (saved) "Tersimpan" else "Tambah pustaka", false, Modifier.weight(1f),
+                    ActionButton(if (saved) "Tersimpan" else "Tambah pustaka", false, Modifier.fillMaxWidth(),
                         enabled = title.isNotBlank()) { Library.toggleBookmark(id, title, cover, provider) }
-                    ActionButton("Komentar", false, Modifier.weight(1f)) { showComments = true }
                 }
             } }
             item { Column {
@@ -225,12 +246,13 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
                         }
                     }
                 }
-            } else item {
-                when {
-                    d != null -> Text(d.synopsis.ifBlank { "Belum ada sinopsis." }, color = Color(0xFFD0D3DA), fontSize = 14.sp, lineHeight = 21.sp, modifier = Modifier.padding(top = 16.dp))
-                    failed -> RetryBox("Gagal memuat detail") { tick++ }
-                    else -> LazyLoader()
+            } else {
+                item("composer") { CommentComposer(feed, Modifier.padding(top = 16.dp)) }
+                item("comment-head", contentType = "head") {
+                    Text("Komentar (${feed.total})", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
                 }
+                commentItems(feed)
             }
         }
     }
@@ -276,6 +298,8 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     LaunchedEffect(c) { if (c != null) Library.advance(seriesId, chapterId, c.number) }
     // Selagi membaca: ambil chapter berikutnya, dan unduh 5 gambar di depan posisi baca.
     LaunchedEffect(c?.next) { c?.next?.let { Net.prefetchChapter(it) } }
+    // Komentar chapter disiapkan diam-diam setelah gambar mulai tampil -> sheet Komentar terbuka langsung berisi.
+    LaunchedEffect(chapterId, c != null) { if (c != null) { delay(1500); Comments.prefetch("c:$chapterId") } }
     val preloaded = remember(chapterId) { mutableIntStateOf(0) }
     val firstVisible = listState.firstVisibleItemIndex
     LaunchedEffect(c, firstVisible) {

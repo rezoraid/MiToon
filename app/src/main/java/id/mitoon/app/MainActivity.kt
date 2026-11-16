@@ -71,7 +71,10 @@ private fun App() {
             }
             composable("reader/{sid}/{cid}") { e ->
                 val sid = e.arguments?.getString("sid").orEmpty()
-                ReaderScreen(sid, e.arguments?.getString("cid").orEmpty(), nav::popBackStack) { nav.reader(sid, it, replace = true) }
+                ReaderScreen(sid, e.arguments?.getString("cid").orEmpty(), nav::popBackStack,
+                    onSeries = { if (nav.previousBackStackEntry?.destination?.route == "series/{id}") nav.popBackStack() else nav.detail(sid) }) {
+                    nav.reader(sid, it, replace = true)
+                }
             }
         }
     }

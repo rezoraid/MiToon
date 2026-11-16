@@ -6,6 +6,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
+import kotlinx.serialization.builtins.ListSerializer
+
+private val seriesListSer = ListSerializer(Series.serializer())
 
 @Composable
 inline fun <reified T : ViewModel> keyedVm(key: String, crossinline make: () -> T): T =
@@ -14,41 +17,55 @@ inline fun <reified T : ViewModel> keyedVm(key: String, crossinline make: () -> 
         override fun <V : ViewModel> create(modelClass: Class<V>): V = make() as V
     })
 
-/** Daftar berhalaman (infinite scroll) dengan dedup. */
-class PagedVm(private val loader: suspend (Int) -> List<Series>) : ViewModel() {
-    var items by mutableStateOf<List<Series>>(emptyList()); private set
+/**
+ * Daftar berhalaman (infinite scroll) dengan dedup.
+ * [snapKey] != null -> halaman 1 disimpan di disk: saat dibuka lagi langsung tampil dari snapshot (tanpa spinner),
+ * lalu diganti data terbaru begitu server menjawab.
+ */
+class PagedVm(private val snapKey: String? = null, private val loader: suspend (Int) -> List<Series>) : ViewModel() {
+    var items by mutableStateOf(snapKey?.let { Net.readSnap(it, seriesListSer) }.orEmpty()); private set
     var loading by mutableStateOf(false); private set
     var error by mutableStateOf<String?>(null); private set
     private var page = 1
     private var end = false
+    private var busy = false
 
     init { more() }
 
     fun more() {
-        if (loading || end) return
-        loading = true; error = null
+        if (busy || end) return
+        busy = true
+        loading = items.isEmpty() || page > 1 // menyegarkan halaman 1 di atas snapshot tidak menampilkan spinner
+        error = null
         viewModelScope.launch {
             runCatching { loader(page) }
                 .onSuccess { r ->
-                    val seen = items.mapTo(HashSet()) { it.id }
-                    val fresh = r.filter { it.id !in seen }
-                    if (fresh.isEmpty()) end = true else { items = items + fresh; page++ }
+                    if (page == 1) {
+                        if (r.isEmpty()) end = true
+                        else { items = r; page = 2; snapKey?.let { Net.writeSnap(it, seriesListSer, r) } }
+                    } else {
+                        val seen = items.mapTo(HashSet()) { it.id }
+                        val fresh = r.filter { it.id !in seen }
+                        if (fresh.isEmpty()) end = true else { items = items + fresh; page++ }
+                    }
                 }
-                .onFailure { error = "Gagal memuat" }
-            loading = false
+                .onFailure { if (items.isEmpty() || page > 1) error = "Gagal memuat" }
+            busy = false; loading = false
         }
     }
     fun retry() = more()
 }
 
 class HomeVm : ViewModel() {
-    var spotlight by mutableStateOf<List<Series>>(emptyList()); private set
-    var genres by mutableStateOf<List<Genre>>(emptyList()); private set
-    var notices by mutableStateOf<List<Notice>>(emptyList()); private set
+    private val noticeSer = ListSerializer(Notice.serializer())
+    // Diisi dulu dari snapshot disk (instan), lalu disegarkan dari server.
+    var spotlight by mutableStateOf(Net.readSnap("home-spotlight", seriesListSer).orEmpty()); private set
+    var genres by mutableStateOf(Net.genresSnap().sortedByDescending { it.count }.take(20)); private set
+    var notices by mutableStateOf(Net.readSnap("home-notices", noticeSer).orEmpty()); private set
 
     init {
-        viewModelScope.launch { runCatching { Net.api.popular(limit = 6).data }.onSuccess { spotlight = it } }
+        viewModelScope.launch { runCatching { Net.api.popular(limit = 6).data }.onSuccess { spotlight = it; Net.writeSnap("home-spotlight", seriesListSer, it) } }
         viewModelScope.launch { runCatching { Net.genres().sortedByDescending { it.count }.take(20) }.onSuccess { genres = it } }
-        viewModelScope.launch { runCatching { Net.api.announcements().data }.onSuccess { notices = it } }
+        viewModelScope.launch { runCatching { Net.api.announcements().data }.onSuccess { notices = it; Net.writeSnap("home-notices", noticeSer, it) } }
     }
 }

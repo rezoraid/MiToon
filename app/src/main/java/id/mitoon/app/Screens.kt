@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -22,7 +23,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -46,7 +50,7 @@ fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Uni
     var sel by rememberSaveable { mutableStateOf("sorotan") }
     val s = sel
     val feed = keyedVm("home-$s") {
-        PagedVm { p -> when (s) { "sorotan" -> Net.api.latest(p).data; "populer" -> Net.api.popular(p).data; else -> Net.api.byGenre(s, p).data } }
+        PagedVm("home-$s") { p -> when (s) { "sorotan" -> Net.api.latest(p).data; "populer" -> Net.api.popular(p).data; else -> Net.api.byGenre(s, p).data } }
     }
     val tabs = listOf("sorotan" to "Sorotan", "populer" to "Populer") + hv.genres.map { it.slug to it.name }
     Column(Modifier.fillMaxSize()) {
@@ -62,48 +66,87 @@ fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Uni
     }
 }
 
-// ------------------------------------------------------------------ EXPLORE (jelajah + filter)
-private suspend fun explore(p: Int, g: String?, sort: String, type: String?, status: String?): List<Series> = when {
-    g != null -> Net.api.byGenre(g, p, sort = sort, type = type, status = status).data
+// ------------------------------------------------------------------ EXPLORE (jelajah + satu tombol filter)
+private suspend fun explore(p: Int, g: String?, sort: String, type: String?): List<Series> = when {
+    g != null -> Net.api.byGenre(g, p, sort = sort, type = type).data
     sort == "popular" -> Net.api.popular(p).data
     else -> Net.api.latest(p, type = type).data
 }
 
-@Composable
-private fun OptionRow(label: String, options: List<Pair<String?, String>>, selected: String?, onSelect: (String?) -> Unit) {
-    Text(label, color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
-        items(options, key = { it.second }) { (v, t) -> Chip(t, selected == v) { onSelect(v) } }
-    }
-}
+private val typeNames = mapOf("manga" to "Manga", "manhwa" to "Manhwa", "manhua" to "Manhua", "comic" to "Komik", "novel" to "Novel")
 
 @Composable
-private fun SortIcon(tint: Color) = Canvas(Modifier.size(22.dp)) {
-    val sw = 2.4.dp.toPx(); val r = sw / 2
-    listOf(0.22f to 1f, 0.5f to 0.7f, 0.78f to 0.4f).forEach { (y, len) ->
-        drawLine(tint, Offset(r, size.height * y), Offset(size.width * len - r, size.height * y), sw, StrokeCap.Round)
+private fun FilterIcon(tint: Color) = Canvas(Modifier.size(22.dp)) {
+    val w = size.width; val h = size.height
+    val p = Path().apply {
+        moveTo(w * 0.08f, h * 0.14f); lineTo(w * 0.92f, h * 0.14f); lineTo(w * 0.60f, h * 0.52f)
+        lineTo(w * 0.60f, h * 0.88f); lineTo(w * 0.40f, h * 0.78f); lineTo(w * 0.40f, h * 0.52f); close()
+    }
+    drawPath(p, tint, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FilterSection(title: String, content: @Composable () -> Unit) {
+    Text(title, color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 18.dp, bottom = 8.dp))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { content() }
+}
+
+/** Satu panel untuk semua filter: urutan (terbaru / sedang populer), format, dan genre. Diterapkan sekaligus lewat tombol "Terapkan". */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterSheet(genres: List<Genre>, g: String?, sort: String, type: String?, onDismiss: () -> Unit, onApply: (String?, String, String?) -> Unit) {
+    var dg by remember { mutableStateOf(g) }
+    var ds by remember { mutableStateOf(sort) }
+    var dt by remember { mutableStateOf(type) }
+    val formatOn = !(dg == null && ds == "popular") // /popular tanpa genre tidak mendukung filter format
+    val types = buildList<Pair<String?, String>> {
+        add(null to "Semua"); add("manga" to "Manga")
+        if (dg != null) { add("manhwa" to "Manhwa"); add("manhua" to "Manhua") }
+        add("comic" to "Komik"); add("novel" to "Novel")
+    }
+    ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = CardBg, contentColor = Color.White) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding()) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Filter", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                TextButton({ dg = null; ds = "latest"; dt = null }) { Text("Reset", color = Muted) }
+            }
+            FilterSection("Urutkan") {
+                Chip("Terbaru", ds == "latest") { ds = "latest" }
+                Chip("Sedang populer", ds == "popular") { ds = "popular" }
+            }
+            if (formatOn) FilterSection("Format") { types.forEach { (v, t) -> Chip(t, dt == v) { dt = v } } }
+            FilterSection("Genre") {
+                Chip("Semua", dg == null) { dg = null }
+                genres.forEach { gn -> Chip(gn.name, dg == gn.slug) { dg = gn.slug } }
+            }
+            Button({ onApply(dg, ds, dt.takeIf { formatOn && (dg != null || (dt != "manhwa" && dt != "manhua")) }) }, Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 16.dp).height(46.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = OnAccent), shape = R6) {
+                Text("Terapkan", fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 
 @Composable
 fun ExploreScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit) {
-    val genres by produceState(emptyList<Genre>()) { value = runCatching { Net.genres().sortedByDescending { it.count } }.getOrDefault(emptyList()) }
+    val genres by produceState(Net.genresSnap().sortedByDescending { it.count }) {
+        runCatching { Net.genres().sortedByDescending { it.count } }.onSuccess { value = it }
+    }
     var g by rememberSaveable { mutableStateOf<String?>(null) }
     var sort by rememberSaveable { mutableStateOf("latest") }
     var type by rememberSaveable { mutableStateOf<String?>(null) }
-    var status by rememberSaveable { mutableStateOf<String?>(null) }
-    val (gs, ss, ts, st) = listOf(g, sort, type, status)
-    val vm = keyedVm("ex-$gs-$ss-$ts-$st") { PagedVm { p -> explore(p, gs, ss!!, ts, st) } }
-    val sorts = buildList<Pair<String?, String>> {
-        add("latest" to "Terbaru"); add("popular" to "Populer")
-        if (gs != null) { add("rating" to "Rating"); add("az" to "A-Z") }
+    var sheet by rememberSaveable { mutableStateOf(false) }
+    val gs = g; val ss = sort; val ts = type
+    val vm = keyedVm("ex-$gs-$ss-$ts") {
+        PagedVm(if (gs == null && ss == "latest" && ts == null) "explore-default" else null) { p -> explore(p, gs, ss, ts) }
     }
-    val types = buildList<Pair<String?, String>> {
-        add(null to "Semua"); add("manga" to "Manga")
-        if (gs != null) { add("manhwa" to "Manhwa"); add("manhua" to "Manhua") }
-        add("comic" to "Komik"); add("novel" to "Novel")
+    // Filter yang sedang aktif tampil sebagai chip kecil; sekali tekan = hapus filter itu.
+    val active = buildList<Pair<String, () -> Unit>> {
+        if (gs != null) add((genres.firstOrNull { it.slug == gs }?.name ?: gs) to { g = null })
+        if (ss == "popular") add("Sedang populer" to { sort = "latest" })
+        if (ts != null && !(gs == null && ss == "popular")) add((typeNames[ts] ?: ts) to { type = null })
     }
-    val statuses = listOf<Pair<String?, String>>(null to "Semua", "ongoing" to "Ongoing", "completed" to "Tamat", "hiatus" to "Hiatus")
     Column(Modifier.fillMaxSize()) {
         Header(onSearch)
         SeriesGrid(vm, onOpen, modifier = Modifier.weight(1f)) {
@@ -113,32 +156,22 @@ fun ExploreScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit) {
                         verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Search, null, tint = Muted); Spacer(Modifier.width(8.dp)); Text("Cari komik / novel", color = Muted, fontSize = 14.sp)
                     }
-                    Box {
-                        var menuOpen by remember { mutableStateOf(false) }
-                        val sortOn = ss != "latest"
-                        Box(Modifier.size(46.dp).clip(R6).background(CardBg).border(1.dp, if (sortOn) Accent else Line, R6).clickable { menuOpen = true }, Alignment.Center) {
-                            SortIcon(if (sortOn) Accent else Muted)
-                        }
-                        DropdownMenu(menuOpen, { menuOpen = false }, Modifier.background(CardBg)) {
-                            sorts.forEach { (v, t) ->
-                                DropdownMenuItem(
-                                    text = { Text(t, color = if (ss == v) Accent else Color.White, fontWeight = if (ss == v) FontWeight.Bold else FontWeight.Normal) },
-                                    onClick = { sort = v ?: "latest"; menuOpen = false })
-                            }
-                        }
+                    val on = active.isNotEmpty()
+                    Box(Modifier.size(46.dp).clip(R6).background(CardBg).border(1.dp, if (on) Accent else Line, R6).clickable { sheet = true }, Alignment.Center) {
+                        FilterIcon(if (on) Accent else Muted)
+                        if (on) Box(Modifier.align(Alignment.TopEnd).padding(7.dp).size(7.dp).background(Accent, CircleShape))
                     }
                 }
             }
-            full { CategoryTabs(genres, gs) { g = it; if (it == null && (sort == "rating" || sort == "az")) sort = "latest"; if (it == null) status = null } }
-            full {
-                Column {
-                    if (!(gs == null && ss == "popular")) OptionRow("Format", types, ts) { type = it }
-                    if (gs != null) OptionRow("Status", statuses, st) { status = it }
+            if (active.isNotEmpty()) full {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(top = 12.dp)) {
+                    items(active, key = { it.first }) { (label, remove) -> Chip("$label  ✕", true, remove) }
                 }
             }
-            full { Spacer(Modifier.height(4.dp)) }
+            full { Spacer(Modifier.height(12.dp)) }
         }
     }
+    if (sheet) FilterSheet(genres, gs, ss, ts, onDismiss = { sheet = false }) { ng, ns, nt -> g = ng; sort = ns; type = nt; sheet = false }
 }
 
 // ------------------------------------------------------------------ SEARCH

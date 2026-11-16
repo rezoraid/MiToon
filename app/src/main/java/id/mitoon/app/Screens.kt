@@ -85,6 +85,16 @@ private fun FilterIcon(tint: Color) = Canvas(Modifier.size(22.dp)) {
     drawPath(p, tint, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
 }
 
+/** Hanya genre dasar yang umum dipakai (bukan puluhan genre). Genre aktif tetap tampil walau di luar daftar. */
+private val basicKeys = listOf("action", "adventure", "comedy", "drama", "fantasy", "horror", "isekai", "martialarts", "mystery", "romance", "schoollife", "scifi", "sliceoflife", "supernatural")
+private fun basicGenres(all: List<Genre>, active: String?): List<Genre> {
+    fun key(g: Genre) = g.slug.filter { it.isLetterOrDigit() }.lowercase()
+    val picked = basicKeys.mapNotNull { k -> all.firstOrNull { key(it) == k } }
+    val base = if (picked.size >= 4) picked else all.take(14) // slug server beda dari dugaan -> pakai 14 genre terbanyak
+    val extra = all.firstOrNull { it.slug == active && it !in base }
+    return if (extra != null) base + extra else base
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FilterSection(title: String, content: @Composable () -> Unit) {
@@ -118,7 +128,7 @@ private fun FilterSheet(genres: List<Genre>, g: String?, sort: String, type: Str
             if (formatOn) FilterSection("Format") { types.forEach { (v, t) -> Chip(t, dt == v) { dt = v } } }
             FilterSection("Genre") {
                 Chip("Semua", dg == null) { dg = null }
-                genres.forEach { gn -> Chip(gn.name, dg == gn.slug) { dg = gn.slug } }
+                basicGenres(genres, dg).forEach { gn -> Chip(gn.name, dg == gn.slug) { dg = gn.slug } }
             }
             Button({ onApply(dg, ds, dt.takeIf { formatOn && (dg != null || (dt != "manhwa" && dt != "manhua")) }) }, Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 16.dp).height(46.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = OnAccent), shape = R6) {
@@ -137,6 +147,9 @@ fun ExploreScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit) {
     var sort by rememberSaveable { mutableStateOf("latest") }
     var type by rememberSaveable { mutableStateOf<String?>(null) }
     var sheet by rememberSaveable { mutableStateOf(false) }
+    // Genre ditekan dari halaman detail -> langsung tampilkan seri bergenre itu.
+    val req = ExploreRequest.genre
+    LaunchedEffect(req) { if (req != null) { g = req; sort = "latest"; type = null; ExploreRequest.genre = null } }
     val gs = g; val ss = sort; val ts = type
     val vm = keyedVm("ex-$gs-$ss-$ts") {
         PagedVm("ex-$gs-$ss-$ts") { p -> explore(p, gs, ss, ts) }

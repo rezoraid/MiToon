@@ -47,6 +47,17 @@ val OnAccent = Color.Black        // teks/ikon di atas permukaan Accent
 val Star = Color.White
 val Muted = Color(0xFF9EA2AD)
 val R6 = RoundedCornerShape(3.dp) // nama lama; semua tombol/chip/kartu memakai sudut kecil agar tampil kotak
+/** Diisi saat genre di halaman detail ditekan; ExploreScreen membacanya sekali lalu mengosongkannya. */
+object ExploreRequest { var genre by mutableStateOf<String?>(null) }
+fun genreSlug(name: String) = name.lowercase().replace(Regex("[^\\p{L}\\p{N}]+"), "-").trim('-')
+
+/** Kotak genre: persegi, bisa ditekan. */
+@Composable
+fun GenreBox(name: String, onClick: () -> Unit) =
+    Text(name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+        modifier = Modifier.clip(RoundedCornerShape(2.dp)).background(CardBg).border(1.dp, Color(0xFF4A4C53), RoundedCornerShape(2.dp))
+            .clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 7.dp))
+
 private const val COVER_RATIO = 0.5f // rasio kartu mengikuti Siikomik (1:2)
 private val Dim = Color(0x99000000)
 

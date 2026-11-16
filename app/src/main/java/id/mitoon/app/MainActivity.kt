@@ -72,7 +72,8 @@ private fun App() {
             }
             composable("search") { SearchScreen(nav::popBackStack) { nav.detail(it) } }
             composable("series/{id}") { e ->
-                DetailScreen(e.arguments?.getString("id").orEmpty(), nav::popBackStack, { nav.navigate("search") }, { nav.detail(it) }) { sid, cid -> nav.reader(sid, cid) }
+                DetailScreen(e.arguments?.getString("id").orEmpty(), nav::popBackStack, { nav.navigate("search") },
+                    { slug -> ExploreRequest.genre = slug; nav.navigate("explore") { popUpTo("home"); launchSingleTop = true; restoreState = true } }) { sid, cid -> nav.reader(sid, cid) }
             }
             composable("reader/{sid}/{cid}") { e ->
                 val sid = e.arguments?.getString("sid").orEmpty()

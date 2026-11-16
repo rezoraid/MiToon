@@ -23,7 +23,13 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
+import android.app.Activity
+import android.content.ContextWrapper
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -106,8 +112,9 @@ private fun RetryBox(text: String, onRetry: () -> Unit) =
         Text(text, color = Muted); TextButton(onRetry) { Text("Coba lagi", color = Accent) }
     }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onOpenSeries: (String) -> Unit, onChapter: (seriesId: String, chapterId: String) -> Unit) {
+fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: (String) -> Unit, onChapter: (seriesId: String, chapterId: String) -> Unit) {
     var tick by remember { mutableIntStateOf(0) }
     // Detail yang pernah dibuka langsung tampil dari cache memori; data terbaru tetap diambil di belakang layar.
     val res by produceState<Result<Detail>?>(Net.detailCache[id]?.let { Result.success(it) }, id, tick) {
@@ -147,9 +154,35 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onOpenSer
     Column(Modifier.fillMaxSize()) {
         Header(onSearch, onBack)
         LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 24.dp)) {
-            item { Img(cover, provider, Modifier.fillMaxWidth().aspectRatio(1f).clip(R6)) }
+            // Kepala: cover kecil (2:3) di kiri, judul + info ringkas di kanan -> muat di layar HP tanpa scroll panjang.
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Img(cover, provider, Modifier.width(108.dp).aspectRatio(2f / 3f).clip(R6))
+                    Column(Modifier.weight(1f)) {
+                        Text(title, color = Color.White, fontSize = 20.sp, lineHeight = 25.sp, fontWeight = FontWeight.Bold, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                        rating?.takeIf { it > 0 }?.let { r ->
+                            val five = if (r > 5) r / 2 else r
+                            Text(buildAnnotatedString {
+                                for (i in 1..5) withStyle(SpanStyle(color = if (i <= Math.round(five)) Star else Color(0xFF55585F))) { append("★") }
+                                withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) { append("  %.1f".format(r)) }
+                            }, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
+                        }
+                        val meta = listOfNotNull(
+                            type?.replaceFirstChar { c -> c.uppercase() },
+                            d?.status?.let { st -> when (st) { "ongoing" -> "OnGoing"; "completed" -> "Tamat"; "hiatus" -> "Hiatus"; else -> st } }
+                        ).joinToString("  ·  ")
+                        if (meta.isNotEmpty()) Text(meta, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+                        if (d != null && d.author.isNotBlank()) Text(d.author, color = Muted, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+                    }
+                }
+            }
+            if (genres.isNotEmpty()) item {
+                FlowRow(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    genres.forEach { gn -> GenreBox(gn) { onGenre(genreSlug(gn)) } }
+                }
+            }
             item { Column {
-                Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ActionButton(if (useResume) "Lanjutkan Ch. ${entry?.lastChapterNumber.orEmpty()}" else "Baca awal", true, Modifier.weight(1f),
                         enabled = useResume || first != null) {
                         if (useResume) { if (resume != null) open(resume) else resumeId?.let { onChapter(id, it) } } else first?.let { open(it) }
@@ -160,22 +193,6 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onOpenSer
                     enabled = title.isNotBlank()) { Library.toggleBookmark(id, title, cover, provider) }
             } }
             item { Column {
-                Text(title, color = Color.White, fontSize = 24.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 24.dp))
-                if (genres.isNotEmpty()) Text(genres.joinToString("  ·  "), color = Muted, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp, bottom = 10.dp))
-                rating?.takeIf { it > 0 }?.let { r ->
-                    val five = if (r > 5) r / 2 else r
-                    Info("Rating") {
-                        Text(buildAnnotatedString {
-                            for (i in 1..5) withStyle(SpanStyle(color = if (i <= Math.round(five)) Star else Color(0xFF55585F))) { append("★ ") }
-                            withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) { append(" %.1f".format(r)) }
-                        }, fontSize = 15.sp)
-                    }
-                }
-                type?.let { Info("Type") { Text(it.replaceFirstChar { c -> c.uppercase() }, color = Color.White, fontSize = 14.sp) } }
-                d?.status?.let { st ->
-                    Info("Status") { Text(when (st) { "ongoing" -> "OnGoing"; "completed" -> "Tamat"; "hiatus" -> "Hiatus"; else -> st }, color = Color.White, fontSize = 14.sp) }
-                }
-                if (d != null && d.author.isNotBlank()) Info("Penulis") { Text(d.author, color = Color.White, fontSize = 14.sp) }
                 DetailTabs(tab) { tab = it }
             } }
             if (tab == 0) {
@@ -232,13 +249,24 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
         if (r.isSuccess) { if (value?.getOrNull() != r.getOrNull()) value = r } else if (value == null) value = r
     }
     val c = res?.getOrNull()
-    var bars by remember { mutableStateOf(true) }
+    var bars by remember { mutableStateOf(false) } // mulai bersih: hanya gambar; tap untuk menampilkan bar
     var playing by remember { mutableStateOf(false) }
     var showList by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
+    // Layar penuh: status bar & tombol navigasi sistem disembunyikan selama membaca (geser dari tepi untuk memunculkan sementara).
+    val view = LocalView.current
+    DisposableEffect(view) {
+        var ctx = view.context
+        while (ctx is ContextWrapper && ctx !is Activity) ctx = ctx.baseContext
+        val window = (ctx as? Activity)?.window
+        val ctl = window?.let { WindowCompat.getInsetsController(it, view) }
+        ctl?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        ctl?.hide(WindowInsetsCompat.Type.systemBars())
+        onDispose { ctl?.show(WindowInsetsCompat.Type.systemBars()) }
+    }
     LaunchedEffect(c) { if (c != null) Library.advance(seriesId, chapterId, c.number) }
     // Selagi membaca: ambil chapter berikutnya, dan unduh 5 gambar di depan posisi baca.
     LaunchedEffect(c?.next) { c?.next?.let { Net.prefetchChapter(it) } }
@@ -294,11 +322,6 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
             BottomBar(page, total, { i -> scope.launch { listState.scrollToItem(i) } }, playing, c.prev != null, c.next != null,
                 onPrev = { c.prev?.let(onChapter) }, onNext = { c.next?.let(onChapter) },
                 onSettings = { showSettings = true }, onPlay = { playing = !playing; if (playing) bars = false }, onInfo = onSeries)
-        }
-        // Saat bar tersembunyi: penanda halaman kecil di pojok, tidak menutupi gambar.
-        if (c != null && total > 0) AnimatedVisibility(!bars, Modifier.align(Alignment.BottomEnd), fadeIn(tween(90)), fadeOut(tween(90))) {
-            Text("$page / $total", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(10.dp).background(Color(0xB3000000), RoundedCornerShape(2.dp)).padding(horizontal = 8.dp, vertical = 3.dp))
         }
     }
 

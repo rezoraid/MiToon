@@ -14,7 +14,8 @@ if (apiBase.contains("GANTI")) logger.warn("PERINGATAN: API_BASE_URL masih place
 val versionCodeProp = (findProperty("VERSION_CODE") as String?)?.toIntOrNull() ?: 1
 val versionNameProp = (findProperty("VERSION_NAME") as String?) ?: "1.0"
 // Keystore rilis (opsional). Tanpa ini, APK rilis ditandatangani dengan debug key supaya tetap bisa dipasang.
-val keystoreFile: File? = (System.getenv("KEYSTORE_PATH")?.takeIf { it.isNotBlank() }?.let { file(it) } ?: file("mitoon.jks")).takeIf { it.exists() }
+fun env(name: String, default: String): String = System.getenv(name)?.takeIf { it.isNotBlank() } ?: default
+val keystoreFile: File? = file(env("KEYSTORE_PATH", "mitoon.jks")).takeIf { it.exists() }
 
 android {
     namespace = "id.mitoon.app"
@@ -29,9 +30,9 @@ android {
         if (keystoreFile != null) {
             create("release") {
                 storeFile = keystoreFile
-                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "f96dc0eb585cca0a"
-                keyAlias = System.getenv("KEY_ALIAS") ?: "mitoon"
-                keyPassword = System.getenv("KEY_PASSWORD") ?: "f96dc0eb585cca0a"
+                storePassword = env("KEYSTORE_PASSWORD", "f96dc0eb585cca0a")
+                keyAlias = env("KEY_ALIAS", "mitoon")
+                keyPassword = env("KEY_PASSWORD", "f96dc0eb585cca0a")
             }
         }
     }

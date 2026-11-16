@@ -6,6 +6,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import coil.ImageLoader
+import coil.imageLoader
+import coil.request.CachePolicy
+import coil.request.ImageRequest
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
@@ -87,14 +90,40 @@ object Net {
     // ---- snapshot kecil (halaman 1 Home/Explore, genre, sorotan, pengumuman): dibaca SINKRON saat ViewModel dibuat,
     // jadi layar langsung terisi data terakhir sementara data terbaru diambil di belakang layar ----
     private lateinit var snapDir: File
-    fun <T> readSnap(key: String, ser: KSerializer<T>): T? =
-        runCatching { hashed(snapDir, key).takeIf { it.exists() }?.let { detailJson.decodeFromString(ser, it.readText()) } }.getOrNull()
-    fun <T> writeSnap(key: String, ser: KSerializer<T>, value: T) {
+    private lateinit var chapterDir: File
+    private lateinit var appCtx: Context
+    private fun <T> readIn(dir: File, key: String, ser: KSerializer<T>): T? =
+        runCatching { hashed(dir, key).takeIf { it.exists() }?.let { detailJson.decodeFromString(ser, it.readText()) } }.getOrNull()
+    private fun <T> writeIn(dir: File, key: String, ser: KSerializer<T>, value: T, keep: Int) {
         MainScope().launch(Dispatchers.IO) {
             runCatching {
-                hashed(snapDir, key).writeText(detailJson.encodeToString(ser, value))
-                snapDir.listFiles()?.sortedByDescending { it.lastModified() }?.drop(80)?.forEach { it.delete() }
+                hashed(dir, key).writeText(detailJson.encodeToString(ser, value))
+                dir.listFiles()?.sortedByDescending { it.lastModified() }?.drop(keep)?.forEach { it.delete() }
             }
+        }
+    }
+    fun <T> readSnap(key: String, ser: KSerializer<T>): T? = readIn(snapDir, key, ser)
+    fun <T> writeSnap(key: String, ser: KSerializer<T>, value: T) = writeIn(snapDir, key, ser, value, 80)
+
+    // ---- chapter: daftar gambar disimpan di memori + disk (150 chapter terakhir) -> chapter yang pernah dibuka tampil seketika ----
+    val chapterCache: MutableMap<String, Content> = lru(30)
+    fun cachedChapter(id: String): Content? = chapterCache[id] ?: readIn(chapterDir, id, Content.serializer())?.also { chapterCache[id] = it }
+    fun storeChapter(id: String, c: Content) { chapterCache[id] = c; writeIn(chapterDir, id, Content.serializer(), c, 150) }
+
+    /** Unduh gambar ke cache disk di belakang layar (tanpa memakai memori) supaya saat di-scroll sudah siap. */
+    fun preloadImages(urls: List<String>, headers: Map<String, String>) {
+        val loader = appCtx.imageLoader
+        urls.forEach { u ->
+            loader.enqueue(ImageRequest.Builder(appCtx).data(u).apply { headers.forEach { (k, v) -> addHeader(k, v) } }
+                .memoryCachePolicy(CachePolicy.DISABLED).size(1, 1).build())
+        }
+    }
+
+    /** Ambil chapter + 4 gambar pertamanya lebih dulu (dipanggil untuk chapter berikutnya / chapter yang kemungkinan dibuka). */
+    fun prefetchChapter(id: String) {
+        if (chapterCache.containsKey(id)) return
+        MainScope().launch {
+            runCatching { api.chapter(id).data }.onSuccess { storeChapter(id, it); preloadImages(it.images.take(4), it.imageHeaders) }
         }
     }
 
@@ -123,6 +152,8 @@ object Net {
     fun init(ctx: Context) {
         detailDir = File(ctx.cacheDir, "detail").also { it.mkdirs() }
         snapDir = File(ctx.cacheDir, "snap").also { it.mkdirs() }
+        chapterDir = File(ctx.cacheDir, "chapters").also { it.mkdirs() }
+        appCtx = ctx.applicationContext
         // Backend mengirim ETag + Cache-Control: cache HTTP 20 MB mencegah request berulang.
         // Dispatcher default hanya 5 request paralel per host -> gambar antre. Dinaikkan supaya cover/halaman chapter lebih cepat.
         val dispatcher = Dispatcher().apply { maxRequests = 64; maxRequestsPerHost = 16 }

@@ -105,7 +105,7 @@ private fun FilterSheet(genres: List<Genre>, g: String?, sort: String, type: Str
         if (dg != null) { add("manhwa" to "Manhwa"); add("manhua" to "Manhua") }
         add("comic" to "Komik"); add("novel" to "Novel")
     }
-    ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = CardBg, contentColor = Color.White) {
+    ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp), containerColor = CardBg, contentColor = Color.White) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Filter", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -139,7 +139,7 @@ fun ExploreScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit) {
     var sheet by rememberSaveable { mutableStateOf(false) }
     val gs = g; val ss = sort; val ts = type
     val vm = keyedVm("ex-$gs-$ss-$ts") {
-        PagedVm(if (gs == null && ss == "latest" && ts == null) "explore-default" else null) { p -> explore(p, gs, ss, ts) }
+        PagedVm("ex-$gs-$ss-$ts") { p -> explore(p, gs, ss, ts) }
     }
     // Filter yang sedang aktif tampil sebagai chip kecil; sekali tekan = hapus filter itu.
     val active = buildList<Pair<String, () -> Unit>> {
@@ -159,7 +159,7 @@ fun ExploreScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit) {
                     val on = active.isNotEmpty()
                     Box(Modifier.size(46.dp).clip(R6).background(CardBg).border(1.dp, if (on) Accent else Line, R6).clickable { sheet = true }, Alignment.Center) {
                         FilterIcon(if (on) Accent else Muted)
-                        if (on) Box(Modifier.align(Alignment.TopEnd).padding(7.dp).size(7.dp).background(Accent, CircleShape))
+                        if (on) Box(Modifier.align(Alignment.TopEnd).padding(7.dp).size(7.dp).background(Accent))
                     }
                 }
             }
@@ -228,7 +228,7 @@ fun LibraryScreen(onOpen: (String) -> Unit, onContinue: (LibEntry) -> Unit, onSe
                 items(list, key = { it.id }) { e ->
                     Row(Modifier.fillMaxWidth().clip(R6).background(CardBg).border(1.dp, Line, R6).clickable { onContinue(e) }.padding(8.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Img(e.cover, e.provider, Modifier.width(56.dp).aspectRatio(0.5f).clip(RoundedCornerShape(4.dp)))
+                        Img(e.cover, e.provider, Modifier.width(56.dp).aspectRatio(0.5f).clip(RoundedCornerShape(2.dp)))
                         Column(Modifier.weight(1f)) {
                             Text(e.title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             Text("Chapter ${e.lastChapterNumber.orEmpty()}", color = Accent, fontSize = 12.sp)

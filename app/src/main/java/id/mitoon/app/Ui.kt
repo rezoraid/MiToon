@@ -46,7 +46,7 @@ val Accent = Color.White          // aksen = putih (tema hitam-putih)
 val OnAccent = Color.Black        // teks/ikon di atas permukaan Accent
 val Star = Color.White
 val Muted = Color(0xFF9EA2AD)
-val R6 = RoundedCornerShape(6.dp)
+val R6 = RoundedCornerShape(3.dp) // nama lama; semua tombol/chip/kartu memakai sudut kecil agar tampil kotak
 private const val COVER_RATIO = 0.5f // rasio kartu mengikuti Siikomik (1:2)
 private val Dim = Color(0x99000000)
 
@@ -92,19 +92,19 @@ fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale =
 
 @Composable
 fun SeriesCard(s: Series, up: Boolean, sub: String? = null, onClick: () -> Unit) {
-    Box(Modifier.fillMaxWidth().aspectRatio(COVER_RATIO).clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick)) {
+    Box(Modifier.fillMaxWidth().aspectRatio(COVER_RATIO).clip(R6).clickable(onClick = onClick)) {
         Img(s.cover, s.provider, Modifier.fillMaxSize())
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.38f)
             .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xF2000000)))))
         s.rating?.takeIf { it > 0 }?.let {
-            Row(Modifier.align(Alignment.TopStart).padding(5.dp).background(Dim, RoundedCornerShape(5.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
+            Row(Modifier.align(Alignment.TopStart).padding(5.dp).background(Dim, RoundedCornerShape(2.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("★", color = Star, fontSize = 11.sp); Spacer(Modifier.width(3.dp))
                 Text("%.1f".format(it), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
         if (up) Text("UP", color = OnAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.TopEnd).padding(5.dp).background(Accent, RoundedCornerShape(5.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
+            modifier = Modifier.align(Alignment.TopEnd).padding(5.dp).background(Accent, RoundedCornerShape(2.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 6.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(s.title, color = Color.White, fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
                 maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -128,7 +128,7 @@ fun Header(onSearch: () -> Unit, onBack: (() -> Unit)? = null) = Column {
     Row(Modifier.fillMaxWidth().background(CardBg).height(54.dp).padding(start = if (onBack == null) 14.dp else 4.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically) {
         if (onBack != null) IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
-        Image(painterResource(R.drawable.logo), "MiToon", Modifier.size(34.dp).clip(CircleShape))
+        Image(painterResource(R.drawable.logo), "MiToon", Modifier.size(34.dp).clip(R6))
         Spacer(Modifier.width(8.dp))
         Text(buildAnnotatedString {
             withStyle(SpanStyle(color = Color.White)) { append("Mi") }
@@ -165,7 +165,7 @@ private val tones = listOf(Triple(Color(0xFF3A3C45), Color.White, Color(0xFF1E1F
 private fun GenreTag(name: String) {
     val (border, fg, bg) = tones[kotlin.math.abs(name.hashCode()) % tones.size]
     Text("● $name", color = fg, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1,
-        modifier = Modifier.background(bg, RoundedCornerShape(4.dp)).border(1.dp, border, RoundedCornerShape(4.dp)).padding(horizontal = 10.dp, vertical = 4.dp))
+        modifier = Modifier.background(bg, RoundedCornerShape(2.dp)).border(1.dp, border, RoundedCornerShape(2.dp)).padding(horizontal = 10.dp, vertical = 4.dp))
 }
 
 @Composable
@@ -174,7 +174,7 @@ fun Spotlight(items: List<Series>, onOpen: (Series) -> Unit) {
     LaunchedEffect(items.size) {
         while (items.size > 1) { delay(5000); pager.animateScrollToPage((pager.currentPage + 1) % items.size) }
     }
-    Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(8.dp))) {
+    Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(R6)) {
         HorizontalPager(pager, Modifier.fillMaxSize(), key = { items[it].id }) { i ->
             val s = items[i]
             Box(Modifier.fillMaxSize().clickable { onOpen(s) }) {
@@ -191,7 +191,7 @@ fun Spotlight(items: List<Series>, onOpen: (Series) -> Unit) {
             }
         }
         Text("${pager.currentPage + 1} | ${items.size}", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).background(Dim, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 4.dp))
+            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).background(Dim, RoundedCornerShape(2.dp)).padding(horizontal = 10.dp, vertical = 4.dp))
     }
 }
 
@@ -222,7 +222,7 @@ fun SeriesGrid(vm: PagedVm, onOpen: (Series) -> Unit, upCount: Int = 0, modifier
     LazyVerticalGrid(GridCells.Fixed(3), modifier, st, PaddingValues(12.dp, 0.dp, 12.dp, 16.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
         header()
-        if (vm.items.isEmpty() && vm.loading) items(9) { Box(Modifier.aspectRatio(COVER_RATIO).background(CardBg, RoundedCornerShape(8.dp))) }
+        if (vm.items.isEmpty() && vm.loading) items(9) { Box(Modifier.aspectRatio(COVER_RATIO).background(CardBg, R6)) }
         itemsIndexed(vm.items, key = { _, s -> s.id }) { i, s -> SeriesCard(s, i < upCount) { onOpen(s) } }
         if (vm.loading && vm.items.isNotEmpty()) full {
             Box(Modifier.fillMaxWidth().padding(8.dp), Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp), Accent, strokeWidth = 2.dp) }

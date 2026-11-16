@@ -2,6 +2,7 @@ package id.mitoon.app
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -140,11 +141,13 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onOpenSer
     val saved = entry?.bookmarked == true
     val useResume = resumeId != null && (d == null || resume != null)
     fun open(c: Chap) { d?.let { Library.open(it, c) }; onChapter(id, c.id) }
+    // Chapter yang kemungkinan dibuka ("Lanjutkan" / "Baca awal") disiapkan lebih dulu supaya terbuka instan.
+    LaunchedEffect(d) { if (d != null) (resumeId ?: first?.id)?.let { Net.prefetchChapter(it) } }
 
     Column(Modifier.fillMaxSize()) {
         Header(onSearch, onBack)
         LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 24.dp)) {
-            item { Img(cover, provider, Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(8.dp))) }
+            item { Img(cover, provider, Modifier.fillMaxWidth().aspectRatio(1f).clip(R6)) }
             item { Column {
                 Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ActionButton(if (useResume) "Lanjutkan Ch. ${entry?.lastChapterNumber.orEmpty()}" else "Baca awal", true, Modifier.weight(1f),
@@ -221,7 +224,13 @@ private var readSpeed by mutableIntStateOf(1)
 @Composable
 fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeries: () -> Unit, onChapter: (String) -> Unit) {
     var tick by remember { mutableIntStateOf(0) }
-    val res by produceState<Result<Content>?>(null, chapterId, tick) { value = null; value = runCatching { Net.api.chapter(chapterId).data } }
+    // Chapter yang pernah dibuka / sudah di-prefetch tampil seketika; versi terbaru diambil diam-diam (UI hanya berubah bila isinya beda).
+    val res by produceState<Result<Content>?>(Net.cachedChapter(chapterId)?.let { Result.success(it) }, chapterId, tick) {
+        if (tick > 0) value = null
+        val r = runCatching { Net.api.chapter(chapterId).data }
+        r.getOrNull()?.let { Net.storeChapter(chapterId, it) }
+        if (r.isSuccess) { if (value?.getOrNull() != r.getOrNull()) value = r } else if (value == null) value = r
+    }
     val c = res?.getOrNull()
     var bars by remember { mutableStateOf(true) }
     var playing by remember { mutableStateOf(false) }
@@ -231,6 +240,16 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     LaunchedEffect(c) { if (c != null) Library.advance(seriesId, chapterId, c.number) }
+    // Selagi membaca: ambil chapter berikutnya, dan unduh 5 gambar di depan posisi baca.
+    LaunchedEffect(c?.next) { c?.next?.let { Net.prefetchChapter(it) } }
+    val preloaded = remember(chapterId) { mutableIntStateOf(0) }
+    val firstVisible = listState.firstVisibleItemIndex
+    LaunchedEffect(c, firstVisible) {
+        val cc = c ?: return@LaunchedEffect
+        val from = maxOf(preloaded.intValue, firstVisible + 2)
+        val to = minOf(firstVisible + 7, cc.images.size)
+        if (from < to) { Net.preloadImages(cc.images.subList(from, to), cc.imageHeaders); preloaded.intValue = to }
+    }
 
     // Auto-scroll halus per frame; berhenti sendiri di akhir chapter.
     LaunchedEffect(playing, readSpeed) {
@@ -256,6 +275,8 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
 
     val total = c?.images?.size ?: 0
     val page = (listState.firstVisibleItemIndex + 1).coerceIn(1, maxOf(total, 1))
+    val atEnd = total > 0 && !listState.canScrollForward
+    LaunchedEffect(atEnd) { if (atEnd) bars = true }
 
     Box(Modifier.fillMaxSize()) {
         when {
@@ -264,13 +285,12 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
             c.images.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Chapter belum tersedia", color = Muted) }
             else -> LazyColumn(Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { bars = !bars }, listState) {
                 items(c.images, key = { it }) { url -> Img(url, "", Modifier.fillMaxWidth().heightIn(min = 240.dp), ContentScale.FillWidth, c.imageHeaders) }
-                item { NavButtons(c, onChapter) }
             }
         }
-        AnimatedVisibility(bars, Modifier.align(Alignment.TopCenter), fadeIn(), fadeOut()) {
+        AnimatedVisibility(bars, Modifier.align(Alignment.TopCenter), fadeIn(tween(90)), fadeOut(tween(90))) {
             TopPill(c?.number?.let { "Chapter $it" } ?: "Baca", onBack) { showList = true }
         }
-        if (c != null && total > 0) AnimatedVisibility(bars, Modifier.align(Alignment.BottomCenter), fadeIn(), fadeOut()) {
+        if (c != null && total > 0) AnimatedVisibility(bars, Modifier.align(Alignment.BottomCenter), fadeIn(tween(90)), fadeOut(tween(90))) {
             BottomPill(page, total, { i -> scope.launch { listState.scrollToItem(i) } }, playing, c.prev != null, c.next != null,
                 onPrev = { c.prev?.let(onChapter) }, onNext = { c.next?.let(onChapter) },
                 onSettings = { showSettings = true }, onPlay = { playing = !playing }, onInfo = onSeries)
@@ -289,7 +309,7 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { speeds.forEachIndexed { i, (name, _) -> Chip(name, readSpeed == i) { readSpeed = i } } }
             }
         },
-        containerColor = CardBg, titleContentColor = Color.White, textContentColor = Color.White
+        shape = R6, containerColor = CardBg, titleContentColor = Color.White, textContentColor = Color.White
     )
 }
 
@@ -298,7 +318,7 @@ private fun Modifier.noTap(): Modifier = clickable(interactionSource = remember 
 
 @Composable
 private fun TopPill(title: String, onBack: () -> Unit, onMenu: () -> Unit) =
-    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp).height(52.dp).shadow(10.dp, CircleShape).background(Pill, CircleShape).noTap(),
+    Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp).height(52.dp).shadow(6.dp, R6).background(Pill, R6).border(1.dp, Line, R6).noTap(),
         verticalAlignment = Alignment.CenterVertically) {
         IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
         Text(title, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -308,11 +328,11 @@ private fun TopPill(title: String, onBack: () -> Unit, onMenu: () -> Unit) =
 
 @Composable
 private fun BarIcon(enabled: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) =
-    Box(Modifier.size(48.dp).alpha(if (enabled) 1f else 0.35f).clip(CircleShape).clickable(enabled = enabled, onClick = onClick), Alignment.Center) { content() }
+    Box(Modifier.size(48.dp).alpha(if (enabled) 1f else 0.35f).clip(R6).clickable(enabled = enabled, onClick = onClick), Alignment.Center) { content() }
 
 @Composable
 private fun PauseIcon() = Canvas(Modifier.size(24.dp)) {
-    val w = size.width; val h = size.height; val r = CornerRadius(3.dp.toPx())
+    val w = size.width; val h = size.height; val r = CornerRadius(1.dp.toPx())
     drawRoundRect(Color.White, Offset(w * 0.18f, h * 0.12f), Size(w * 0.24f, h * 0.76f), r)
     drawRoundRect(Color.White, Offset(w * 0.58f, h * 0.12f), Size(w * 0.24f, h * 0.76f), r)
 }
@@ -322,8 +342,8 @@ private fun BottomPill(
     page: Int, total: Int, onSeek: (Int) -> Unit, playing: Boolean, canPrev: Boolean, canNext: Boolean,
     onPrev: () -> Unit, onNext: () -> Unit, onSettings: () -> Unit, onPlay: () -> Unit, onInfo: () -> Unit
 ) {
-    val shape = RoundedCornerShape(30.dp)
-    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp).shadow(10.dp, shape).background(Pill, shape).noTap().padding(top = 10.dp, bottom = 8.dp)) {
+    val shape = R6
+    Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp).shadow(6.dp, shape).background(Pill, shape).border(1.dp, Line, shape).noTap().padding(top = 10.dp, bottom = 8.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("$page", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.widthIn(min = 22.dp))
             PageSlider(page, total, onSeek, Modifier.weight(1f).padding(horizontal = 10.dp))
@@ -332,7 +352,7 @@ private fun BottomPill(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
             BarIcon(canPrev, onPrev) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Chapter sebelumnya", tint = Color.White, modifier = Modifier.size(30.dp)) }
             BarIcon(true, onSettings) { Icon(Icons.Default.Settings, "Pengaturan", tint = Color.White) }
-            Box(Modifier.size(58.dp).clip(CircleShape).background(Color(0xFF3A3C42)).clickable(onClick = onPlay), Alignment.Center) {
+            Box(Modifier.size(56.dp).clip(R6).background(Color(0xFF3A3C42)).clickable(onClick = onPlay), Alignment.Center) {
                 if (playing) PauseIcon() else Icon(Icons.Default.PlayArrow, "Auto-scroll", tint = Color.White, modifier = Modifier.size(32.dp))
             }
             BarIcon(true, onInfo) { Icon(Icons.Default.Info, "Info seri", tint = Color.White) }
@@ -357,17 +377,17 @@ private fun PageSlider(page: Int, total: Int, onSeek: (Int) -> Unit, modifier: M
             }
     ) {
         val th = 8.dp.toPx(); val cy = size.height / 2
-        drawRoundRect(Color(0xFF4A4C53), Offset(0f, cy - th / 2), Size(size.width, th), CornerRadius(th / 2))
+        drawRoundRect(Color(0xFF4A4C53), Offset(0f, cy - th / 2), Size(size.width, th), CornerRadius(2.dp.toPx()))
         val x = (size.width * frac).coerceIn(2.dp.toPx(), size.width - 2.dp.toPx())
-        drawRoundRect(Color(0xFF9EA2AD), Offset(0f, cy - th / 2), Size(x, th), CornerRadius(th / 2))
-        drawRoundRect(Color.White, Offset(x - 2.dp.toPx(), cy - 12.dp.toPx()), Size(4.dp.toPx(), 24.dp.toPx()), CornerRadius(2.dp.toPx()))
+        drawRoundRect(Color(0xFF9EA2AD), Offset(0f, cy - th / 2), Size(x, th), CornerRadius(2.dp.toPx()))
+        drawRoundRect(Color.White, Offset(x - 2.dp.toPx(), cy - 12.dp.toPx()), Size(4.dp.toPx(), 24.dp.toPx()), CornerRadius(1.dp.toPx()))
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChapterSheet(detail: Detail?, current: String, onDismiss: () -> Unit, onPick: (String) -> Unit) {
-    ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = CardBg, contentColor = Color.White) {
+    ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp), containerColor = CardBg, contentColor = Color.White) {
         Text("Daftar chapter", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp))
         val chapters = detail?.chapters.orEmpty()
         if (chapters.isEmpty()) Box(Modifier.fillMaxWidth().padding(vertical = 40.dp), Alignment.Center) {
@@ -385,11 +405,3 @@ private fun ChapterSheet(detail: Detail?, current: String, onDismiss: () -> Unit
         }
     }
 }
-
-@Composable
-private fun NavButtons(c: Content, onChapter: (String) -> Unit) =
-    Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        val colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = OnAccent, disabledContainerColor = Line, disabledContentColor = Muted)
-        Button({ c.prev?.let(onChapter) }, Modifier.weight(1f).height(40.dp), enabled = c.prev != null, colors = colors, shape = R6) { Text("Sebelumnya", fontWeight = FontWeight.Bold) }
-        Button({ c.next?.let(onChapter) }, Modifier.weight(1f).height(40.dp), enabled = c.next != null, colors = colors, shape = R6) { Text("Berikutnya", fontWeight = FontWeight.Bold) }
-    }

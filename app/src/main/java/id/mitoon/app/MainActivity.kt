@@ -6,6 +6,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -55,7 +57,10 @@ private fun App() {
             }
         }
     }) { pad ->
-        NavHost(nav, "home", Modifier.padding(pad)) {
+        // Default Navigation memakai fade ~700ms -> terasa lambat. Dimatikan supaya perpindahan layar instan.
+        NavHost(nav, "home", Modifier.padding(pad),
+            enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None },
+            popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None }) {
             composable("home") {
                 HomeScreen({ nav.detail(it) }, { nav.navigate("search") }) {
                     nav.navigate("explore") { popUpTo("home"); launchSingleTop = true; restoreState = true }

@@ -249,7 +249,7 @@ fun CommentComposer(feed: CommentFeed, modifier: Modifier = Modifier) {
                     focusedBorderColor = Color.White, unfocusedBorderColor = Color(0xFF4A4C53),
                     focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Color.White,
                     focusedContainerColor = Bg, unfocusedContainerColor = Bg))
-            Button({ feed.send(text) { text = "" } }, Modifier.height(56.dp), enabled = text.isNotBlank() && !feed.posting, shape = R6,
+            Button({ feed.send(text, onSent = { text = "" }) }, Modifier.height(56.dp), enabled = text.isNotBlank() && !feed.posting, shape = R6,
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black,
                     disabledContainerColor = Color(0xFF3A3C42), disabledContentColor = Muted)) {
                 if (feed.posting) CircularProgressIndicator(Modifier.size(18.dp), color = Color.Black, strokeWidth = 2.dp)

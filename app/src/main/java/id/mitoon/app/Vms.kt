@@ -42,11 +42,11 @@ class PagedVm(private val snapKey: String? = null, private val loader: suspend (
                 .onSuccess { r ->
                     if (page == 1) {
                         if (r.isEmpty()) end = true
-                        else { items = r; page = 2; snapKey?.let { Net.writeSnap(it, seriesListSer, r) } }
+                        else { items = r; page = 2; snapKey?.let { Net.writeSnap(it, seriesListSer, r) }; r.take(6).forEach { Net.prefetchDetail(it.id) }; Net.preloadCovers(r) }
                     } else {
                         val seen = items.mapTo(HashSet()) { it.id }
                         val fresh = r.filter { it.id !in seen }
-                        if (fresh.isEmpty()) end = true else { items = items + fresh; page++ }
+                        if (fresh.isEmpty()) end = true else { items = items + fresh; page++; Net.preloadCovers(fresh) }
                     }
                 }
                 .onFailure { if (items.isEmpty() || page > 1) error = "Gagal memuat" }

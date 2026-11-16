@@ -121,6 +121,11 @@ object Net {
         }
     }
 
+    /** Cover seri di daftar diunduh ke disk begitu daftar tiba -> saat di-scroll, gambar muncul tanpa jeda. */
+    fun preloadCovers(list: List<Series>) {
+        list.filter { it.cover.isNotBlank() }.groupBy { it.provider }.forEach { (p, items) -> preloadImages(items.take(30).map { it.cover }, hdr[p].orEmpty()) }
+    }
+
     /** Ambil chapter + 4 gambar pertamanya lebih dulu (dipanggil untuk chapter berikutnya / chapter yang kemungkinan dibuka). */
     fun prefetchChapter(id: String) {
         if (chapterCache.containsKey(id)) return
@@ -135,6 +140,17 @@ object Net {
     }
 
     /** Simpan ke memori (panggil dari thread utama) lalu ke disk di background; maksimal 60 seri disimpan. */
+    private val warming = HashSet<String>()
+    /** Ambil detail (daftar chapter) di belakang layar supaya saat kartu ditekan sudah ada di cache -> terbuka instan. */
+    fun prefetchDetail(id: String) {
+        if (detailCache.containsKey(id) || !warming.add(id)) return
+        MainScope().launch {
+            val d = loadDetailDisk(id) ?: runCatching { api.detail(id).data }.getOrNull()
+            if (d != null) { detailCache[id] = d; storeDetail(id, d) }
+            warming.remove(id)
+        }
+    }
+
     fun storeDetail(id: String, d: Detail) {
         detailCache[id] = d
         MainScope().launch(Dispatchers.IO) {
@@ -179,6 +195,10 @@ class MiToonApp : Application(), ImageLoaderFactory {
         super.onCreate()
         Net.init(this)
         Library.init(this)
+        // "Lanjutkan" instan: chapter terakhir dibaca + detail 3 seri terakhir disiapkan sejak aplikasi dibuka.
+        val recent = Library.entries.values.filter { it.readAt > 0 }.sortedByDescending { it.readAt }
+        recent.firstOrNull()?.lastChapterId?.let { Net.prefetchChapter(it) }
+        recent.take(3).forEach { Net.prefetchDetail(it.id) }
         MainScope().launch { runCatching { Net.hdr = Net.api.providers().data.associate { it.key to it.imageHeaders } } }
     }
 

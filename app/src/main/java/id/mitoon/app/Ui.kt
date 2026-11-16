@@ -97,7 +97,11 @@ fun MiToonTheme(content: @Composable () -> Unit) = MaterialTheme(
 fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale = ContentScale.Crop, extra: Map<String, String>? = null) {
     val ctx = LocalContext.current
     val h = extra ?: Net.hdr[provider].orEmpty()
-    val req = remember(url, h) { ImageRequest.Builder(ctx).data(url).apply { h.forEach { (k, v) -> addHeader(k, v) } }.build() }
+    // Kunci memori eksplisit: gambar yang sudah tampil di kartu langsung dipakai sebagai placeholder di detail (tanpa kotak kosong).
+    val req = remember(url, h) {
+        ImageRequest.Builder(ctx).data(url).memoryCacheKey(url).placeholderMemoryCacheKey(url)
+            .apply { h.forEach { (k, v) -> addHeader(k, v) } }.build()
+    }
     AsyncImage(model = req, contentDescription = null, modifier = modifier.background(CardBg), contentScale = scale)
 }
 
@@ -185,7 +189,7 @@ fun Spotlight(items: List<Series>, onOpen: (Series) -> Unit) {
     LaunchedEffect(items.size) {
         while (items.size > 1) { delay(5000); pager.animateScrollToPage((pager.currentPage + 1) % items.size) }
     }
-    Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(R6)) {
+    Box(Modifier.fillMaxWidth().aspectRatio(1.25f).clip(R6)) { // sorotan Home: sedikit lebih pendek dari persegi
         HorizontalPager(pager, Modifier.fillMaxSize(), key = { items[it].id }) { i ->
             val s = items[i]
             Box(Modifier.fillMaxSize().clickable { onOpen(s) }) {

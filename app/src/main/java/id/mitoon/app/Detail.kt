@@ -157,7 +157,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
             // Kepala: cover kecil (2:3) di kiri, judul + info ringkas di kanan -> muat di layar HP tanpa scroll panjang.
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Img(cover, provider, Modifier.width(108.dp).aspectRatio(2f / 3f).clip(R6))
+                    Img(cover, provider, Modifier.width(140.dp).aspectRatio(2f / 3f).clip(R6))
                     Column(Modifier.weight(1f)) {
                         Text(title, color = Color.White, fontSize = 20.sp, lineHeight = 25.sp, fontWeight = FontWeight.Bold, maxLines = 4, overflow = TextOverflow.Ellipsis)
                         rating?.takeIf { it > 0 }?.let { r ->

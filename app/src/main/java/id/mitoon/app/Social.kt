@@ -181,17 +181,6 @@ object Comments {
     fun prefetch(target: String) = of(target).refresh()
 }
 
-private fun ago(ms: Long): String {
-    val s = (System.currentTimeMillis() - ms) / 1000
-    return when {
-        s < 60 -> "baru saja"
-        s < 3600 -> "${s / 60} mnt lalu"
-        s < 86400 -> "${s / 3600} jam lalu"
-        s < 86400L * 30 -> "${s / 86400} hari lalu"
-        s < 86400L * 365 -> "${s / (86400L * 30)} bln lalu"
-        else -> "${s / (86400L * 365)} thn lalu"
-    }
-}
 
 @Composable
 private fun CommentRow(c: Comment, mine: Boolean, onDelete: () -> Unit) {

@@ -79,8 +79,11 @@ interface Api {
     @GET("v1/auth/me") suspend fun me(): Env<AuthUser>
     @PUT("v1/auth/me/avatar") suspend fun putAvatar(@Body jpeg: RequestBody): Env<AuthUser>
     @DELETE("v1/auth/me/avatar") suspend fun deleteAvatar(): Env<AuthUser>
+    @PUT("v1/auth/me/profile") suspend fun updateProfile(@Body b: ProfileReq): Env<AuthUser>
+    @POST("v1/auth/me/xp/read") suspend fun awardReadXp(@Body b: ReadXpReq): Env<AuthUser>
     @GET("v1/comments") suspend fun comments(@Query("target") target: String, @Query("limit") limit: Int = 20, @Query("before") before: Long? = null): Env<CommentPage>
     @POST("v1/comments") suspend fun addComment(@Body b: CommentReq): Env<Comment>
+    @POST("v1/comments/{id}/reaction") suspend fun reactComment(@Path("id") id: Long, @Body b: ReactionReq): Env<ReactionRes>
     @DELETE("v1/comments/{id}") suspend fun deleteComment(@Path("id") id: Long): Env<Ok>
 }
 

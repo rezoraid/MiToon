@@ -17,12 +17,14 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import retrofit2.HttpException
 
-@Serializable data class AuthUser(val id: Long = 0, val username: String = "", val avatarV: Int = 0)
+@Serializable data class AuthUser(val id: Long = 0, val username: String = "", val avatarV: Int = 0, val displayName: String = "", val xp: Int = 0, val level: Int = 1, val xpToNextLevel: Int = 100, val usernameNextChangeAt: Long? = null)
 @Serializable data class AuthRes(val token: String, val user: AuthUser)
 @Serializable data class AuthConfig(val google: String? = null)
 @Serializable data class LoginReq(val identifier: String, val password: String)
 @Serializable data class RegisterReq(val username: String, val email: String, val password: String)
 @Serializable data class GoogleReq(val idToken: String)
+@Serializable data class ProfileReq(val displayName: String? = null, val username: String? = null)
+@Serializable data class ReadXpReq(val chapterId: String)
 
 /** Sesi login. Token disimpan hanya bila "Ingat saya" dicentang; kalau tidak, hilang saat aplikasi ditutup. */
 object Auth {
@@ -34,21 +36,21 @@ object Auth {
     fun init(ctx: Context) {
         prefs = ctx.getSharedPreferences("auth", Context.MODE_PRIVATE)
         token = prefs.getString("t", null)
-        user = if (token != null) AuthUser(prefs.getLong("i", 0), prefs.getString("u", "").orEmpty(), prefs.getInt("v", 0)) else null
+        user = if (token != null) AuthUser(prefs.getLong("i", 0), prefs.getString("u", "").orEmpty(), prefs.getInt("v", 0), prefs.getString("n", "").orEmpty()) else null
     }
 
     fun save(r: AuthRes, remember: Boolean) {
         token = r.token
         user = r.user
         prefs.edit().clear().apply {
-            if (remember) { putString("t", r.token); putString("u", r.user.username); putLong("i", r.user.id); putInt("v", r.user.avatarV) }
+            if (remember) { putString("t", r.token); putString("u", r.user.username); putLong("i", r.user.id); putInt("v", r.user.avatarV); putString("n", r.user.displayName) }
         }.apply()
     }
 
     /** Data akun terbaru (mis. setelah ganti foto) tanpa mengubah token. */
     fun update(u: AuthUser) {
         user = u
-        if (prefs.contains("t")) prefs.edit().putString("u", u.username).putLong("i", u.id).putInt("v", u.avatarV).apply()
+        if (prefs.contains("t")) prefs.edit().putString("u", u.username).putLong("i", u.id).putInt("v", u.avatarV).putString("n", u.displayName).apply()
     }
 
     fun logout() {

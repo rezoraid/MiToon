@@ -48,10 +48,12 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.ByteArrayOutputStream
 
 // ---------------------------------------------------------------- model
-@Serializable data class CommentUser(val id: Long = 0, val username: String = "", val avatarV: Int = 0)
-@Serializable data class Comment(val id: Long, val body: String, val createdAt: Long = 0, val user: CommentUser = CommentUser())
+@Serializable data class CommentUser(val id: Long = 0, val username: String = "", val avatarV: Int = 0, val displayName: String = "", val xp: Int = 0, val level: Int = 1)
+@Serializable data class Comment(val id: Long, val body: String, val createdAt: Long = 0, val user: CommentUser = CommentUser(), val parentId: Long? = null, val likes: Int = 0, val dislikes: Int = 0, val myReaction: String? = null)
 @Serializable data class CommentPage(val total: Int = 0, val items: List<Comment> = emptyList())
-@Serializable data class CommentReq(val target: String, val body: String)
+@Serializable data class CommentReq(val target: String, val body: String, val parentId: Long? = null)
+@Serializable data class ReactionReq(val kind: String?)
+@Serializable data class ReactionRes(val likes: Int = 0, val dislikes: Int = 0, val myReaction: String? = null)
 @Serializable data class Ok(val ok: Boolean = true)
 
 // ---------------------------------------------------------------- potongan UI kecil
@@ -146,16 +148,26 @@ class CommentFeed(val target: String) {
         }
     }
 
-    fun send(body: String, onSent: () -> Unit) {
+    fun send(body: String, onSent: () -> Unit, parentId: Long? = null) {
         if (body.isBlank() || posting) return
         posting = true; sendError = null
         MainScope().launch {
             try {
-                val c = Net.api.addComment(CommentReq(target, body.trim())).data
+                val c = Net.api.addComment(CommentReq(target, body.trim(), parentId)).data
+                runCatching { Auth.update(Net.api.me().data) }
                 rows = listOf(c) + rows; total += 1; onSent()
                 Net.storeComments(target, CommentPage(total, rows.take(PAGE)))
             } catch (e: CancellationException) { throw e } catch (e: Exception) { sendError = e.friendly() } finally { posting = false }
         }
+    }
+
+
+    fun react(c: Comment, kind: String?) {
+        if (Auth.token == null) { sendError = "Masuk untuk memberi reaksi"; return }
+        MainScope().launch { try {
+            val res = Net.api.reactComment(c.id, ReactionReq(kind)).data
+            rows = rows.map { if (it.id == c.id) it.copy(likes = res.likes, dislikes = res.dislikes, myReaction = res.myReaction) else it }
+        } catch (e: Exception) { sendError = e.friendly() } }
     }
 
     fun delete(c: Comment) {
@@ -183,18 +195,29 @@ object Comments {
 
 
 @Composable
-private fun CommentRow(c: Comment, mine: Boolean, onDelete: () -> Unit) {
-    val whenText = remember(c.createdAt) { ago(c.createdAt) }
+private fun CommentRow(c: Comment, mine: Boolean, feed: CommentFeed) {
+    var replyOpen by remember(c.id) { mutableStateOf(false) }
+    var replyText by remember(c.id) { mutableStateOf("") }
     Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Avatar(c.user.id, c.user.username, c.user.avatarV, 38.dp)
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(c.user.username, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                Text("  ·  $whenText", color = Muted, fontSize = 12.sp, maxLines = 1)
+                Text(c.user.displayName.ifBlank { c.user.username }, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("  LV.${c.user.level} · ${c.user.xp} XP · ${ago(c.createdAt)}", color = Muted, fontSize = 10.sp, maxLines = 1)
             }
-            Text(c.body, color = Color.White, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 3.dp))
-            if (mine) Text("Hapus", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(top = 4.dp).clip(R6).clickable(onClick = onDelete).padding(vertical = 4.dp, horizontal = 2.dp))
+            Text((if (c.parentId != null) "↳ " else "") + c.body, color = Color.White, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 3.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
+                Text("♥ ${c.likes}", color = if (c.myReaction == "like") Color(0xFFFF526B) else Muted, fontSize = 12.sp, modifier = Modifier.clickable { feed.react(c, if (c.myReaction == "like") null else "like") })
+                Text("▼ ${c.dislikes}", color = if (c.myReaction == "dislike") Color.White else Muted, fontSize = 12.sp, modifier = Modifier.clickable { feed.react(c, if (c.myReaction == "dislike") null else "dislike") })
+                Text("Balas", color = Muted, fontSize = 12.sp, modifier = Modifier.clickable { replyOpen = !replyOpen })
+                if (mine) Text("Hapus", color = Muted, fontSize = 12.sp, modifier = Modifier.clickable { feed.delete(c) })
+            }
+            if (replyOpen) {
+                Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(replyText, { replyText = it.take(1000) }, Modifier.weight(1f), placeholder = { Text("Tulis balasan…") }, singleLine = true)
+                    TextButton(onClick = { feed.send(replyText, { replyText = "" }, c.id) }) { Text("Kirim") }
+                }
+            }
         }
     }
 }
@@ -252,7 +275,7 @@ fun LazyListScope.commentItems(feed: CommentFeed) {
             Text("Belum ada komentar.\nJadilah yang pertama!", color = Muted, fontSize = 14.sp, modifier = Modifier.fillMaxWidth().padding(24.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
         else -> {
-            items(rows, key = { it.id }, contentType = { "row" }) { c -> CommentRow(c, c.user.id == Auth.user?.id) { feed.delete(c) } }
+            items(rows, key = { it.id }, contentType = { "row" }) { c -> CommentRow(c, c.user.id == Auth.user?.id, feed) }
             if (rows.size < feed.total) item("c-more", contentType = "more") {
                 LaunchedEffect(rows.size, feed.moreError) { if (!feed.moreError) feed.loadMore() }
                 Box(Modifier.fillMaxWidth().padding(16.dp), Alignment.Center) {
@@ -270,7 +293,7 @@ fun LazyListScope.commentItems(feed: CommentFeed) {
 @Composable
 fun CommentsSheet(target: String, title: String, onDismiss: () -> Unit) {
     val feed = remember(target) { Comments.of(target) }
-    LaunchedEffect(target) { feed.refresh() }
+    LaunchedEffect(target) { feed.refresh(force = true); while (true) { kotlinx.coroutines.delay(5000); feed.refresh(force = true) } }
 
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp), containerColor = CardBg) {
@@ -339,7 +362,22 @@ fun ProfileScreen(onBack: () -> Unit) {
                 Avatar(user.id, user.username, user.avatarV, 120.dp)
                 if (busy) CircularProgressIndicator(Modifier.size(32.dp), color = Color.White, strokeWidth = 3.dp)
             }
-            Text(user.username, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 14.dp))
+            Text(user.displayName.ifBlank { user.username }, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 14.dp))
+            Text("@${user.username}  ·  LV.${user.level}  ·  ${user.xp} XP", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+            val xpStart = if (user.level <= 1) 0 else ((user.level - 1) * (100 + user.level * 35) / 2)
+            val xpEnd = user.xpToNextLevel.coerceAtLeast(user.xp + 1)
+            LinearProgressIndicator(progress = { ((user.xp - xpStart).toFloat() / (xpEnd - xpStart).coerceAtLeast(1)).coerceIn(0f,1f) }, modifier = Modifier.fillMaxWidth().padding(top = 10.dp), color = Color.White, trackColor = CardBg)
+            var editName by remember(user.id) { mutableStateOf(user.displayName.ifBlank { user.username }) }
+            var editUsername by remember(user.id) { mutableStateOf(user.username) }
+            var confirmUsername by remember { mutableStateOf(false) }
+            var savingProfile by remember { mutableStateOf(false) }
+            OutlinedTextField(editName, { editName = it.take(40) }, Modifier.fillMaxWidth().padding(top = 16.dp), label = { Text("Nama") }, singleLine = true)
+            OutlinedTextField(editUsername, { editUsername = it.take(20) }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("Username") }, singleLine = true)
+            val remaining = user.usernameNextChangeAt?.minus(System.currentTimeMillis())?.coerceAtLeast(0L) ?: 0L
+            Text(if (remaining > 0) "Username bisa diganti lagi dalam ${remaining / 86400000} hari ${(remaining % 86400000) / 3600000} jam" else "Username dapat diganti (cooldown 7 hari setelah perubahan)", color = Muted, fontSize = 12.sp, modifier = Modifier.fillMaxWidth().padding(top = 5.dp))
+            Button(onClick = { if (editUsername.trim() != user.username) confirmUsername = true else scope.launch { savingProfile = true; try { Auth.update(Net.api.updateProfile(ProfileReq(editName.trim(), null)).data); msg = "Profil diperbarui" } catch(e: Exception) { msg = e.friendly() } finally { savingProfile = false } } }, Modifier.fillMaxWidth().padding(top = 8.dp), enabled = !savingProfile && !busy, colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)) { Text("Simpan nama") }
+            Button(onClick = { confirmUsername = true }, Modifier.fillMaxWidth().padding(top = 6.dp), enabled = editUsername.trim() != user.username && remaining == 0L && !savingProfile, colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)) { Text("Ganti username") }
+            if (confirmUsername) AlertDialog(onDismissRequest = { confirmUsername = false }, title = { Text("Konfirmasi username") }, text = { Text("Username akan diganti menjadi @${editUsername.trim()}. Setelah diganti, username tidak dapat diubah selama 7 hari.") }, confirmButton = { TextButton(onClick = { confirmUsername = false; scope.launch { savingProfile = true; try { Auth.update(Net.api.updateProfile(ProfileReq(editName.trim(), editUsername.trim())).data); msg = "Profil diperbarui" } catch(e: Exception) { msg = e.friendly() } finally { savingProfile = false } } }) { Text("Konfirmasi") } }, dismissButton = { TextButton(onClick = { confirmUsername = false }) { Text("Batal") } })
             Text("Pustaka ${Library.entries.values.count { it.bookmarked }}  ·  Dibaca ${Library.entries.values.count { it.readAt > 0 }}",
                 color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
 

@@ -154,6 +154,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
     // Komentar seri disiapkan diam-diam sesaat setelah halaman tampil (1 request kecil, tidak berebut dengan cover/chapter),
     // jadi saat tab Komentar dibuka isinya sudah ada. Membuka tab hanya menyegarkan bila data > 30 dtk.
     val feed = remember(id) { Comments.of("s:$id") }
+    LaunchedEffect(id) { feed.refresh(force = true); while (true) { delay(5000); feed.refresh(force = true) } }
     LaunchedEffect(id) { delay(700); feed.refresh() }
     LaunchedEffect(tab) { if (tab == 1) feed.refresh() }
     var synopsisOpen by rememberSaveable(id) { mutableStateOf(false) }
@@ -276,6 +277,9 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
         if (r.isSuccess) { if (value?.getOrNull() != r.getOrNull()) value = r } else if (value == null) value = r
     }
     val c = res?.getOrNull()
+    LaunchedEffect(chapterId, c != null, Auth.token) {
+        if (c != null && Auth.token != null) runCatching { Auth.update(Net.api.awardReadXp(ReadXpReq(chapterId)).data) }
+    }
     var bars by remember { mutableStateOf(false) } // mulai bersih: hanya gambar; tap untuk menampilkan bar
     var playing by remember { mutableStateOf(false) }
     var showList by remember { mutableStateOf(false) }

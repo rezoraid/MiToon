@@ -91,7 +91,7 @@ private fun AppScaffold() {
             composable("profile/edit") { ProfileEditScreen(nav::popBackStack) }
             composable("profile/history") {
                 ActivityHistoryScreen(nav::popBackStack,
-                    { m -> val o = m.origin; if (o.chapterId != null) nav.reader(o.seriesId, o.chapterId) else nav.detail(o.seriesId) },
+                    { o -> if (o.chapterId != null) nav.reader(o.seriesId, o.chapterId) else nav.detail(o.seriesId) },
                     { e -> e.lastChapterId?.let { nav.reader(e.id, it) } ?: nav.detail(e.id) })
             }
             composable("profile/account") { AccountSettingsScreen(nav::popBackStack) }

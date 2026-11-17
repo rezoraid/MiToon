@@ -133,8 +133,8 @@ fun AccountSettingsScreen(onBack: () -> Unit) {
                     busy = true; err = null
                     scope.launch {
                         try {
-                            Net.api.deleteAccount()
-                            CommentHistory.clear(user.id)
+                            Net.api.deleteAccount("HAPUS")
+                            CommentHistory.clear()
                             Auth.logout()
                         } catch (e: CancellationException) { throw e } catch (e: Exception) { err = e.friendly() } finally { busy = false }
                     }

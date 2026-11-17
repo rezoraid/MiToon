@@ -198,7 +198,7 @@ class CommentFeed(val target: String) {
                 val res = Net.api.addComment(CommentReq(target, body.trim(), reply?.id))
                 val c = res.data
                 res.me?.let { Auth.update(it) } // XP/level terbaru
-                origin?.let { CommentHistory.add(c, it) }
+                origin?.let { CommentHistory.remember(target, it) }
                 val root = c.parentId
                 if (root == null) rows = listOf(c) + rows
                 else {
@@ -216,7 +216,6 @@ class CommentFeed(val target: String) {
         MainScope().launch {
             try {
                 Net.api.deleteComment(c.id)
-                CommentHistory.remove(c.id)
                 val root = c.parentId
                 if (root == null) {
                     rows = rows.filter { it.id != c.id }; threads = threads - c.id

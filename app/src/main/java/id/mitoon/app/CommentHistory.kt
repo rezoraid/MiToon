@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -30,43 +31,59 @@ import kotlinx.serialization.json.Json
     val chapterId: String? = null, val chapterNumber: String? = null
 )
 
+/** Item riwayat dari server (`GET v1/comments/mine`); `target` = "s:<id seri>" atau "c:<id chapter>". */
 @Serializable data class MyComment(
-    val id: Long, val userId: Long, val body: String, val createdAt: Long, val isReply: Boolean, val origin: CommentOrigin
+    val id: Long, val body: String = "", val createdAt: Long = 0, val parentId: Long? = null,
+    val replyTo: String = "", val likes: Int = 0, val dislikes: Int = 0, val target: String = ""
 )
+@Serializable data class MyCommentPage(val total: Int = 0, val items: List<MyComment> = emptyList(), val hasMore: Boolean = false)
 
 /**
- * Riwayat komentar yang pernah kita kirim. Server belum menyediakan daftar "komentar saya",
- * jadi dicatat di perangkat ini (per akun) setiap kali komentar/balasan berhasil terkirim.
+ * Server hanya menyimpan `target`; judul/cover seri dicari di sini: dari cache, atau diambil sekali dari API lalu disimpan
+ * (di perangkat) supaya riwayat berikutnya tampil langsung. Cache ini tidak berisi data akun.
  */
 object CommentHistory {
-    private const val MAX = 300
+    private const val MAX = 400
     private val json = Json { ignoreUnknownKeys = true }
     private lateinit var prefs: SharedPreferences
-    private var all by mutableStateOf<List<MyComment>>(emptyList())
+    private val origins = LinkedHashMap<String, CommentOrigin>()
 
     fun init(ctx: Context) {
-        prefs = ctx.getSharedPreferences("comment_history", Context.MODE_PRIVATE)
-        all = runCatching { json.decodeFromString<List<MyComment>>(prefs.getString("v", "[]")!!) }.getOrDefault(emptyList())
+        prefs = ctx.getSharedPreferences("comment_origins", Context.MODE_PRIVATE)
+        runCatching { json.decodeFromString<Map<String, CommentOrigin>>(prefs.getString("v", "{}")!!) }.getOrNull()?.let { origins.putAll(it) }
     }
 
-    /** Milik akun yang sedang masuk, terbaru di atas. */
-    val mine: List<MyComment> get() { val uid = Auth.user?.id ?: return emptyList(); return all.filter { it.userId == uid } }
+    fun originOf(target: String): CommentOrigin? = origins[target]
 
-    private fun save(list: List<MyComment>) {
-        all = list
-        prefs.edit().putString("v", json.encodeToString(list)).apply()
+    /** Dicatat saat komentar terkirim (asal sudah diketahui, tak perlu request lagi). */
+    fun remember(target: String, o: CommentOrigin) {
+        origins.remove(target); origins[target] = o
+        while (origins.size > MAX) origins.remove(origins.keys.first())
+        prefs.edit().putString("v", json.encodeToString(origins.toMap())).apply()
     }
 
-    fun add(c: Comment, o: CommentOrigin) {
-        val uid = Auth.user?.id ?: return
-        val m = MyComment(c.id, uid, c.body, if (c.createdAt > 0) c.createdAt else System.currentTimeMillis(), c.parentId != null, o)
-        save((listOf(m) + all.filter { it.id != c.id }).sortedByDescending { it.createdAt }.take(MAX))
+    fun clear() { origins.clear(); prefs.edit().clear().apply() }
+
+    private suspend fun seriesOrigin(id: String, chapterId: String? = null, chapterNumber: String? = null): CommentOrigin? {
+        val d = Net.detailCache[id] ?: Net.api.detail(id).data
+        return CommentOrigin(id, d.title, d.cover, d.provider, chapterId, chapterNumber)
     }
 
-    /** Hapus semua catatan milik akun (dipakai saat akun dihapus). */
-    fun clear(userId: Long) { save(all.filter { it.userId != userId }) }
-
-    fun remove(id: Long) { if (all.any { it.id == id }) save(all.filter { it.id != id }) }
+    /** Cari asal komentar dari `target`; null bila gagal (mis. offline atau seri sudah hilang). */
+    suspend fun resolve(target: String): CommentOrigin? {
+        origins[target]?.let { return it }
+        val o = when {
+            target.startsWith("s:") -> seriesOrigin(target.drop(2))
+            target.startsWith("c:") -> {
+                val cid = target.drop(2)
+                val c = Net.cachedChapter(cid) ?: Net.api.chapter(cid).data
+                c.seriesId?.let { seriesOrigin(it, cid, c.number) }
+            }
+            else -> null
+        } ?: return null
+        remember(target, o)
+        return o
+    }
 }
 
 private fun agoText(ms: Long): String {
@@ -83,7 +100,7 @@ private fun agoText(ms: Long): String {
 
 /** Riwayat Aktivitas: tab Komentar (di mana kita berkomentar) dan tab Baca (chapter yang dibaca). */
 @Composable
-fun ActivityHistoryScreen(onBack: () -> Unit, onOpenComment: (MyComment) -> Unit, onOpenRead: (LibEntry) -> Unit) {
+fun ActivityHistoryScreen(onBack: () -> Unit, onOpenComment: (CommentOrigin) -> Unit, onOpenRead: (LibEntry) -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     Column(Modifier.fillMaxSize().background(Bg)) {
         Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -109,22 +126,52 @@ private fun EmptyNote(text: String) = Box(Modifier.fillMaxSize().padding(32.dp),
 }
 
 @Composable
-private fun CommentList(onOpen: (MyComment) -> Unit) {
-    val items = CommentHistory.mine
-    if (items.isEmpty()) { EmptyNote("Belum ada komentar.\nKomentar yang kamu kirim dari aplikasi ini akan tercatat di sini."); return }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp)) {
-        items(items, key = { it.id }) { m ->
-            val o = m.origin
-            Row(Modifier.fillMaxWidth().clickable { onOpen(m) }.padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Img(o.cover, o.provider, Modifier.width(44.dp).height(60.dp).clip(R6))
-                Column(Modifier.weight(1f)) {
-                    Text(o.title.ifBlank { "Seri" }, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    val where = (o.chapterNumber?.let { "Chapter $it" } ?: "Halaman seri") + (if (m.isReply) " · Balasan" else "")
-                    Text("$where · ${agoText(m.createdAt)}", color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 1.dp))
-                    Text(m.body, color = Color(0xFFD7D9DE), fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+private fun CommentList(onOpen: (CommentOrigin) -> Unit) {
+    var items by remember { mutableStateOf<List<MyComment>>(emptyList()) }
+    var hasMore by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var reload by remember { mutableIntStateOf(0) }
+
+    suspend fun load(before: Long?) {
+        loading = true; error = null
+        try {
+            val p = Net.api.myComments(before = before).data
+            items = if (before == null) p.items else (items + p.items).distinctBy { it.id }
+            hasMore = p.hasMore && p.items.isNotEmpty()
+        } catch (e: CancellationException) { throw e } catch (e: Exception) { error = e.friendly() } finally { loading = false }
+    }
+    LaunchedEffect(reload) { load(null) }
+
+    when {
+        items.isEmpty() && loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(Modifier.size(26.dp), Color.White, strokeWidth = 2.dp) }
+        items.isEmpty() && error != null -> Column(Modifier.fillMaxSize().padding(32.dp), Arrangement.Center, Alignment.CenterHorizontally) {
+            Text(error!!, color = Muted, fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            TextButton({ reload++ }) { Text("Coba lagi", color = Color.White, fontWeight = FontWeight.Bold) }
+        }
+        items.isEmpty() -> EmptyNote("Belum ada komentar.")
+        else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp)) {
+            items(items, key = { it.id }) { m ->
+                val origin by produceState(CommentHistory.originOf(m.target), m.target) {
+                    if (value == null) value = runCatching { CommentHistory.resolve(m.target) }.getOrNull()
                 }
+                val o = origin
+                Row(Modifier.fillMaxWidth().clickable(enabled = o != null) { o?.let(onOpen) }.padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (o != null) Img(o.cover, o.provider, Modifier.width(44.dp).height(60.dp).clip(R6))
+                    else Box(Modifier.width(44.dp).height(60.dp).clip(R6).background(CardBg))
+                    Column(Modifier.weight(1f)) {
+                        Text(o?.title?.ifBlank { "Seri" } ?: "Memuat…", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val where = (if (m.target.startsWith("c:")) o?.chapterNumber?.let { "Chapter $it" } ?: "Chapter" else "Halaman seri") + (if (m.parentId != null) " · Balasan" else "")
+                        Text("$where · ${agoText(m.createdAt)}", color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 1.dp))
+                        Text(m.body, color = Color(0xFFD7D9DE), fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+                    }
+                }
+                HorizontalDivider(color = Line)
             }
-            HorizontalDivider(color = Line)
+            if (hasMore) item("more") {
+                LaunchedEffect(items.size) { load(items.lastOrNull()?.id) }
+                Box(Modifier.fillMaxWidth().padding(16.dp), Alignment.Center) { CircularProgressIndicator(Modifier.size(22.dp), Color.White, strokeWidth = 2.dp) }
+            }
         }
     }
 }

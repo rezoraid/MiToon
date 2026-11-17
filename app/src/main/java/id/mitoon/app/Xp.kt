@@ -5,7 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -15,15 +14,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
 @Serializable data class XpReq(val type: String, val ref: String? = null)
 @Serializable data class XpRes(val gained: Int = 0, val user: AuthUser = AuthUser())
-
-/** Pemberitahuan singkat saat XP bertambah. `id` membuat toast yang sama beruntun tetap dianggap baru. */
-class XpFlash(val gained: Int, val level: Int, val levelUp: Boolean, val id: Long)
 
 /**
  * Lapor aktivitas ke server untuk XP. Server yang menentukan: tiap chapter/seri hanya dihitung sekali dan ada batas harian.
@@ -76,19 +71,5 @@ fun XpBar(user: AuthUser, modifier: Modifier = Modifier) {
         }
         Text("${user.levelXp} / ${user.levelNeed} XP  ·  ${user.levelNeed - user.levelXp} XP lagi ke Lv. ${user.level + 1}",
             color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
-    }
-}
-
-/** Toast "+10 XP" / "Naik level!" di atas layar; tidak menangkap sentuhan. */
-@Composable
-fun XpToast(modifier: Modifier = Modifier) {
-    val f = Auth.xpFlash
-    LaunchedEffect(f?.id) { if (f != null) { delay(if (f.levelUp) 3200 else 2000); Auth.clearFlash() } }
-    if (f == null) return
-    Box(modifier.fillMaxWidth().statusBarsPadding().padding(top = 10.dp), Alignment.TopCenter) {
-        Row(Modifier.clip(R6).background(Color.White).padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("+${f.gained} XP", color = Color.Black, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
-            if (f.levelUp) Text("   Naik ke Lv. ${f.level}!", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-        }
     }
 }

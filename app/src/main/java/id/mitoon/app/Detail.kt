@@ -155,6 +155,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
     // jadi saat tab Komentar dibuka isinya sudah ada. Membuka tab hanya menyegarkan bila data > 30 dtk.
     val feed = remember(id) { Comments.of("s:$id") }
     LaunchedEffect(id) { delay(700); feed.refresh() }
+    LaunchedEffect(d) { d?.let { feed.origin = CommentOrigin(id, it.title, it.cover, it.provider) } }
     LaunchedEffect(tab) { if (tab == 1) feed.refresh() }
     var synopsisOpen by rememberSaveable(id) { mutableStateOf(false) }
     var synopsisLong by remember(id) { mutableStateOf(false) }
@@ -357,7 +358,12 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
         }
     }
 
-    if (showComments) CommentsSheet("c:$chapterId", c?.number?.let { "Chapter $it" }.orEmpty()) { showComments = false }
+    if (showComments) {
+        val lib = Library.entries[seriesId]
+        val origin = detail?.let { CommentOrigin(seriesId, it.title, it.cover, it.provider, chapterId, c?.number) }
+            ?: lib?.let { CommentOrigin(seriesId, it.title, it.cover, it.provider, chapterId, c?.number) }
+        CommentsSheet("c:$chapterId", c?.number?.let { "Chapter $it" }.orEmpty(), origin) { showComments = false }
+    }
     if (showList) ChapterSheet(detail, chapterId, onDismiss = { showList = false }) { id -> showList = false; if (id != chapterId) onChapter(id) }
     if (showSettings) AlertDialog(
         onDismissRequest = { showSettings = false },

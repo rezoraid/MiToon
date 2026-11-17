@@ -229,6 +229,7 @@ class MiToonApp : Application(), ImageLoaderFactory {
         Net.init(this)
         Library.init(this)
         Auth.init(this)
+        CommentHistory.init(this)
         // "Lanjutkan" instan: chapter terakhir dibaca + detail 3 seri terakhir disiapkan sejak aplikasi dibuka.
         val recent = Library.entries.values.filter { it.readAt > 0 }.sortedByDescending { it.readAt }
         recent.firstOrNull()?.lastChapterId?.let { Net.prefetchChapter(it) }

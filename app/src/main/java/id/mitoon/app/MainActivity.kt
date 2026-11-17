@@ -52,7 +52,6 @@ private fun App() {
 private fun AppContent() {
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
         AppScaffold()
-        XpToast()
     }
 }
 
@@ -88,7 +87,13 @@ private fun AppScaffold() {
                 LibraryScreen({ nav.detail(it) }, { e -> e.lastChapterId?.let { nav.reader(e.id, it) } ?: nav.detail(e.id) }, { nav.navigate("search") })
             }
             composable("search") { SearchScreen(nav::popBackStack) { nav.detail(it) } }
-            composable("profile") { ProfileScreen(nav::popBackStack) }
+            composable("profile") { ProfileScreen(nav::popBackStack) { nav.navigate("mycomments") } }
+            composable("mycomments") {
+                CommentHistoryScreen(nav::popBackStack) { m ->
+                    val o = m.origin
+                    if (o.chapterId != null) nav.reader(o.seriesId, o.chapterId) else nav.detail(o.seriesId)
+                }
+            }
             composable("series/{id}") { e ->
                 DetailScreen(e.arguments?.getString("id").orEmpty(), nav::popBackStack, { nav.navigate("search") },
                     { slug -> ExploreRequest.genre = slug; nav.navigate("explore") { popUpTo("home"); launchSingleTop = true; restoreState = true } }) { sid, cid -> nav.reader(sid, cid) }

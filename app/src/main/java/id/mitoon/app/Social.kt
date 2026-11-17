@@ -124,6 +124,8 @@ data class ReplyThread(
  * Berisi komentar teratas (`rows`), balasan per komentar (`threads`), like/dislike, dan status "sedang membalas".
  */
 class CommentFeed(val target: String) {
+    /** Seri/chapter pemilik feed ini; diisi layar yang menampilkannya, dipakai untuk riwayat komentar. */
+    var origin: CommentOrigin? = null
     var rows by mutableStateOf<List<Comment>>(emptyList()); private set
     var total by mutableIntStateOf(0); private set
     var hasMore by mutableStateOf(false); private set
@@ -195,7 +197,8 @@ class CommentFeed(val target: String) {
             try {
                 val res = Net.api.addComment(CommentReq(target, body.trim(), reply?.id))
                 val c = res.data
-                res.me?.let { Auth.update(it) } // XP/level terbaru -> toast "+5 XP"
+                res.me?.let { Auth.update(it) } // XP/level terbaru
+                origin?.let { CommentHistory.add(c, it) }
                 val root = c.parentId
                 if (root == null) rows = listOf(c) + rows
                 else {
@@ -213,6 +216,7 @@ class CommentFeed(val target: String) {
         MainScope().launch {
             try {
                 Net.api.deleteComment(c.id)
+                CommentHistory.remove(c.id)
                 val root = c.parentId
                 if (root == null) {
                     rows = rows.filter { it.id != c.id }; threads = threads - c.id
@@ -444,8 +448,9 @@ fun LazyListScope.commentItems(feed: CommentFeed) {
 /** Sheet komentar (dipakai pembaca chapter): daftar langsung dari feed yang sudah di-prefetch, kolom tulis menempel di bawah. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CommentsSheet(target: String, title: String, onDismiss: () -> Unit) {
+fun CommentsSheet(target: String, title: String, origin: CommentOrigin? = null, onDismiss: () -> Unit) {
     val feed = remember(target) { Comments.of(target) }
+    LaunchedEffect(feed, origin) { if (origin != null) feed.origin = origin }
     LaunchedEffect(target) { feed.refresh() }
 
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),

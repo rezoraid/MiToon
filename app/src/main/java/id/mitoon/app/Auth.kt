@@ -42,9 +42,6 @@ object Auth {
     var menuOpen by mutableStateOf(false)
     /** Kapan (epoch ms, jam perangkat) username boleh diganti lagi; 0 = sekarang boleh. */
     var usernameUnlockAt by mutableLongStateOf(0L); private set
-    /** Pemberitahuan XP terbaru ("+10 XP", naik level) untuk toast; dikosongkan setelah tampil. */
-    var xpFlash by mutableStateOf<XpFlash?>(null); private set
-    fun clearFlash() { xpFlash = null }
 
     fun init(ctx: Context) {
         prefs = ctx.getSharedPreferences("auth", Context.MODE_PRIVATE)
@@ -68,9 +65,7 @@ object Auth {
     }
 
     /** Data akun terbaru (mis. setelah ganti foto) tanpa mengubah token. */
-    fun update(u: AuthUser, announce: Boolean = true) {
-        val old = user
-        if (announce && old != null && old.id == u.id && u.xp > old.xp) xpFlash = XpFlash(u.xp - old.xp, u.level, u.level > old.level, System.nanoTime())
+    fun update(u: AuthUser) {
         user = u
         usernameUnlockAt = unlockAt(u)
         if (prefs.contains("t")) prefs.edit().putString("u", u.username).putLong("i", u.id).putInt("v", u.avatarV).putString("n", u.displayName).putLong("x", usernameUnlockAt).also { it.putXp(u) }.apply()
@@ -81,7 +76,7 @@ object Auth {
     private fun unlockAt(u: AuthUser): Long = if (u.usernameCooldownSec > 0) System.currentTimeMillis() + u.usernameCooldownSec * 1000 else 0L
 
     fun logout() {
-        token = null; user = null; menuOpen = false; usernameUnlockAt = 0L; xpFlash = null; Xp.reset()
+        token = null; user = null; menuOpen = false; usernameUnlockAt = 0L; Xp.reset()
         prefs.edit().clear().apply()
     }
 
@@ -92,7 +87,7 @@ object Auth {
     /** Saat aplikasi dibuka: token ditolak server (401) -> keluar. Gagal jaringan = tetap masuk (tetap bisa baca offline). */
     suspend fun validate() {
         if (token == null) return
-        try { update(Net.api.me().data, announce = false); Xp.event("daily") } catch (e: HttpException) { if (e.code() == 401) logout() } catch (_: Exception) {}
+        try { update(Net.api.me().data); Xp.event("daily") } catch (e: HttpException) { if (e.code() == 401) logout() } catch (_: Exception) {}
     }
 }
 

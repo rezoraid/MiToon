@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
@@ -50,7 +51,7 @@ private fun cooldownText(ms: Long): String {
 }
 
 @Composable
-fun ProfileScreen(onBack: () -> Unit) {
+fun ProfileScreen(onBack: () -> Unit, onComments: () -> Unit) {
     val user = Auth.user
     if (user == null) { Box(Modifier.fillMaxSize().background(Bg)); return }
     val ctx = LocalContext.current
@@ -117,7 +118,7 @@ fun ProfileScreen(onBack: () -> Unit) {
         }
     }
 
-    Column(Modifier.fillMaxSize().background(Bg).systemBarsPadding()) {
+    Column(Modifier.fillMaxSize().background(Bg)) { // inset sudah diberikan Scaffold; jangan dobel
         Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
             Text("Profil", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
@@ -174,15 +175,8 @@ fun ProfileScreen(onBack: () -> Unit) {
                     if (locked) "Bisa diganti lagi dalam ${cooldownText(leftMs)}" else "Bisa diganti sekali setiap 7 hari",
                     locked, onClick = { dialogErr = null; editUser = true })
                 HorizontalDivider(color = Line)
-
-                // ---- panduan XP
-                Text("Cara dapat XP", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 4.dp))
-                XpRule("Baca chapter", "+10", "sekali per chapter · maks. 20 chapter/hari")
-                XpRule("Komentar & balasan", "+5", "maks. 10/hari")
-                XpRule("Tambah ke pustaka", "+3", "sekali per seri · maks. 5/hari")
-                XpRule("Buka aplikasi", "+5", "sekali per hari")
-                XpRule("Komentarmu disukai", "+1", "dari tiap orang · maks. 20/hari")
-                HorizontalDivider(color = Line, modifier = Modifier.padding(top = 4.dp))
+                LinkRow("Riwayat komentar", "${CommentHistory.mine.size} komentar", onComments)
+                HorizontalDivider(color = Line)
 
                 TextButton({ Auth.logout() }, Modifier.padding(top = 12.dp)) { Text("Keluar", color = Muted, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
             }
@@ -274,17 +268,6 @@ fun ProfileScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun XpRule(title: String, xp: String, note: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 14.sp)
-            Text(note, color = Muted, fontSize = 12.sp)
-        }
-        Text("$xp XP", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-    }
-}
-
-@Composable
 private fun Stat(n: Int, label: String) = Column(horizontalAlignment = Alignment.CenterHorizontally) {
     Text("$n", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
     Text(label, color = Muted, fontSize = 12.sp)
@@ -300,6 +283,18 @@ private fun InfoRow(label: String, value: String, hint: String?, locked: Boolean
             if (hint != null) Text(hint, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 3.dp))
         }
         Icon(if (locked) Icons.Filled.Lock else Icons.Filled.Edit, null, tint = Muted, modifier = Modifier.padding(start = 12.dp).size(18.dp))
+    }
+}
+
+/** Baris menu menuju halaman lain: judul + ringkasan di kiri, panah di kanan. */
+@Composable
+private fun LinkRow(label: String, value: String, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(label, color = Muted, fontSize = 12.sp)
+            Text(value, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 2.dp))
+        }
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Muted, modifier = Modifier.padding(start = 12.dp).size(22.dp))
     }
 }
 

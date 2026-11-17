@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Delete
@@ -31,7 +32,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 
-/** Halaman akun: kartu profil + daftar menu (Pengaturan Profil, Riwayat Aktivitas, Pengaturan Akun) + Keluar. */
+private val R16 = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+
+/** Halaman akun: kartu profil (foto bulat, nama, status Owner/Premium, peran + level, XP) lalu menu dalam kartu berkelompok + Keluar. */
 @Composable
 fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit, onAccount: () -> Unit, onRoles: () -> Unit = {}, onAdmin: () -> Unit = {}) {
     val user = Auth.user
@@ -40,45 +43,51 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
         SubTopBar("Akun", onBack)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             // ---- kartu profil
-            val ownerBorder = if (user.isOwner) Color(0xFF7B6AA8) else CardLine
-            Column(Modifier.fillMaxWidth().clip(R6).border(1.dp, ownerBorder, R6).background(CardBg).clickable(onClick = onEdit).padding(16.dp)) {
-                if (user.isOwner) {
-                    Text("Asal · mark pendiri", color = Color(0xFFC4B0FF), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
-                }
+            Column(Modifier.fillMaxWidth().clip(R16).border(1.dp, CardLine, R16).background(CardBg).clickable(onClick = onEdit).padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Avatar(user.id, user.name, user.avatarV, 64.dp)
-                    Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                    Avatar(user.id, user.name, user.avatarV, 72.dp, shape = androidx.compose.foundation.shape.CircleShape)
+                    Column(Modifier.weight(1f).padding(start = 16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            RoleTag(user.level, iconSize = 22.dp, isOwner = user.isOwner)
-                            LevelChip(user.level, Modifier.padding(start = 8.dp), size = 11)
-                        }
-                        Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(user.name, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                            StatusBadges(user.verified, user.isOwner, size = 18.dp)
-                            Icon(Icons.Filled.Edit, null, tint = Muted, modifier = Modifier.padding(start = 8.dp).size(16.dp))
+                            if (user.verified || user.isOwner) VerifiedBadge(Modifier.padding(start = 6.dp), 18.dp)
                         }
                         Text("@${user.username}", color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        StatusLabels(user.isOwner, user.premium, Modifier.padding(top = 6.dp), iconSize = 18.dp, textSize = 13, center = false)
                     }
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Muted, modifier = Modifier.size(24.dp))
                 }
-                if (user.bio.isNotBlank()) Text(user.bio, color = Color(0xFFD7D9DE), fontSize = 13.sp, lineHeight = 19.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 14.dp))
+                Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    RoleTag(user.level, iconSize = 22.dp)
+                    LevelChip(user.level, Modifier.padding(start = 8.dp), size = 11)
+                }
+                if (user.bio.isNotBlank()) Text(user.bio, color = Color(0xFFD7D9DE), fontSize = 13.sp, lineHeight = 19.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 12.dp))
                 XpBar(user, Modifier.padding(top = 14.dp))
             }
 
-            Spacer(Modifier.height(20.dp))
-            HorizontalDivider(color = Line)
-            MenuRow(Icons.Filled.Person, "Pengaturan Profil", onEdit)
-            MenuRow(Icons.Filled.Star, "Peran & Lencana", onRoles)
-            MenuRow(Icons.AutoMirrored.Filled.List, "Riwayat Aktivitas", onHistory)
-            MenuRow(Icons.Filled.Settings, "Pengaturan Akun", onAccount)
-            if (user.isOwner) MenuRow(Icons.Filled.Build, "Panel Admin", onAdmin)
-            HorizontalDivider(color = Line)
-            Box(Modifier.fillMaxWidth().padding(top = 8.dp), Alignment.Center) {
-                TextButton({ Auth.logout() }) { Text("Keluar", color = Muted, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+            Spacer(Modifier.height(14.dp))
+            MenuGroup {
+                MenuRow(Icons.Filled.Person, "Pengaturan Profil", onEdit)
+                MenuDivider()
+                MenuRow(Icons.Filled.Star, "Peran & Lencana", onRoles)
+                MenuDivider()
+                MenuRow(Icons.AutoMirrored.Filled.List, "Riwayat Aktivitas", onHistory)
+                MenuDivider()
+                MenuRow(Icons.Filled.Settings, "Pengaturan Akun", onAccount)
+                if (user.isOwner) { MenuDivider(); MenuRow(Icons.Filled.Build, "Panel Admin", onAdmin) }
             }
+            Spacer(Modifier.height(14.dp))
+            MenuGroup { MenuRow(Icons.AutoMirrored.Filled.ExitToApp, "Keluar") { Auth.logout() } }
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
+
+@Composable
+private fun MenuGroup(content: @Composable ColumnScope.() -> Unit) =
+    Column(Modifier.fillMaxWidth().clip(R16).border(1.dp, CardLine, R16).background(CardBg), content = content)
+
+@Composable
+private fun MenuDivider() = HorizontalDivider(color = Line, modifier = Modifier.padding(start = 54.dp))
 
 @Composable
 fun SubTopBar(title: String, onBack: () -> Unit) {
@@ -91,7 +100,7 @@ fun SubTopBar(title: String, onBack: () -> Unit) {
 
 @Composable
 private fun MenuRow(icon: ImageVector, label: String, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 16.dp, horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 16.dp, horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, tint = Color.White, modifier = Modifier.size(22.dp))
         Text(label, color = Color.White, fontSize = 16.sp, modifier = Modifier.weight(1f).padding(start = 16.dp))
         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Muted, modifier = Modifier.size(22.dp))

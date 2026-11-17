@@ -250,12 +250,47 @@ fun OwnerBadge(modifier: Modifier = Modifier, size: Dp = 16.dp) {
     }
 }
 
-/** Badge status di samping nama: centang verified biru (owner juga mendapat centang ini). */
+/** Mahkota emas Premium Member, digambar sendiri (tanpa paket ikon tambahan). */
 @Composable
-fun StatusBadges(verified: Boolean, isOwner: Boolean, modifier: Modifier = Modifier, size: Dp = 16.dp) {
+fun PremiumBadge(modifier: Modifier = Modifier, size: Dp = 16.dp) {
+    Canvas(modifier.size(size)) {
+        val s = this.size.minDimension
+        val gold = Brush.linearGradient(listOf(Color(0xFFFFE08A), Color(0xFFFFB02E)), Offset(0f, 0f), Offset(s, s))
+        val body = Path().apply {
+            moveTo(s * 0.10f, s * 0.74f); lineTo(s * 0.06f, s * 0.30f); lineTo(s * 0.32f, s * 0.50f); lineTo(s * 0.50f, s * 0.18f)
+            lineTo(s * 0.68f, s * 0.50f); lineTo(s * 0.94f, s * 0.30f); lineTo(s * 0.90f, s * 0.74f); close()
+        }
+        drawPath(body, gold)
+        drawRoundRect(gold, Offset(s * 0.10f, s * 0.79f), Size(s * 0.80f, s * 0.12f), CornerRadius(s * 0.03f))
+        for (p in listOf(Offset(s * 0.06f, s * 0.27f), Offset(s * 0.50f, s * 0.15f), Offset(s * 0.94f, s * 0.27f))) drawCircle(gold, s * 0.06f, p)
+    }
+}
+
+/** Ikon status kecil di samping nama (komentar, daftar admin): centang verified, mark Owner MiToon, mahkota Premium. Yang tidak punya = tidak tampil. */
+@Composable
+fun StatusBadges(verified: Boolean, isOwner: Boolean, premium: Boolean = false, modifier: Modifier = Modifier, size: Dp = 16.dp) {
     Row(modifier, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
         // owner otomatis terverifikasi: centang biru yang sama seperti akun verified
         if (verified || isOwner) VerifiedBadge(Modifier.padding(start = 6.dp), size)
+        if (isOwner) OwnerBadge(Modifier.padding(start = 4.dp), size)
+        if (premium) PremiumBadge(Modifier.padding(start = 4.dp), size)
+    }
+}
+
+/** Label status di halaman profil: "Owner MiToon" dan/atau "Premium Member" (ikon + teks). Tidak punya = tidak tampil. */
+@Composable
+fun StatusLabels(isOwner: Boolean, premium: Boolean, modifier: Modifier = Modifier, iconSize: Dp = 18.dp, textSize: Int = 13, center: Boolean = true) {
+    if (!isOwner && !premium) return
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalAlignment = if (center) androidx.compose.ui.Alignment.CenterHorizontally else androidx.compose.ui.Alignment.Start) {
+        if (isOwner) Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            OwnerBadge(size = iconSize)
+            Text("Owner MiToon", color = Color(0xFFC4B0FF), fontSize = textSize.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, modifier = Modifier.padding(start = 6.dp))
+        }
+        if (premium) Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            PremiumBadge(size = iconSize)
+            Text("Premium Member", color = Color(0xFFFFC53D), fontSize = textSize.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, modifier = Modifier.padding(start = 6.dp))
+        }
     }
 }
 

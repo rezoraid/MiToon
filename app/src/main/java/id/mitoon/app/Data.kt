@@ -84,7 +84,7 @@ import java.security.MessageDigest
 @Serializable data class AdminUser(
     val id: Long = 0, val username: String = "", val email: String? = null, val displayName: String = "", val bio: String = "",
     val xp: Int = 0, val verified: Boolean = false, val avatarV: Int = 0, val hasAvatar: Boolean = false, val commentCount: Int = 0,
-    val createdAt: String? = null, val isOwner: Boolean = false,
+    val createdAt: String? = null, val isOwner: Boolean = false, val premium: Boolean = false,
     /** diblokir: tidak bisa masuk/memakai akun */
     val banned: Boolean = false, val banReason: String = "",
     /** dibisukan sampai (epoch ms); 0 = tidak dibisukan. Selama dibisukan tidak bisa berkomentar. */
@@ -92,7 +92,7 @@ import java.security.MessageDigest
 )
 /** Semua field opsional: hanya yang diisi yang diubah di server. `muted = true` tanpa `muteDays` = bisu permanen. */
 @Serializable data class AdminUserPatch(
-    val verified: Boolean? = null, val banned: Boolean? = null, val banReason: String? = null,
+    val verified: Boolean? = null, val premium: Boolean? = null, val banned: Boolean? = null, val banReason: String? = null,
     val muted: Boolean? = null, val muteDays: Int? = null, val muteReason: String? = null,
     val clearBio: Boolean? = null, val clearName: Boolean? = null
 )

@@ -144,9 +144,10 @@ fun ProfileEditScreen(onBack: () -> Unit) {
                 Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(user.name, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
                         modifier = Modifier.weight(1f, fill = false))
-                    StatusBadges(user.verified, user.isOwner, size = 22.dp)
+                    if (user.verified || user.isOwner) VerifiedBadge(Modifier.padding(start = 6.dp), 22.dp)
                 }
                 Text("@${user.username}", color = Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+                StatusLabels(user.isOwner, user.premium, Modifier.padding(top = 10.dp), iconSize = 20.dp, textSize = 13)
 
                 notice?.let { (ok, text) ->
                     Text(text, color = Color.White, fontSize = 13.sp, textAlign = TextAlign.Center,

@@ -40,7 +40,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /** Bentuk ikon tiap peran. Semua digambar sendiri di Canvas (tanpa paket ikon tambahan). */
-enum class RoleGlyph { Sprout, Book, Shield, Trophy, Star, Flame, Crown, Gem, Sun, Bolt, Infinity }
+enum class RoleGlyph { Page, Book, Bookmark, Panels, Flame, Stack, Pen, Gem, Star, Bolt, Infinity }
 
 /**
  * Peran (gelar) pengguna. Tiap kali level mencapai [minLevel], peran baru terbuka.
@@ -50,17 +50,17 @@ class Role(val title: String, val minLevel: Int, val glyph: RoleGlyph, val color
 
 /** Urut naik menurut level. Ambang sama dengan tema bingkai level di [LevelChip]. */
 val Roles: List<Role> = listOf(
-    Role("Pemula", 1, RoleGlyph.Sprout, listOf(Color(0xFF8EE3A0), Color(0xFF2FA865)), "Awal perjalananmu di MiToon."),
-    Role("Pembaca", 5, RoleGlyph.Book, listOf(Color(0xFF7FE0F5), Color(0xFF1E9BC4)), "Mulai rajin membuka chapter."),
-    Role("Ksatria", 10, RoleGlyph.Shield, listOf(Color(0xFFF0B27A), Color(0xFFB5651D)), "Penjaga rak komik favoritmu."),
-    Role("Juara", 20, RoleGlyph.Trophy, listOf(Color(0xFFA9B4FF), Color(0xFF5B63E6)), "Konsisten naik peringkat."),
-    Role("Legenda", 35, RoleGlyph.Star, listOf(Color(0xFFFFD98A), Color(0xFFFF9F43)), "Namamu mulai dikenal pembaca lain."),
-    Role("Mitos", 50, RoleGlyph.Flame, listOf(Color(0xFFFFA48A), Color(0xFFFF4D6A)), "Semangat membacamu menyala."),
-    Role("Maha", 100, RoleGlyph.Crown, listOf(Color(0xFFFFF1C2), Color(0xFFE8C972), Color(0xFFB8903A)), "Tingkat emas. Bingkai level berwarna emas."),
-    Role("Maestro", 500, RoleGlyph.Gem, listOf(Color(0xFFB6F5E0), Color(0xFF3FD1A1), Color(0xFF1E8F6B)), "Tingkat zamrud. Bingkai level berkilau."),
-    Role("Agung", 1000, RoleGlyph.Sun, listOf(Color(0xFFC4E0FF), Color(0xFF5AA9FF), Color(0xFF3B6FE0)), "Tingkat safir. Bingkai level berputar pelan."),
-    Role("Dewa", 3000, RoleGlyph.Bolt, listOf(Color(0xFFFFC2F0), Color(0xFFB58CFF), Color(0xFF7A4DE0)), "Tingkat ametis. Bingkai level berdenyut."),
-    Role("Abadi", 5000, RoleGlyph.Infinity, listOf(Color(0xFFFF8AD8), Color(0xFFFFD98A), Color(0xFF8AFFD1), Color(0xFF8AC8FF), Color(0xFFC79BFF)), "Tingkat tertinggi. Warna prisma.", sweep = true)
+    Role("Newbie", 1, RoleGlyph.Page, listOf(Color(0xFF8EE3A0), Color(0xFF2FA865)), "Baru membuka halaman pertama."),
+    Role("Page Turner", 5, RoleGlyph.Book, listOf(Color(0xFF7FE0F5), Color(0xFF1E9BC4)), "Mulai rajin membuka chapter."),
+    Role("Bookworm", 10, RoleGlyph.Bookmark, listOf(Color(0xFFF0B27A), Color(0xFFB5651D)), "Selalu menyimpan tempat bacamu."),
+    Role("Panel Hunter", 20, RoleGlyph.Panels, listOf(Color(0xFFA9B4FF), Color(0xFF5B63E6)), "Tidak melewatkan satu panel pun."),
+    Role("Binge Reader", 35, RoleGlyph.Flame, listOf(Color(0xFFFFA48A), Color(0xFFFF4D6A)), "Maraton baca adalah keahlianmu."),
+    Role("Series Master", 50, RoleGlyph.Stack, listOf(Color(0xFFFFD98A), Color(0xFFFF9F43)), "Rak seri demi rak kamu tamatkan."),
+    Role("Sensei", 100, RoleGlyph.Pen, listOf(Color(0xFFFFF1C2), Color(0xFFE8C972), Color(0xFFB8903A)), "Tingkat emas. Bingkai level berwarna emas."),
+    Role("Curator", 500, RoleGlyph.Gem, listOf(Color(0xFFB6F5E0), Color(0xFF3FD1A1), Color(0xFF1E8F6B)), "Tingkat zamrud. Bingkai level berkilau."),
+    Role("Legend", 1000, RoleGlyph.Star, listOf(Color(0xFFC4E0FF), Color(0xFF5AA9FF), Color(0xFF3B6FE0)), "Tingkat safir. Bingkai level berputar pelan."),
+    Role("Mythic", 3000, RoleGlyph.Bolt, listOf(Color(0xFFFFC2F0), Color(0xFFB58CFF), Color(0xFF7A4DE0)), "Tingkat ametis. Bingkai level berdenyut."),
+    Role("Eternal", 5000, RoleGlyph.Infinity, listOf(Color(0xFFFF8AD8), Color(0xFFFFD98A), Color(0xFF8AFFD1), Color(0xFF8AC8FF), Color(0xFFC79BFF)), "Tingkat tertinggi. Warna prisma.", sweep = true)
 )
 
 fun roleFor(level: Int): Role = Roles.last { level >= it.minLevel }
@@ -83,32 +83,15 @@ private fun DrawScope.glyph(g: RoleGlyph, b: Brush, ink: Color) {
     val bold = Stroke(0.09f, cap = StrokeCap.Round, join = StrokeJoin.Round)
     val thin = Stroke(0.05f, cap = StrokeCap.Round, join = StrokeJoin.Round)
     when (g) {
-        RoleGlyph.Sprout -> {
-            drawPath(Path().apply { moveTo(0.5f, 0.9f); lineTo(0.5f, 0.46f) }, b, style = bold)
-            drawPath(Path().apply { moveTo(0.5f, 0.58f); quadraticTo(0.12f, 0.62f, 0.14f, 0.24f); quadraticTo(0.5f, 0.24f, 0.5f, 0.58f); close() }, b)
-            drawPath(Path().apply { moveTo(0.5f, 0.46f); quadraticTo(0.5f, 0.12f, 0.88f, 0.14f); quadraticTo(0.88f, 0.46f, 0.5f, 0.46f); close() }, b)
+        RoleGlyph.Page -> {
+            drawPath(Path().apply { moveTo(0.2f, 0.08f); lineTo(0.64f, 0.08f); lineTo(0.82f, 0.26f); lineTo(0.82f, 0.92f); lineTo(0.2f, 0.92f); close() }, b)
+            drawPath(Path().apply { moveTo(0.64f, 0.08f); lineTo(0.64f, 0.26f); lineTo(0.82f, 0.26f) }, SolidColor(ink), style = thin)
+            drawPath(Path().apply { moveTo(0.32f, 0.48f); lineTo(0.7f, 0.48f); moveTo(0.32f, 0.62f); lineTo(0.7f, 0.62f); moveTo(0.32f, 0.76f); lineTo(0.56f, 0.76f) }, SolidColor(ink), style = thin)
         }
         RoleGlyph.Book -> {
             drawPath(Path().apply { moveTo(0.5f, 0.3f); quadraticTo(0.3f, 0.18f, 0.08f, 0.24f); lineTo(0.08f, 0.78f); quadraticTo(0.3f, 0.72f, 0.5f, 0.84f); close() }, b)
             drawPath(Path().apply { moveTo(0.5f, 0.3f); quadraticTo(0.7f, 0.18f, 0.92f, 0.24f); lineTo(0.92f, 0.78f); quadraticTo(0.7f, 0.72f, 0.5f, 0.84f); close() }, b)
             drawPath(Path().apply { moveTo(0.5f, 0.32f); lineTo(0.5f, 0.84f) }, SolidColor(ink), style = thin)
-        }
-        RoleGlyph.Shield -> {
-            drawPath(Path().apply {
-                moveTo(0.5f, 0.08f); lineTo(0.86f, 0.22f); lineTo(0.86f, 0.5f)
-                quadraticTo(0.86f, 0.78f, 0.5f, 0.93f); quadraticTo(0.14f, 0.78f, 0.14f, 0.5f); lineTo(0.14f, 0.22f); close()
-            }, b)
-            drawPath(Path().apply { moveTo(0.33f, 0.44f); lineTo(0.5f, 0.6f); lineTo(0.67f, 0.44f) }, SolidColor(ink), style = bold)
-        }
-        RoleGlyph.Trophy -> {
-            drawPath(Path().apply {
-                moveTo(0.28f, 0.12f); lineTo(0.72f, 0.12f); lineTo(0.72f, 0.36f)
-                quadraticTo(0.72f, 0.6f, 0.5f, 0.62f); quadraticTo(0.28f, 0.6f, 0.28f, 0.36f); close()
-            }, b)
-            drawPath(Path().apply { moveTo(0.28f, 0.2f); cubicTo(0.03f, 0.16f, 0.05f, 0.52f, 0.31f, 0.5f) }, b, style = thin)
-            drawPath(Path().apply { moveTo(0.72f, 0.2f); cubicTo(0.97f, 0.16f, 0.95f, 0.52f, 0.69f, 0.5f) }, b, style = thin)
-            drawRect(b, Offset(0.45f, 0.6f), Size(0.1f, 0.16f))
-            drawRoundRect(b, Offset(0.29f, 0.76f), Size(0.42f, 0.11f), CornerRadius(0.03f))
         }
         RoleGlyph.Star -> {
             val p = Path()
@@ -122,6 +105,16 @@ private fun DrawScope.glyph(g: RoleGlyph, b: Brush, ink: Color) {
             drawPath(p, b)
             drawPath(p, b, style = Stroke(0.05f, join = StrokeJoin.Round))
         }
+        RoleGlyph.Bookmark -> {
+            drawPath(Path().apply { moveTo(0.24f, 0.08f); lineTo(0.76f, 0.08f); lineTo(0.76f, 0.92f); lineTo(0.5f, 0.7f); lineTo(0.24f, 0.92f); close() }, b)
+            drawPath(Path().apply { moveTo(0.36f, 0.24f); lineTo(0.64f, 0.24f) }, SolidColor(ink), style = thin)
+        }
+        RoleGlyph.Panels -> {
+            drawRoundRect(b, Offset(0.08f, 0.1f), Size(0.5f, 0.38f), CornerRadius(0.04f))
+            drawRoundRect(b, Offset(0.64f, 0.1f), Size(0.28f, 0.38f), CornerRadius(0.04f))
+            drawRoundRect(b, Offset(0.08f, 0.54f), Size(0.28f, 0.36f), CornerRadius(0.04f))
+            drawRoundRect(b, Offset(0.42f, 0.54f), Size(0.5f, 0.36f), CornerRadius(0.04f))
+        }
         RoleGlyph.Flame -> {
             drawPath(Path().apply {
                 moveTo(0.5f, 0.06f)
@@ -133,10 +126,17 @@ private fun DrawScope.glyph(g: RoleGlyph, b: Brush, ink: Color) {
                 moveTo(0.5f, 0.58f); cubicTo(0.63f, 0.68f, 0.65f, 0.79f, 0.5f, 0.87f); cubicTo(0.35f, 0.79f, 0.37f, 0.68f, 0.5f, 0.58f); close()
             }, SolidColor(ink))
         }
-        RoleGlyph.Crown -> {
-            drawPath(poly(0.12f, 0.74f, 0.08f, 0.3f, 0.32f, 0.5f, 0.5f, 0.2f, 0.68f, 0.5f, 0.92f, 0.3f, 0.88f, 0.74f), b)
-            drawRoundRect(b, Offset(0.12f, 0.79f), Size(0.76f, 0.11f), CornerRadius(0.03f))
-            for (c in listOf(Offset(0.08f, 0.28f), Offset(0.5f, 0.18f), Offset(0.92f, 0.28f))) drawCircle(b, 0.05f, c)
+        RoleGlyph.Stack -> {
+            drawRoundRect(b, Offset(0.1f, 0.14f), Size(0.7f, 0.2f), CornerRadius(0.04f))
+            drawRoundRect(b, Offset(0.2f, 0.4f), Size(0.7f, 0.2f), CornerRadius(0.04f))
+            drawRoundRect(b, Offset(0.12f, 0.66f), Size(0.76f, 0.2f), CornerRadius(0.04f))
+            drawPath(Path().apply { moveTo(0.18f, 0.24f); lineTo(0.5f, 0.24f); moveTo(0.28f, 0.5f); lineTo(0.6f, 0.5f); moveTo(0.2f, 0.76f); lineTo(0.52f, 0.76f) }, SolidColor(ink), style = thin)
+        }
+        RoleGlyph.Pen -> {
+            drawPath(Path().apply { moveTo(0.5f, 0.06f); lineTo(0.78f, 0.4f); lineTo(0.62f, 0.76f); lineTo(0.38f, 0.76f); lineTo(0.22f, 0.4f); close() }, b)
+            drawPath(Path().apply { moveTo(0.5f, 0.3f); lineTo(0.5f, 0.56f) }, SolidColor(ink), style = thin)
+            drawCircle(SolidColor(ink), 0.045f, Offset(0.5f, 0.62f))
+            drawRoundRect(b, Offset(0.34f, 0.81f), Size(0.32f, 0.11f), CornerRadius(0.03f))
         }
         RoleGlyph.Gem -> {
             drawPath(poly(0.27f, 0.18f, 0.73f, 0.18f, 0.94f, 0.42f, 0.5f, 0.9f, 0.06f, 0.42f), b)
@@ -144,14 +144,6 @@ private fun DrawScope.glyph(g: RoleGlyph, b: Brush, ink: Color) {
             drawPath(Path().apply { moveTo(0.06f, 0.42f); lineTo(0.94f, 0.42f) }, facet, style = thin)
             drawPath(Path().apply { moveTo(0.27f, 0.18f); lineTo(0.38f, 0.42f); lineTo(0.5f, 0.9f) }, facet, style = thin)
             drawPath(Path().apply { moveTo(0.73f, 0.18f); lineTo(0.62f, 0.42f); lineTo(0.5f, 0.9f) }, facet, style = thin)
-        }
-        RoleGlyph.Sun -> {
-            drawCircle(b, 0.2f, Offset(0.5f, 0.5f))
-            for (i in 0 until 8) {
-                val a = i * PI / 4.0
-                val c = cos(a).toFloat(); val s = sin(a).toFloat()
-                drawPath(Path().apply { moveTo(0.5f + 0.31f * c, 0.5f + 0.31f * s); lineTo(0.5f + 0.45f * c, 0.5f + 0.45f * s) }, b, style = Stroke(0.08f, cap = StrokeCap.Round))
-            }
         }
         RoleGlyph.Bolt -> drawPath(poly(0.58f, 0.05f, 0.2f, 0.55f, 0.45f, 0.55f, 0.36f, 0.95f, 0.8f, 0.4f, 0.55f, 0.4f), b)
         RoleGlyph.Infinity -> {
@@ -197,16 +189,9 @@ fun RoleBadge(role: Role, size: Dp = 28.dp, modifier: Modifier = Modifier, locke
     }
 }
 
-/** Ikon peran + nama peran, satu baris. Owner menimpa judul menjadi "Asal" dengan teks ungu berkilau. */
+/** Ikon peran + nama peran, satu baris. */
 @Composable
-fun RoleTag(level: Int, modifier: Modifier = Modifier, iconSize: Dp = 22.dp, textSize: Int = 13, isOwner: Boolean = false) {
-    if (isOwner) {
-        Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-            OwnerBadge(size = iconSize)
-            Text("Asal", color = Color(0xFFC4B0FF), fontSize = textSize.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(start = 6.dp))
-        }
-        return
-    }
+fun RoleTag(level: Int, modifier: Modifier = Modifier, iconSize: Dp = 22.dp, textSize: Int = 13) {
     val r = roleFor(level)
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         RoleBadge(r, iconSize)
@@ -225,16 +210,6 @@ fun RolesScreen(onBack: () -> Unit) {
         SubTopBar("Peran & Lencana", onBack)
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp)) {
             item("now") {
-                if (user.isOwner) {
-                    Column(Modifier.fillMaxWidth().clip(R6).border(1.dp, Color(0xFF7B6AA8), R6).background(CardBg).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        OwnerBadge(size = 72.dp)
-                        Text("Asal", color = Color(0xFFC4B0FF), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
-                        Text("Mark pendiri · sumber MiToon", color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp))
-                        LevelChip(user.level, Modifier.padding(top = 10.dp), size = 12)
-                        XpBar(user, Modifier.padding(top = 14.dp))
-                    }
-                    Spacer(Modifier.height(12.dp))
-                }
                 Column(Modifier.fillMaxWidth().clip(R6).border(1.dp, Color(0xFF3A3C44), R6).background(CardBg).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     RoleBadge(cur, 84.dp)
                     Text(cur.title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))

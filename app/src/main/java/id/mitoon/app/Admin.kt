@@ -281,7 +281,7 @@ private fun Field(label: String, value: String, single: Boolean = true, onChange
     )
 }
 
-private val UserFilters = listOf("" to "Semua", "banned" to "Diblokir", "muted" to "Dibisukan", "verified" to "Verified", "avatar" to "Berfoto")
+private val UserFilters = listOf("" to "Semua", "banned" to "Diblokir", "muted" to "Dibisukan", "verified" to "Verified", "premium" to "Premium", "avatar" to "Berfoto")
 private val RedText = Color(0xFFFF6B6B)
 private val AmberText = Color(0xFFFFB86B)
 
@@ -438,7 +438,7 @@ private fun AdminUsersTab() {
                             Column(Modifier.weight(1f).padding(start = 12.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(u.displayName.ifBlank { u.username }, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                                    StatusBadges(u.verified, u.isOwner, size = 14.dp)
+                                    StatusBadges(u.verified, u.isOwner, u.premium, size = 14.dp)
                                 }
                                 Text("@${u.username} · XP ${u.xp} · ${u.commentCount} komentar", color = Muted, fontSize = 12.sp)
                                 if (u.email != null) Text(u.email, color = Muted, fontSize = 11.sp)
@@ -453,6 +453,11 @@ private fun AdminUsersTab() {
                                     Text("Centang verified", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                                     Switch(u.verified, { v -> act(if (v) "Verified diberikan" else "Verified dicabut") { Net.api.adminModerateUser(u.id, AdminUserPatch(verified = v)).data } },
                                         enabled = !busy && !u.isOwner, colors = SwitchDefaults.colors(checkedTrackColor = Accent))
+                                }
+                                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Premium Member", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                    Switch(u.premium, { v -> act(if (v) "Premium diberikan" else "Premium dicabut") { Net.api.adminModerateUser(u.id, AdminUserPatch(premium = v)).data } },
+                                        enabled = !busy, colors = SwitchDefaults.colors(checkedTrackColor = Accent))
                                 }
                                 if (u.hasAvatar) ActionRow("Hapus foto profil") { dialog = UserDialog.Photo(u) }
                                 if (u.displayName.isNotBlank()) ActionRow("Reset nama tampilan") { act("Nama @${u.username} direset") { Net.api.adminModerateUser(u.id, AdminUserPatch(clearName = true)).data } }

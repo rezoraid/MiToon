@@ -86,6 +86,7 @@ interface Api {
     @POST("v1/comments") suspend fun addComment(@Body b: CommentReq): CommentRes
     @PUT("v1/comments/{id}/vote") suspend fun voteComment(@Path("id") id: Long, @Body b: VoteReq): Env<VoteRes>
     @POST("v1/xp/event") suspend fun xpEvent(@Body b: XpReq): Env<XpRes>
+    @DELETE("v1/auth/me") suspend fun deleteAccount(): Env<Ok>
     @DELETE("v1/comments/{id}") suspend fun deleteComment(@Path("id") id: Long): Env<Ok>
 }
 

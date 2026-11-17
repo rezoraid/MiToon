@@ -87,13 +87,14 @@ private fun AppScaffold() {
                 LibraryScreen({ nav.detail(it) }, { e -> e.lastChapterId?.let { nav.reader(e.id, it) } ?: nav.detail(e.id) }, { nav.navigate("search") })
             }
             composable("search") { SearchScreen(nav::popBackStack) { nav.detail(it) } }
-            composable("profile") { ProfileScreen(nav::popBackStack) { nav.navigate("mycomments") } }
-            composable("mycomments") {
-                CommentHistoryScreen(nav::popBackStack) { m ->
-                    val o = m.origin
-                    if (o.chapterId != null) nav.reader(o.seriesId, o.chapterId) else nav.detail(o.seriesId)
-                }
+            composable("profile") { ProfileScreen(nav::popBackStack, { nav.navigate("profile/edit") }, { nav.navigate("profile/history") }, { nav.navigate("profile/account") }) }
+            composable("profile/edit") { ProfileEditScreen(nav::popBackStack) }
+            composable("profile/history") {
+                ActivityHistoryScreen(nav::popBackStack,
+                    { m -> val o = m.origin; if (o.chapterId != null) nav.reader(o.seriesId, o.chapterId) else nav.detail(o.seriesId) },
+                    { e -> e.lastChapterId?.let { nav.reader(e.id, it) } ?: nav.detail(e.id) })
             }
+            composable("profile/account") { AccountSettingsScreen(nav::popBackStack) }
             composable("series/{id}") { e ->
                 DetailScreen(e.arguments?.getString("id").orEmpty(), nav::popBackStack, { nav.navigate("search") },
                     { slug -> ExploreRequest.genre = slug; nav.navigate("explore") { popUpTo("home"); launchSingleTop = true; restoreState = true } }) { sid, cid -> nav.reader(sid, cid) }

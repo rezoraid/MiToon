@@ -13,7 +13,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
@@ -50,8 +49,9 @@ private fun cooldownText(ms: Long): String {
     }
 }
 
+/** Pengaturan Profil: foto, nama (nickname), dan username. */
 @Composable
-fun ProfileScreen(onBack: () -> Unit, onComments: () -> Unit) {
+fun ProfileEditScreen(onBack: () -> Unit) {
     val user = Auth.user
     if (user == null) { Box(Modifier.fillMaxSize().background(Bg)); return }
     val ctx = LocalContext.current
@@ -121,7 +121,7 @@ fun ProfileScreen(onBack: () -> Unit, onComments: () -> Unit) {
     Column(Modifier.fillMaxSize().background(Bg)) { // inset sudah diberikan Scaffold; jangan dobel
         Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
-            Text("Profil", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+            Text("Pengaturan Profil", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
         }
         HorizontalDivider(color = Line)
 
@@ -143,24 +143,6 @@ fun ProfileScreen(onBack: () -> Unit, onComments: () -> Unit) {
                     modifier = Modifier.padding(top = 4.dp))
                 Text("@${user.username}", color = Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
 
-                // ---- level & XP
-                Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    LevelChip(user.level, size = 12)
-                    Text("  ${rankTitle(user.level)}", color = Color(0xFFD7D9DE), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                }
-                XpBar(user, Modifier.padding(top = 12.dp).widthIn(max = 300.dp).fillMaxWidth())
-
-                // ---- ringkasan
-                val saved = Library.entries.values.count { it.bookmarked }
-                val read = Library.entries.values.count { it.readAt > 0 }
-                Row(Modifier.padding(top = 22.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Stat(user.xp, "Total XP")
-                    Box(Modifier.padding(horizontal = 24.dp).width(1.dp).height(28.dp).background(Line))
-                    Stat(saved, "Pustaka")
-                    Box(Modifier.padding(horizontal = 24.dp).width(1.dp).height(28.dp).background(Line))
-                    Stat(read, "Dibaca")
-                }
-
                 notice?.let { (ok, text) ->
                     Text(text, color = Color.White, fontSize = 13.sp, textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth().padding(top = 20.dp).border(1.dp, if (ok) Outline else Color.White, R6).padding(10.dp))
@@ -175,10 +157,6 @@ fun ProfileScreen(onBack: () -> Unit, onComments: () -> Unit) {
                     if (locked) "Bisa diganti lagi dalam ${cooldownText(leftMs)}" else "Bisa diganti sekali setiap 7 hari",
                     locked, onClick = { dialogErr = null; editUser = true })
                 HorizontalDivider(color = Line)
-                LinkRow("Riwayat komentar", "${CommentHistory.mine.size} komentar", onComments)
-                HorizontalDivider(color = Line)
-
-                TextButton({ Auth.logout() }, Modifier.padding(top = 12.dp)) { Text("Keluar", color = Muted, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
             }
         }
     }
@@ -267,12 +245,6 @@ fun ProfileScreen(onBack: () -> Unit, onComments: () -> Unit) {
     }
 }
 
-@Composable
-private fun Stat(n: Int, label: String) = Column(horizontalAlignment = Alignment.CenterHorizontally) {
-    Text("$n", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
-    Text(label, color = Muted, fontSize = 12.sp)
-}
-
 /** Baris info rata kiri-kanan: label kecil di atas, nilai di bawah, ikon pensil di kanan (gembok bila terkunci). */
 @Composable
 private fun InfoRow(label: String, value: String, hint: String?, locked: Boolean, onClick: () -> Unit) {
@@ -286,24 +258,12 @@ private fun InfoRow(label: String, value: String, hint: String?, locked: Boolean
     }
 }
 
-/** Baris menu menuju halaman lain: judul + ringkasan di kiri, panah di kanan. */
-@Composable
-private fun LinkRow(label: String, value: String, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(label, color = Muted, fontSize = 12.sp)
-            Text(value, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 2.dp))
-        }
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Muted, modifier = Modifier.padding(start = 12.dp).size(22.dp))
-    }
-}
-
 @Composable
 private fun MenuItem(text: String, onClick: () -> Unit) =
     Text(text, color = Color.White, fontSize = 16.sp, modifier = Modifier.fillMaxWidth().clip(R6).clickable(onClick = onClick).padding(vertical = 14.dp, horizontal = 4.dp))
 
 @Composable
-private fun fieldColors() = OutlinedTextFieldDefaults.colors(
+internal fun fieldColors() = OutlinedTextFieldDefaults.colors(
     focusedTextColor = Color.White, unfocusedTextColor = Color.White, disabledTextColor = Muted,
     focusedBorderColor = Color.White, unfocusedBorderColor = Outline, disabledBorderColor = Line, errorBorderColor = Color.White,
     cursorColor = Color.White, errorCursorColor = Color.White, errorTextColor = Color.White

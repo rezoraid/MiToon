@@ -25,7 +25,9 @@ import retrofit2.HttpException
     /** Sisa detik sebelum username boleh diganti lagi (saat respons dibuat). 0 = boleh sekarang. */
     val usernameCooldownSec: Long = 0,
     /** XP total, level, XP terkumpul di level ini, dan XP yang dibutuhkan untuk naik level (dari server). */
-    val xp: Int = 0, val level: Int = 1, val levelXp: Int = 0, val levelNeed: Int = 40
+    val xp: Int = 0, val level: Int = 1, val levelXp: Int = 0, val levelNeed: Int = 40,
+    /** Lencana centang biru; ditetapkan server (mis. akun owner), tidak bisa diubah dari aplikasi. */
+    val verified: Boolean = false
 ) { val name: String get() = displayName.ifBlank { username } }
 @Serializable data class AuthRes(val token: String, val user: AuthUser)
 @Serializable data class AuthConfig(val google: String? = null)
@@ -49,7 +51,7 @@ object Auth {
         user = if (token != null) AuthUser(
             id = prefs.getLong("i", 0), username = prefs.getString("u", "").orEmpty(), avatarV = prefs.getInt("v", 0),
             displayName = prefs.getString("n", "").orEmpty(), xp = prefs.getInt("xp", 0),
-            level = prefs.getInt("lv", 1).coerceAtLeast(1), levelXp = prefs.getInt("lx", 0), levelNeed = prefs.getInt("ln", 40)
+            level = prefs.getInt("lv", 1).coerceAtLeast(1), levelXp = prefs.getInt("lx", 0), levelNeed = prefs.getInt("ln", 40), verified = prefs.getBoolean("vf", false)
         ) else null
         usernameUnlockAt = if (token != null) prefs.getLong("x", 0) else 0L
     }
@@ -71,7 +73,7 @@ object Auth {
         if (prefs.contains("t")) prefs.edit().putString("u", u.username).putLong("i", u.id).putInt("v", u.avatarV).putString("n", u.displayName).putLong("x", usernameUnlockAt).also { it.putXp(u) }.apply()
     }
 
-    private fun SharedPreferences.Editor.putXp(u: AuthUser) { putInt("xp", u.xp); putInt("lv", u.level); putInt("lx", u.levelXp); putInt("ln", u.levelNeed) }
+    private fun SharedPreferences.Editor.putXp(u: AuthUser) { putInt("xp", u.xp); putInt("lv", u.level); putInt("lx", u.levelXp); putInt("ln", u.levelNeed); putBoolean("vf", u.verified) }
 
     private fun unlockAt(u: AuthUser): Long = if (u.usernameCooldownSec > 0) System.currentTimeMillis() + u.usernameCooldownSec * 1000 else 0L
 

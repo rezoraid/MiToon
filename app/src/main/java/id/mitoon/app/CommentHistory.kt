@@ -86,7 +86,7 @@ object CommentHistory {
     }
 }
 
-private fun agoText(ms: Long): String {
+fun agoText(ms: Long): String {
     val s = (System.currentTimeMillis() - ms) / 1000
     return when {
         s < 60 -> "baru saja"

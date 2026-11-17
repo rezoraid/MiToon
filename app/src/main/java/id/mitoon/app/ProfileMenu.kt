@@ -49,6 +49,7 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
                         }
                         Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(user.name, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                            if (user.verified) VerifiedBadge(Modifier.padding(start = 6.dp), 18.dp)
                             Icon(Icons.Filled.Edit, null, tint = Muted, modifier = Modifier.padding(start = 8.dp).size(16.dp))
                         }
                         Text("@${user.username}", color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)

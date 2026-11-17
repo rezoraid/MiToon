@@ -88,6 +88,8 @@ interface Api {
     @POST("v1/xp/event") suspend fun xpEvent(@Body b: XpReq): Env<XpRes>
     @DELETE("v1/auth/me") suspend fun deleteAccount(@Query("confirm") confirm: String): Env<Ok>
     @GET("v1/users/{id}") suspend fun user(@Path("id") id: Long): Env<PublicUser>
+    @GET("v1/users/{id}/reading") suspend fun userReading(@Path("id") id: Long, @Query("limit") limit: Int = 30, @Query("before") before: Long? = null): Env<ReadPage>
+    @PUT("v1/reading") suspend fun reportRead(@Body b: ReadReq): Env<Ok>
     @GET("v1/users/{id}/comments") suspend fun userComments(@Path("id") id: Long, @Query("limit") limit: Int = 20, @Query("before") before: Long? = null): Env<MyCommentPage>
     @GET("v1/comments/mine") suspend fun myComments(@Query("limit") limit: Int = 20, @Query("before") before: Long? = null): Env<MyCommentPage>
     @DELETE("v1/comments/{id}") suspend fun deleteComment(@Path("id") id: Long): Env<Ok>

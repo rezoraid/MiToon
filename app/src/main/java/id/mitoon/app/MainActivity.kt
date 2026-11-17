@@ -98,8 +98,8 @@ private fun AppScaffold() {
             }
             composable("profile/account") { AccountSettingsScreen(nav::popBackStack) }
             composable("user/{id}") { e ->
-                UserProfileScreen(e.arguments?.getString("id")?.toLongOrNull() ?: 0L, nav::popBackStack) { o ->
-                    if (o.chapterId != null) nav.reader(o.seriesId, o.chapterId) else nav.detail(o.seriesId)
+                UserProfileScreen(e.arguments?.getString("id")?.toLongOrNull() ?: 0L, nav::popBackStack) { r ->
+                    nav.detail(r.seriesId)
                 }
             }
             composable("series/{id}") { e ->

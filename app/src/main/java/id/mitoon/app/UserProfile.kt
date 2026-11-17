@@ -69,11 +69,12 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
                     Column(Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Avatar(u.id, u.name, u.avatarV, 104.dp, shape = CircleShape)
                         Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(u.name, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                            if (u.isOwner) OwnerText(u.name, Modifier.weight(1f, fill = false), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                            else Text(u.name, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                             StatusBadges(u.verified, u.isOwner, size = 20.dp)
                         }
                         Text("@${u.username}", color = Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
-                        if (u.isOwner) Text("Asal · mark pendiri", color = Color(0xFFC4B0FF), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
+                        if (u.isOwner) OwnerText("Asal · mark pendiri", Modifier.padding(top = 6.dp), fontSize = 13.sp)
                         Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                             LevelChip(u.level, size = 12)
                             RoleTag(u.level, Modifier.padding(start = 10.dp), iconSize = 24.dp, isOwner = u.isOwner)

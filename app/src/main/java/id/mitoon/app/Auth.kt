@@ -31,7 +31,9 @@ import retrofit2.HttpException
     /** Lencana centang biru; ditetapkan server (mis. akun owner), tidak bisa diubah dari aplikasi. */
     val verified: Boolean = false,
     /** true jika akun owner (email di OWNER_EMAILS) — bisa akses panel admin */
-    val isOwner: Boolean = false
+    val isOwner: Boolean = false,
+    /** dibisukan sampai (epoch ms); 0 = tidak. Selama dibisukan tidak bisa berkomentar (server menolak). */
+    val mutedUntil: Long = 0, val muteReason: String = ""
 ) { val name: String get() = displayName.ifBlank { username } }
 @Serializable data class AuthRes(val token: String, val user: AuthUser)
 @Serializable data class AuthConfig(val google: String? = null)
@@ -98,7 +100,7 @@ object Auth {
     /** Saat aplikasi dibuka: token ditolak server (401) -> keluar. Gagal jaringan = tetap masuk (tetap bisa baca offline). */
     suspend fun validate() {
         if (token == null) return
-        try { update(Net.api.me().data); Xp.event("daily") } catch (e: HttpException) { if (e.code() == 401) logout() } catch (_: Exception) {}
+        try { update(Net.api.me().data); Xp.event("daily") } catch (e: HttpException) { if (e.code() == 401 || e.code() == 403) logout() /* 403 = akun diblokir */ } catch (_: Exception) {}
     }
 }
 

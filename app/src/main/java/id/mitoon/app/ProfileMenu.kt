@@ -40,10 +40,10 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
         SubTopBar("Akun", onBack)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             // ---- kartu profil
-            val ownerBorder = if (user.isOwner) Color(0xFF7B6AA8) else CardLine
+            val ownerBorder = if (user.isOwner) OwnerPurple.copy(alpha = 0.7f) else CardLine
             Column(Modifier.fillMaxWidth().clip(R6).border(1.dp, ownerBorder, R6).background(CardBg).clickable(onClick = onEdit).padding(16.dp)) {
                 if (user.isOwner) {
-                    Text("Asal · mark pendiri", color = Color(0xFFC4B0FF), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                    OwnerText("Asal · mark pendiri", Modifier.padding(bottom = 8.dp), fontSize = 12.sp)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Avatar(user.id, user.name, user.avatarV, 64.dp)

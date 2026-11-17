@@ -62,7 +62,7 @@ import java.security.MessageDigest
 // Endpoint opsional (belum ada di backend): bagian UI otomatis disembunyikan bila kosong/gagal.
 @Serializable data class Notice(val id: Long = 0, val title: String = "", val body: String = "", val url: String? = null)
 
-@Serializable data class AdminStats(val series: Int = 0, val chapters: Int = 0, val users: Int = 0, val comments: Int = 0, val genres: Int = 0, val views_7d: Int = 0)
+@Serializable data class AdminStats(val series: Int = 0, val chapters: Int = 0, val users: Int = 0, val comments: Int = 0, val genres: Int = 0, val banned: Int = 0, val muted: Int = 0, val views_7d: Int = 0)
 @Serializable data class AdminSeriesPage(val total: Int = 0, val items: List<AdminSeries> = emptyList(), val page: Int = 1, val limit: Int = 30, val hasMore: Boolean = false)
 @Serializable data class AdminSeries(
     val id: Long = 0, val provider: String = "", val ref: String = "", val unifiedId: String = "",
@@ -81,9 +81,22 @@ import java.security.MessageDigest
 )
 @Serializable data class AdminChapterPatch(val title: String? = null, val numberText: String? = null, val number: Double? = null)
 @Serializable data class AdminUsersPage(val total: Int = 0, val items: List<AdminUser> = emptyList(), val page: Int = 1, val limit: Int = 30, val hasMore: Boolean = false)
-@Serializable data class AdminUser(val id: Long = 0, val username: String = "", val email: String? = null, val displayName: String = "", val bio: String = "", val xp: Int = 0, val verified: Boolean = false, val avatarV: Int = 0, val commentCount: Int = 0, val createdAt: String? = null)
-@Serializable data class AdminUserBrief(val id: Long = 0, val username: String = "", val verified: Boolean = false)
-@Serializable data class AdminVerifiedReq(val verified: Boolean)
+@Serializable data class AdminUser(
+    val id: Long = 0, val username: String = "", val email: String? = null, val displayName: String = "", val bio: String = "",
+    val xp: Int = 0, val verified: Boolean = false, val avatarV: Int = 0, val hasAvatar: Boolean = false, val commentCount: Int = 0,
+    val createdAt: String? = null, val isOwner: Boolean = false,
+    /** diblokir: tidak bisa masuk/memakai akun */
+    val banned: Boolean = false, val banReason: String = "",
+    /** dibisukan sampai (epoch ms); 0 = tidak dibisukan. Selama dibisukan tidak bisa berkomentar. */
+    val mutedUntil: Long = 0, val muteReason: String = ""
+)
+/** Semua field opsional: hanya yang diisi yang diubah di server. `muted = true` tanpa `muteDays` = bisu permanen. */
+@Serializable data class AdminUserPatch(
+    val verified: Boolean? = null, val banned: Boolean? = null, val banReason: String? = null,
+    val muted: Boolean? = null, val muteDays: Int? = null, val muteReason: String? = null,
+    val clearBio: Boolean? = null, val clearName: Boolean? = null
+)
+@Serializable data class AdminDeletedCount(val deleted: Int = 0)
 @Serializable data class AdminAnnounceReq(val title: String, val body: String? = null, val url: String? = null, val expiresAt: String? = null)
 @Serializable data class Ok(val ok: Boolean = true)
 
@@ -126,8 +139,11 @@ interface Api {
     @DELETE("v1/admin/series/{id}") suspend fun adminDeleteSeries(@Path("id") id: Long): Env<Ok>
     @PATCH("v1/admin/chapters/{id}") suspend fun adminUpdateChapter(@Path("id") id: Long, @Body b: AdminChapterPatch): Env<Ok>
     @DELETE("v1/admin/chapters/{id}") suspend fun adminDeleteChapter(@Path("id") id: Long): Env<Ok>
-    @GET("v1/admin/users") suspend fun adminUsers(@Query("q") q: String? = null, @Query("page") page: Int = 1, @Query("limit") limit: Int = 30): Env<AdminUsersPage>
-    @PATCH("v1/admin/users/{id}") suspend fun adminSetVerified(@Path("id") id: Long, @Body b: AdminVerifiedReq): Env<AdminUserBrief>
+    @GET("v1/admin/users") suspend fun adminUsers(@Query("q") q: String? = null, @Query("filter") filter: String? = null, @Query("page") page: Int = 1, @Query("limit") limit: Int = 30): Env<AdminUsersPage>
+    @PATCH("v1/admin/users/{id}") suspend fun adminModerateUser(@Path("id") id: Long, @Body b: AdminUserPatch): Env<AdminUser>
+    @DELETE("v1/admin/users/{id}/avatar") suspend fun adminClearUserAvatar(@Path("id") id: Long): Env<AdminUser>
+    @DELETE("v1/admin/users/{id}/comments") suspend fun adminDeleteUserComments(@Path("id") id: Long): Env<AdminDeletedCount>
+    @DELETE("v1/admin/users/{id}") suspend fun adminDeleteUser(@Path("id") id: Long): Env<Ok>
     @GET("v1/admin/announcements") suspend fun adminAnnouncements(): Env<List<Notice>>
     @POST("v1/admin/announcements") suspend fun adminCreateAnnouncement(@Body b: AdminAnnounceReq): Env<Notice>
     @DELETE("v1/admin/announcements/{id}") suspend fun adminDeleteAnnouncement(@Path("id") id: Long): Env<Ok>

@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -85,6 +86,11 @@ private fun AdminStatsTab() {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 StatCard("Genre", s.genres.toString(), Modifier.weight(1f))
                 StatCard("Views 7h", s.views_7d.toString(), Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                StatCard("Diblokir", s.banned.toString(), Modifier.weight(1f))
+                StatCard("Dibisukan", s.muted.toString(), Modifier.weight(1f))
             }
             Spacer(Modifier.height(16.dp))
             TextButton({ load() }) { Icon(Icons.Filled.Refresh, null, tint = Accent); Spacer(Modifier.width(6.dp)); Text("Refresh", color = Accent) }
@@ -275,62 +281,194 @@ private fun Field(label: String, value: String, single: Boolean = true, onChange
     )
 }
 
+private val UserFilters = listOf("" to "Semua", "banned" to "Diblokir", "muted" to "Dibisukan", "verified" to "Verified", "avatar" to "Berfoto")
+private val RedText = Color(0xFFFF6B6B)
+private val AmberText = Color(0xFFFFB86B)
+
+/** Dialog konfirmasi aksi berbahaya. */
+@Composable
+private fun AdminConfirm(title: String, text: String, confirm: String, onOk: () -> Unit, onCancel: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onCancel, containerColor = CardBg, shape = R6,
+        title = { Text(title, color = Color.White, fontWeight = FontWeight.Bold) },
+        text = { Text(text, color = Muted) },
+        confirmButton = { TextButton(onOk) { Text(confirm, color = RedText, fontWeight = FontWeight.Bold) } },
+        dismissButton = { TextButton(onCancel) { Text("Batal", color = Muted) } }
+    )
+}
+
+/** Dialog alasan (+ pilihan lama bisu bila [durations] diisi). onSubmit(alasan, hari?) — hari null = permanen. */
+@Composable
+private fun AdminReasonDialog(title: String, confirm: String, durations: List<Pair<String, Int?>>?, onSubmit: (String, Int?) -> Unit, onCancel: () -> Unit) {
+    var reason by remember { mutableStateOf("") }
+    var pick by remember { mutableIntStateOf(0) }
+    AlertDialog(
+        onDismissRequest = onCancel, containerColor = CardBg, shape = R6,
+        title = { Text(title, color = Color.White, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (durations != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    durations.forEachIndexed { i, d ->
+                        AdminChip(d.first, pick == i, Modifier.weight(1f)) { pick = i }
+                    }
+                }
+                Field("Alasan (opsional)", reason) { if (it.length <= 200) reason = it }
+            }
+        },
+        confirmButton = { TextButton({ onSubmit(reason.trim(), durations?.getOrNull(pick)?.second) }) { Text(confirm, color = RedText, fontWeight = FontWeight.Bold) } },
+        dismissButton = { TextButton(onCancel) { Text("Batal", color = Muted) } }
+    )
+}
+
+@Composable
+private fun AdminChip(label: String, on: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Text(
+        label, color = if (on) Color.Black else Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        modifier = modifier.clip(R6).then(if (on) Modifier.background(Accent) else Modifier.border(1.dp, CardLine, R6))
+            .clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 7.dp)
+    )
+}
+
+@Composable
+private fun ActionRow(label: String, color: Color = Color.White, onClick: () -> Unit) {
+    Text(label, color = color, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.fillMaxWidth().clip(R6).clickable(onClick = onClick).padding(vertical = 10.dp, horizontal = 4.dp))
+}
+
+private sealed interface UserDialog {
+    data class Ban(val u: AdminUser) : UserDialog
+    data class Mute(val u: AdminUser) : UserDialog
+    data class Photo(val u: AdminUser) : UserDialog
+    data class Comments(val u: AdminUser) : UserDialog
+    data class Delete(val u: AdminUser) : UserDialog
+}
+
 @Composable
 private fun AdminUsersTab() {
     var q by remember { mutableStateOf("") }
+    var filter by remember { mutableStateOf("") }
     var page by remember { mutableIntStateOf(1) }
     var data by remember { mutableStateOf<AdminUsersPage?>(null) }
+    var items by remember { mutableStateOf<List<AdminUser>>(emptyList()) }
     var err by remember { mutableStateOf<String?>(null) }
+    var info by remember { mutableStateOf<String?>(null) }
+    var infoBad by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var openId by remember { mutableStateOf<Long?>(null) }
+    var dialog by remember { mutableStateOf<UserDialog?>(null) }
     val scope = rememberCoroutineScope()
     fun load(p: Int = 1) {
         loading = true; err = null; page = p
         scope.launch {
-            runCatching { Net.api.adminUsers(q = q.ifBlank { null }, page = p).data }
-                .onSuccess { data = it; loading = false }
+            runCatching { Net.api.adminUsers(q = q.ifBlank { null }, filter = filter.ifBlank { null }, page = p).data }
+                .onSuccess { data = it; items = it.items; loading = false }
                 .onFailure { err = it.friendly(); loading = false }
         }
     }
-    LaunchedEffect(Unit) { load() }
+    /** Jalankan satu aksi moderasi; hasilnya (user terbaru) menggantikan barisnya tanpa memuat ulang daftar. */
+    fun act(done: String, call: suspend () -> AdminUser) {
+        if (busy) return
+        busy = true; info = null
+        scope.launch {
+            runCatching { call() }
+                .onSuccess { n -> items = items.map { if (it.id == n.id) n else it }; info = done; infoBad = false }
+                .onFailure { info = it.friendly(); infoBad = true }
+            busy = false
+        }
+    }
+    LaunchedEffect(filter) { load() }
+
+    dialog?.let { d ->
+        val close = { dialog = null }
+        when (d) {
+            is UserDialog.Ban -> AdminReasonDialog("Blokir @${d.u.username}?", "Blokir", null, { r, _ ->
+                close(); act("@${d.u.username} diblokir") { Net.api.adminModerateUser(d.u.id, AdminUserPatch(banned = true, banReason = r.ifBlank { null })).data }
+            }, close)
+            is UserDialog.Mute -> AdminReasonDialog("Bisukan @${d.u.username}?", "Bisukan",
+                listOf("1 hari" to 1, "7 hari" to 7, "30 hari" to 30, "Permanen" to null), { r, days ->
+                close(); act("@${d.u.username} dibisukan") { Net.api.adminModerateUser(d.u.id, AdminUserPatch(muted = true, muteDays = days, muteReason = r.ifBlank { null })).data }
+            }, close)
+            is UserDialog.Photo -> AdminConfirm("Hapus foto profil?", "Foto @${d.u.username} dihapus dan kembali ke inisial.", "Hapus", {
+                close(); act("Foto @${d.u.username} dihapus") { Net.api.adminClearUserAvatar(d.u.id).data }
+            }, close)
+            is UserDialog.Comments -> AdminConfirm("Hapus semua komentar?", "Semua komentar dan balasan @${d.u.username} (${d.u.commentCount}) dihapus permanen.", "Hapus semua", {
+                close(); act("Komentar @${d.u.username} dihapus") { Net.api.adminDeleteUserComments(d.u.id); d.u.copy(commentCount = 0) }
+            }, close)
+            is UserDialog.Delete -> AdminConfirm("Hapus akun?", "Akun @${d.u.username} beserta komentar, XP, dan datanya dihapus permanen. Tidak bisa dibatalkan.", "Hapus akun", {
+                close()
+                busy = true
+                scope.launch {
+                    runCatching { Net.api.adminDeleteUser(d.u.id) }
+                        .onSuccess { items = items.filter { it.id != d.u.id }; info = "Akun @${d.u.username} dihapus"; infoBad = false; openId = null }
+                        .onFailure { info = it.friendly(); infoBad = true }
+                    busy = false
+                }
+            }, close)
+        }
+    }
+
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 q, { q = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Cari user…", color = Muted) },
+                placeholder = { Text("Cari nama / username / email…", color = Muted) },
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Accent, unfocusedBorderColor = CardLine, focusedTextColor = Color.White, unfocusedTextColor = Color.White)
             )
             IconButton({ load(1) }) { Icon(Icons.Filled.Search, null, tint = Accent) }
         }
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            UserFilters.forEach { (key, label) -> AdminChip(label, filter == key) { filter = key } }
+        }
+        info?.let { Text(it, color = if (infoBad) RedText else Color(0xFF6BCB77), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
         if (loading) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Accent) }
-        else if (err != null) Text(err!!, color = Color(0xFFFF6B6B), modifier = Modifier.padding(16.dp))
+        else if (err != null) Text(err!!, color = RedText, modifier = Modifier.padding(16.dp))
         else {
             Text("Total: ${data?.total ?: 0}", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp))
             LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-                items(data?.items.orEmpty(), key = { it.id }) { u ->
-                    var verified by remember(u.id) { mutableStateOf(u.verified) }
-                    Row(
-                        Modifier.fillMaxWidth().padding(vertical = 6.dp).clip(R6).border(1.dp, CardLine, R6).background(CardBg).padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(u.displayName.ifBlank { u.username }, color = Color.White, fontWeight = FontWeight.Bold)
-                            Text("@${u.username} · XP ${u.xp} · ${u.commentCount} komentar", color = Muted, fontSize = 12.sp)
-                            if (u.email != null) Text(u.email, color = Muted, fontSize = 11.sp)
-                        }
-                        Switch(
-                            verified,
-                            { checked ->
-                                verified = checked
-                                scope.launch {
-                                    runCatching { Net.api.adminSetVerified(u.id, AdminVerifiedReq(checked)).data }
-                                        .onFailure { verified = !checked }
+                items(items, key = { it.id }) { u ->
+                    val open = openId == u.id
+                    val mutedNow = u.mutedUntil > System.currentTimeMillis()
+                    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp).clip(R6).border(1.dp, if (u.banned) RedText.copy(alpha = 0.6f) else CardLine, R6).background(CardBg)) {
+                        Row(Modifier.fillMaxWidth().clickable { openId = if (open) null else u.id }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Avatar(u.id, u.username, u.avatarV, 44.dp)
+                            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (u.isOwner) OwnerText(u.displayName.ifBlank { u.username }, Modifier.weight(1f, fill = false), fontSize = 15.sp)
+                                    else Text(u.displayName.ifBlank { u.username }, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                    StatusBadges(u.verified, u.isOwner, size = 14.dp)
                                 }
-                            },
-                            colors = SwitchDefaults.colors(checkedTrackColor = Accent)
-                        )
-                        Text(if (verified) "✓" else "", color = Accent, modifier = Modifier.padding(start = 4.dp))
+                                Text("@${u.username} · XP ${u.xp} · ${u.commentCount} komentar", color = Muted, fontSize = 12.sp)
+                                if (u.email != null) Text(u.email, color = Muted, fontSize = 11.sp)
+                                if (u.banned) Text("DIBLOKIR" + if (u.banReason.isNotBlank()) ": ${u.banReason}" else "", color = RedText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                if (mutedNow) Text("DIBISUKAN ${muteUntilText(u.mutedUntil)}" + if (u.muteReason.isNotBlank()) " · ${u.muteReason}" else "", color = AmberText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        if (open) {
+                            HorizontalDivider(color = Line)
+                            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
+                                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Centang verified", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                    Switch(u.verified, { v -> act(if (v) "Verified diberikan" else "Verified dicabut") { Net.api.adminModerateUser(u.id, AdminUserPatch(verified = v)).data } },
+                                        enabled = !busy && !u.isOwner, colors = SwitchDefaults.colors(checkedTrackColor = Accent))
+                                }
+                                if (u.hasAvatar) ActionRow("Hapus foto profil") { dialog = UserDialog.Photo(u) }
+                                if (u.displayName.isNotBlank()) ActionRow("Reset nama tampilan") { act("Nama @${u.username} direset") { Net.api.adminModerateUser(u.id, AdminUserPatch(clearName = true)).data } }
+                                if (u.bio.isNotBlank()) ActionRow("Hapus bio") { act("Bio @${u.username} dihapus") { Net.api.adminModerateUser(u.id, AdminUserPatch(clearBio = true)).data } }
+                                if (!u.isOwner) {
+                                    if (mutedNow) ActionRow("Buka bisu", AmberText) { act("@${u.username} boleh berkomentar lagi") { Net.api.adminModerateUser(u.id, AdminUserPatch(muted = false)).data } }
+                                    else ActionRow("Bisukan (tidak bisa komentar)", AmberText) { dialog = UserDialog.Mute(u) }
+                                    if (u.banned) ActionRow("Buka blokir", Color(0xFF6BCB77)) { act("Blokir @${u.username} dibuka") { Net.api.adminModerateUser(u.id, AdminUserPatch(banned = false)).data } }
+                                    else ActionRow("Blokir akun", RedText) { dialog = UserDialog.Ban(u) }
+                                    if (u.commentCount > 0) ActionRow("Hapus semua komentar", RedText) { dialog = UserDialog.Comments(u) }
+                                    ActionRow("Hapus akun permanen", RedText) { dialog = UserDialog.Delete(u) }
+                                }
+                                Text("Bergabung: ${u.createdAt?.take(10) ?: "-"} · ID ${u.id}", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(vertical = 6.dp))
+                            }
+                        }
                     }
                 }
                 item {

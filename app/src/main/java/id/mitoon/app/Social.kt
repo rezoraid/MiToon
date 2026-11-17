@@ -65,9 +65,7 @@ import java.io.ByteArrayOutputStream
     val likes: Int = 0, val dislikes: Int = 0,
     /** suara kita: 1 = like, -1 = dislike, 0 = belum */
     val myVote: Int = 0,
-    val replyCount: Int = 0,
-    /** komentar owner yang disematkan di atas ("top komentar"); diisi server di halaman pertama */
-    val pinned: Boolean = false
+    val replyCount: Int = 0
 )
 @Serializable data class CommentPage(val total: Int = 0, val items: List<Comment> = emptyList(), val hasMore: Boolean = false)
 @Serializable data class CommentReq(val target: String, val body: String, val parentId: Long? = null)
@@ -139,8 +137,6 @@ class CommentFeed(val target: String) {
     var moreError by mutableStateOf(false); private set
     var posting by mutableStateOf(false); private set
     var sendError by mutableStateOf<String?>(null)
-    /** id komentar owner yang baru dikirim: memicu efek spesial sekali di baris itu */
-    var freshId by mutableLongStateOf(0L); private set
     var threads by mutableStateOf<Map<Long, ReplyThread>>(emptyMap()); private set
     var replyingTo by mutableStateOf<Comment?>(null); private set
     private var fetchedAt = 0L
@@ -164,9 +160,8 @@ class CommentFeed(val target: String) {
                 }
                 val p = Net.api.comments(target, limit = PAGE).data
                 // Halaman lama yang sudah dimuat user (scroll ke bawah) dipertahankan supaya daftar tidak melompat.
-                val lastNormal = p.items.lastOrNull { !it.pinned }?.id
-                val tail = if (p.hasMore && lastNormal != null) rows.filter { it.id < lastNormal && !it.pinned } else emptyList()
-                val merged = (p.items + tail).distinctBy { it.id }
+                val tail = if (p.hasMore) rows.filter { it.id < p.items.last().id } else emptyList()
+                val merged = p.items + tail
                 if (merged != rows) rows = merged
                 if (total != p.total) total = p.total
                 hasMore = if (tail.isNotEmpty()) hasMore else p.hasMore
@@ -182,7 +177,7 @@ class CommentFeed(val target: String) {
         loadingMore = true; moreError = false
         MainScope().launch {
             try {
-                val p = Net.api.comments(target, limit = PAGE, before = rows.lastOrNull { !it.pinned }?.id).data
+                val p = Net.api.comments(target, limit = PAGE, before = rows.lastOrNull()?.id).data
                 val seen = rows.mapTo(HashSet()) { it.id }
                 val fresh = p.items.filter { it.id !in seen }
                 rows = rows + fresh
@@ -207,10 +202,7 @@ class CommentFeed(val target: String) {
                 res.me?.let { Auth.update(it) } // XP/level terbaru
                 origin?.let { CommentHistory.remember(target, it) }
                 val root = c.parentId
-                if (root == null) {
-                    if (c.user.isOwner) { rows = pinOwner(c, rows); freshId = c.id }
-                    else { val top = rows.takeWhile { it.pinned }; rows = top + c + rows.drop(top.size) } // di bawah komentar owner yang disematkan
-                }
+                if (root == null) rows = listOf(c) + rows
                 else {
                     rows = rows.map { if (it.id == root) it.copy(replyCount = it.replyCount + 1) else it }
                     val t = threads[root] ?: ReplyThread()
@@ -295,27 +287,6 @@ class CommentFeed(val target: String) {
 }
 
 private const val PAGE = 20
-/** Sama dengan MAX_PINNED di server: komentar owner terbaru yang disematkan di puncak daftar. */
-private const val MAX_PINNED = 3
-
-/** Sematkan komentar owner baru di paling atas; yang melewati batas turun ke urutan waktu biasa. */
-private fun pinOwner(c: Comment, rows: List<Comment>): List<Comment> {
-    val owners = (listOf(c) + rows.filter { it.pinned }).sortedByDescending { it.id }
-    val top = owners.take(MAX_PINNED).map { it.copy(pinned = true) }
-    val demoted = owners.drop(MAX_PINNED).map { it.copy(pinned = false) }
-    val rest = (demoted + rows.filter { !it.pinned }).sortedByDescending { it.id }
-    return top + rest
-}
-
-/** Daftar feed yang pernah dibuka/di-prefetch (maks 24 target, yang paling lama tak dipakai dibuang). */
-object Comments {
-    private val map = object : LinkedHashMap<String, CommentFeed>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CommentFeed>?) = size > 24
-    }
-    fun of(target: String): CommentFeed = map.getOrPut(target) { CommentFeed(target) }
-    /** Isi diam-diam di belakang layar (1 request kecil), dipanggil beberapa saat setelah halaman tampil. */
-    fun prefetch(target: String) = of(target).refresh()
-}
 
 
 @Composable
@@ -323,14 +294,11 @@ private fun CommentRow(c: Comment, mine: Boolean, feed: CommentFeed, isReply: Bo
     val whenText = remember(c.createdAt) { ago(c.createdAt) }
     val openUser = LocalOpenUser.current
     val openAuthor: () -> Unit = { if (c.user.id > 0) openUser(c.user.id) }
-    val owner = c.user.isOwner
-    Row(Modifier.fillMaxWidth().padding(top = 10.dp).then(if (owner) Modifier.ownerCard(feed.freshId == c.id) else Modifier), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Avatar(c.user.id, c.user.name, c.user.avatarV, if (isReply) 30.dp else 38.dp, Modifier.clickable(onClick = openAuthor))
         Column(Modifier.weight(1f)) {
-            if (c.pinned) OwnerText("TOP KOMENTAR · OWNER", Modifier.padding(bottom = 3.dp), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (owner) OwnerText(c.user.name, Modifier.weight(1f, fill = false).clickable(onClick = openAuthor), fontSize = 13.sp)
-                else Text(c.user.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false).clickable(onClick = openAuthor))
+                Text(c.user.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false).clickable(onClick = openAuthor))
                 StatusBadges(c.user.verified, c.user.isOwner, size = 14.dp)
                 RoleBadge(roleFor(c.user.level), 16.dp, Modifier.padding(start = 6.dp))
                 LevelChip(c.user.level, Modifier.padding(start = 4.dp), size = 9)

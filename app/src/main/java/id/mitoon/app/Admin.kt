@@ -437,8 +437,7 @@ private fun AdminUsersTab() {
                             Avatar(u.id, u.username, u.avatarV, 44.dp)
                             Column(Modifier.weight(1f).padding(start = 12.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (u.isOwner) OwnerText(u.displayName.ifBlank { u.username }, Modifier.weight(1f, fill = false), fontSize = 15.sp)
-                                    else Text(u.displayName.ifBlank { u.username }, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                    Text(u.displayName.ifBlank { u.username }, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                                     StatusBadges(u.verified, u.isOwner, size = 14.dp)
                                 }
                                 Text("@${u.username} · XP ${u.xp} · ${u.commentCount} komentar", color = Muted, fontSize = 12.sp)

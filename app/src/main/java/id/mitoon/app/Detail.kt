@@ -157,12 +157,16 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
     LaunchedEffect(id) { delay(700); feed.refresh() }
     LaunchedEffect(d) { d?.let { feed.origin = CommentOrigin(id, it.title, it.cover, it.provider) } }
     LaunchedEffect(tab) { if (tab == 1) feed.refresh() }
+    // Datang dari notifikasi komentar: buka tab Komentar, cari komentarnya, gulir dan sorot.
+    val listState = rememberLazyListState()
+    LaunchedEffect(id) { CommentFocus.take("s:$id")?.let { (cid, pid) -> tab = 1; feed.locate(cid, pid) } }
+    ScrollToFocusedComment(feed, listState, tab == 1)
     var synopsisOpen by rememberSaveable(id) { mutableStateOf(false) }
     var synopsisLong by remember(id) { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
         Header(onSearch, onBack)
-        LazyColumn(Modifier.imePadding(), contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 24.dp)) {
+        LazyColumn(Modifier.imePadding(), listState, contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 24.dp)) {
             // Kepala: cover kecil (2:3) di kiri, judul + info ringkas di kanan -> muat di layar HP tanpa scroll panjang.
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -281,7 +285,7 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     var playing by remember { mutableStateOf(false) }
     var showList by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
-    var showComments by remember { mutableStateOf(false) }
+    var showComments by remember { mutableStateOf(CommentFocus.pending("c:$chapterId")) } // dari notifikasi komentar: sheet langsung terbuka
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
@@ -299,16 +303,23 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     LaunchedEffect(c) { if (c != null) Library.advance(seriesId, chapterId, c.number) }
     // XP baca: dihitung setelah chapter benar-benar dibuka beberapa detik (bukan sekadar lewat).
     LaunchedEffect(chapterId, c != null) { if (c != null) { delay(8000); Xp.event("read", chapterId) } }
-    // Selagi membaca: ambil chapter berikutnya, dan unduh 5 gambar di depan posisi baca.
+    // Selagi membaca: ambil chapter berikutnya + sebelumnya, unduh gambar di depan posisi baca.
     LaunchedEffect(c?.next) { c?.next?.let { Net.prefetchChapter(it) } }
+    LaunchedEffect(c?.prev) { c?.prev?.let { Net.prefetchChapter(it) } }
     // Komentar chapter disiapkan diam-diam setelah gambar mulai tampil -> sheet Komentar terbuka langsung berisi.
-    LaunchedEffect(chapterId, c != null) { if (c != null) { delay(1500); Comments.prefetch("c:$chapterId") } }
+    LaunchedEffect(chapterId, c != null) { if (c != null) { delay(1200); Comments.prefetch("c:$chapterId") } }
     val preloaded = remember(chapterId) { mutableIntStateOf(0) }
     val firstVisible = listState.firstVisibleItemIndex
+    // Segera unduh 10 gambar pertama begitu chapter siap (bukan tunggu scroll).
+    LaunchedEffect(c) {
+        val cc = c ?: return@LaunchedEffect
+        val to = minOf(10, cc.images.size)
+        if (to > 0) { Net.preloadImages(cc.images.subList(0, to), cc.imageHeaders); preloaded.intValue = to }
+    }
     LaunchedEffect(c, firstVisible) {
         val cc = c ?: return@LaunchedEffect
         val from = maxOf(preloaded.intValue, firstVisible + 2)
-        val to = minOf(firstVisible + 7, cc.images.size)
+        val to = minOf(firstVisible + 10, cc.images.size)
         if (from < to) { Net.preloadImages(cc.images.subList(from, to), cc.imageHeaders); preloaded.intValue = to }
     }
 

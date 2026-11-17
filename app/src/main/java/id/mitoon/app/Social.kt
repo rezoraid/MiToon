@@ -15,6 +15,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -139,6 +145,9 @@ class CommentFeed(val target: String) {
     var sendError by mutableStateOf<String?>(null)
     var threads by mutableStateOf<Map<Long, ReplyThread>>(emptyMap()); private set
     var replyingTo by mutableStateOf<Comment?>(null); private set
+    /** Komentar yang sedang disorot (datang dari notifikasi) dan kunci item-nya di daftar; hilang sendiri beberapa detik kemudian. */
+    var focusId by mutableLongStateOf(0L); private set
+    var focusKey by mutableStateOf<String?>(null); private set
     private var fetchedAt = 0L
     private var busy = false
     private var diskRead = false
@@ -184,6 +193,58 @@ class CommentFeed(val target: String) {
                 total = p.total
                 hasMore = p.hasMore && fresh.isNotEmpty() // tidak ada lanjutan -> hentikan pemuat
             } catch (e: CancellationException) { throw e } catch (_: Exception) { moreError = true } finally { loadingMore = false }
+        }
+    }
+
+    /**
+     * Cari satu komentar tertentu: muat halaman sampai komentar teratasnya ketemu, buka balasannya bila yang dicari adalah balasan
+     * (`parentId` = id komentar teratas), lalu sorot. Gagal/komentar sudah dihapus -> diam saja, daftar tetap normal.
+     */
+    fun locate(id: Long, parentId: Long?) {
+        if (id <= 0) return
+        val root = parentId ?: id
+        MainScope().launch {
+            try {
+                if (rows.isEmpty()) {
+                    refresh(force = true)
+                    var w = 0
+                    while (busy && w++ < 200) delay(50)
+                }
+                loadingMore = true // cegah pemuat otomatis di dasar daftar ikut berjalan
+                try {
+                    var guard = 0
+                    while (rows.none { it.id == root } && guard++ < 25) {
+                        val last = rows.lastOrNull() ?: break
+                        if (!hasMore || last.id < root) break
+                        val p = Net.api.comments(target, limit = PAGE, before = last.id).data
+                        val seen = rows.mapTo(HashSet()) { it.id }
+                        val fresh = p.items.filter { it.id !in seen }
+                        rows = rows + fresh; total = p.total
+                        hasMore = p.hasMore && fresh.isNotEmpty()
+                    }
+                } finally { loadingMore = false }
+                if (rows.none { it.id == root }) return@launch
+                if (parentId != null) {
+                    setThread(root) { it.copy(expanded = true) }
+                    var guard = 0
+                    while (guard++ < 25) {
+                        val t = threads[root] ?: ReplyThread()
+                        if (t.items.any { it.id == id }) break
+                        if (t.loaded && !t.hasMore) break
+                        val p = Net.api.replies(root, after = t.cursor.takeIf { it > 0 }).data
+                        setThread(root) { cur ->
+                            cur.copy(items = (cur.items + p.items).distinctBy { it.id }.sortedBy { it.id }, loaded = true, hasMore = p.hasMore,
+                                loading = false, cursor = p.items.lastOrNull()?.id ?: cur.cursor)
+                        }
+                        if (p.items.isEmpty()) break
+                    }
+                    if (threads[root]?.items?.any { it.id == id } != true) return@launch
+                }
+                focusId = id
+                focusKey = if (parentId != null) "r$id" else "c$id"
+                delay(3500)
+                if (focusId == id) { focusId = 0; focusKey = null }
+            } catch (e: CancellationException) { throw e } catch (_: Exception) { }
         }
     }
 
@@ -288,6 +349,21 @@ class CommentFeed(val target: String) {
 
 private const val PAGE = 20
 
+/** Titipan dari layar Notifikasi: komentar mana yang harus dicari dan disorot setelah seri/chapter-nya terbuka. Dipakai sekali. */
+object CommentFocus {
+    private var target = ""
+    private var id = 0L
+    private var parentId: Long? = null
+    fun set(t: String, commentId: Long, parent: Long?) { target = t; id = commentId; parentId = parent }
+    fun pending(t: String) = id > 0 && target == t
+    fun take(t: String): Pair<Long, Long?>? {
+        if (!pending(t)) return null
+        val r = id to parentId
+        target = ""; id = 0L; parentId = null
+        return r
+    }
+}
+
 /** Registri feed komentar per target ("s:<id seri>" / "c:<id chapter>"); feed disimpan di memori (LRU) supaya bisa di-prefetch. */
 object Comments {
     private const val MAX = 24
@@ -308,7 +384,8 @@ private fun CommentRow(c: Comment, mine: Boolean, feed: CommentFeed, isReply: Bo
     val whenText = remember(c.createdAt) { ago(c.createdAt) }
     val openUser = LocalOpenUser.current
     val openAuthor: () -> Unit = { if (c.user.id > 0) openUser(c.user.id) }
-    Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    val bg by animateColorAsState(if (feed.focusId == c.id) Color(0x24FFFFFF) else Color.Transparent, tween(400), label = "focus")
+    Row(Modifier.fillMaxWidth().background(bg, R6).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Avatar(c.user.id, c.user.name, c.user.avatarV, if (isReply) 30.dp else 38.dp, Modifier.clickable(onClick = openAuthor))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -456,6 +533,39 @@ fun LazyListScope.commentItems(feed: CommentFeed) {
     }
 }
 
+/** Kunci item yang dikeluarkan `commentItems`, berurutan. Harus selalu selaras dengan fungsi itu (dipakai untuk mencari posisi scroll). */
+fun commentKeys(feed: CommentFeed): List<String> {
+    val rows = feed.rows
+    if (rows.isEmpty()) return listOf(if (feed.error != null) "c-err" else if (feed.loading) "c-load" else "c-empty")
+    val out = ArrayList<String>()
+    rows.forEach { c ->
+        out += "c${c.id}"
+        val t = feed.threads[c.id]
+        if (c.replyCount > 0 || (t != null && t.items.isNotEmpty())) out += "t${c.id}"
+        if (t != null && t.expanded) {
+            t.items.forEach { out += "r${it.id}" }
+            if (t.loading || t.error || t.hasMore) out += "m${c.id}"
+        }
+    }
+    if (feed.hasMore) out += "c-more"
+    return out
+}
+
+/** Gulir ke komentar yang disorot. `commentItems` selalu item terakhir di daftar, jadi posisi awalnya = jumlah item − jumlah kunci komentar. */
+@Composable
+fun ScrollToFocusedComment(feed: CommentFeed, state: LazyListState, active: Boolean = true) {
+    val key = feed.focusKey
+    LaunchedEffect(key, active) {
+        if (key == null || !active) return@LaunchedEffect
+        withFrameNanos { }; withFrameNanos { } // beri waktu daftar tersusun ulang dengan item yang baru dimuat
+        val keys = commentKeys(feed)
+        val i = keys.indexOf(key)
+        if (i < 0) return@LaunchedEffect
+        val total = snapshotFlow { state.layoutInfo.totalItemsCount }.first { it >= keys.size }
+        state.animateScrollToItem((total - keys.size + i).coerceAtLeast(0))
+    }
+}
+
 /** Sheet komentar (dipakai pembaca chapter): daftar langsung dari feed yang sudah di-prefetch, kolom tulis menempel di bawah. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -463,6 +573,9 @@ fun CommentsSheet(target: String, title: String, origin: CommentOrigin? = null, 
     val feed = remember(target) { Comments.of(target) }
     LaunchedEffect(feed, origin) { if (origin != null) feed.origin = origin }
     LaunchedEffect(target) { feed.refresh() }
+    val listState = rememberLazyListState()
+    LaunchedEffect(target) { CommentFocus.take(target)?.let { (cid, pid) -> feed.locate(cid, pid) } }
+    ScrollToFocusedComment(feed, listState)
 
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp), containerColor = CardBg) {
@@ -472,7 +585,7 @@ fun CommentsSheet(target: String, title: String, origin: CommentOrigin? = null, 
                 if (title.isNotBlank()) Text(title, color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             HorizontalDivider(color = Line)
-            LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(horizontal = 16.dp)) { commentItems(feed) }
+            LazyColumn(Modifier.weight(1f).fillMaxWidth(), listState, contentPadding = PaddingValues(horizontal = 16.dp)) { commentItems(feed) }
             HorizontalDivider(color = Line)
             CommentComposer(feed, Modifier.padding(12.dp))
         }

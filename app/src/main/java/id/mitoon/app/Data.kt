@@ -215,11 +215,43 @@ object Net {
         list.filter { it.cover.isNotBlank() }.groupBy { it.provider }.forEach { (p, items) -> preloadImages(items.take(30).map { it.cover }, hdr[p].orEmpty()) }
     }
 
-    /** Ambil chapter + 4 gambar pertamanya lebih dulu (dipanggil untuk chapter berikutnya / chapter yang kemungkinan dibuka). */
+    /** Ambil chapter + 8 gambar pertamanya lebih dulu (dipanggil untuk chapter berikutnya / chapter yang kemungkinan dibuka). */
     fun prefetchChapter(id: String) {
-        if (chapterCache.containsKey(id)) return
+        if (chapterCache.containsKey(id)) {
+            chapterCache[id]?.let { preloadImages(it.images.take(8), it.imageHeaders) }
+            return
+        }
         MainScope().launch {
-            runCatching { api.chapter(id).data }.onSuccess { storeChapter(id, it); preloadImages(it.images.take(4), it.imageHeaders) }
+            runCatching { api.chapter(id).data }.onSuccess { storeChapter(id, it); preloadImages(it.images.take(8), it.imageHeaders) }
+        }
+    }
+
+    /**
+     * Hangatkan snapshot Home/Explore di background begitu app buka.
+     * Setelah sekali jalan, buka Home berikutnya tampil dari disk tanpa spinner (meski belum pernah scroll).
+     */
+    fun warmHomeSnaps() {
+        val ser = ListSerializer(Series.serializer())
+        MainScope().launch {
+            runCatching { api.latest(1).data }.onSuccess {
+                writeSnap("home-sorotan", ser, it)
+                preloadCovers(it)
+                it.take(8).forEach { s -> prefetchDetail(s.id) }
+            }
+        }
+        MainScope().launch {
+            runCatching { api.popular(1).data }.onSuccess {
+                writeSnap("home-populer", ser, it)
+                writeSnap("home-spotlight", ser, it.take(6))
+                preloadCovers(it)
+                it.take(6).forEach { s -> prefetchDetail(s.id) }
+            }
+        }
+        MainScope().launch { runCatching { genres() } }
+        MainScope().launch {
+            runCatching { api.announcements().data }.onSuccess {
+                writeSnap("home-notices", ListSerializer(Notice.serializer()), it)
+            }
         }
     }
 
@@ -262,14 +294,15 @@ object Net {
         chapterDir = File(ctx.cacheDir, "chapters").also { it.mkdirs() }
         commentDir = File(ctx.cacheDir, "comments").also { it.mkdirs() }
         appCtx = ctx.applicationContext
-        // Backend mengirim ETag + Cache-Control: cache HTTP 20 MB mencegah request berulang.
+        // Backend mengirim ETag + Cache-Control: cache HTTP lebih besar mencegah request berulang.
         // Dispatcher default hanya 5 request paralel per host -> gambar antre. Dinaikkan supaya cover/halaman chapter lebih cepat.
-        val dispatcher = Dispatcher().apply { maxRequests = 64; maxRequestsPerHost = 16 }
+        val dispatcher = Dispatcher().apply { maxRequests = 96; maxRequestsPerHost = 24 }
         val apiHost = BuildConfig.API_BASE_URL.toHttpUrl().host
         client = OkHttpClient.Builder()
-            .cache(Cache(File(ctx.cacheDir, "http"), 20L * 1024 * 1024)).dispatcher(dispatcher)
-            .connectionPool(ConnectionPool(10, 5, TimeUnit.MINUTES)) // koneksi TLS dipakai ulang -> request berikutnya tanpa handshake
-            .connectTimeout(8, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS).retryOnConnectionFailure(true)
+            .cache(Cache(File(ctx.cacheDir, "http"), 40L * 1024 * 1024)).dispatcher(dispatcher)
+            .connectionPool(ConnectionPool(16, 5, TimeUnit.MINUTES)) // koneksi TLS dipakai ulang -> request berikutnya tanpa handshake
+            .connectTimeout(5, TimeUnit.SECONDS).readTimeout(15, TimeUnit.SECONDS).writeTimeout(15, TimeUnit.SECONDS)
+            .callTimeout(25, TimeUnit.SECONDS).retryOnConnectionFailure(true)
             .addInterceptor { chain -> // GET yang gagal sesaat (sinyal goyang) diulang sekali, langsung
                 val req = chain.request()
                 try { chain.proceed(req) } catch (e: java.io.IOException) { if (req.method == "GET") chain.proceed(req) else throw e }
@@ -293,18 +326,21 @@ class MiToonApp : Application(), ImageLoaderFactory {
         Library.init(this)
         Auth.init(this)
         CommentHistory.init(this)
-        // "Lanjutkan" instan: chapter terakhir dibaca + detail 3 seri terakhir disiapkan sejak aplikasi dibuka.
+        // "Lanjutkan" instan: chapter terakhir dibaca + detail 5 seri terakhir disiapkan sejak aplikasi dibuka.
         val recent = Library.entries.values.filter { it.readAt > 0 }.sortedByDescending { it.readAt }
         recent.firstOrNull()?.lastChapterId?.let { Net.prefetchChapter(it) }
-        recent.take(3).forEach { Net.prefetchDetail(it.id) }
+        recent.take(2).getOrNull(1)?.lastChapterId?.let { Net.prefetchChapter(it) }
+        recent.take(5).forEach { Net.prefetchDetail(it.id) }
+        // Snapshot Home/Explore + header provider di background -> buka tab pertama tanpa menunggu.
+        Net.warmHomeSnaps()
         MainScope().launch { runCatching { Net.hdr = Net.api.providers().data.associate { it.key to it.imageHeaders } } }
         MainScope().launch { Auth.validate() }
     }
 
     override fun newImageLoader() = ImageLoader.Builder(this)
         .okHttpClient(Net.client.newBuilder().cache(null).build())
-        .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.25).build() }
+        .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.30).build() }
         .respectCacheHeaders(false) // gambar yang sudah ada di disk dipakai langsung, tanpa cek ulang ke server
-        .diskCache { DiskCache.Builder().directory(cacheDir.resolve("img")).maxSizeBytes(150L * 1024 * 1024).build() }
+        .diskCache { DiskCache.Builder().directory(cacheDir.resolve("img")).maxSizeBytes(200L * 1024 * 1024).build() }
         .allowRgb565(true).crossfade(false).build()
 }

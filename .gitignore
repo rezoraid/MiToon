@@ -1,7 +1,0 @@
-.gradle/
-build/
-*.jks
-!app/mitoon.jks
-local.properties
-.idea/
-*.iml

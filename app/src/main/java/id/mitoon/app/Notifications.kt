@@ -1,7 +1,6 @@
 package id.mitoon.app
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -28,17 +26,21 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
 @Serializable data class NotifActor(val id: Long = 0, val username: String = "", val displayName: String = "", val avatarV: Int = 0) {
     val name: String get() = displayName.ifBlank { username }
 }
-/** kind: "reply" (membalas komentarmu) atau "like" (menyukai komentarmu). */
+/**
+ * kind: "reply" (membalas komentarmu) atau "like" (menyukai komentarmu).
+ * commentId = komentar yang dimaksud (balasan baru / komentarmu yang di-like); parentId = id komentar teratas bila commentId itu sebuah balasan.
+ * Dua field ini diisi server; kalau kosong (0), ketukan hanya membuka seri/chapter-nya.
+ */
 @Serializable data class NotifItem(
     val id: String = "", val kind: String = "reply", val at: Long = 0, val unread: Boolean = false,
-    val target: String = "", val text: String = "", val actor: NotifActor = NotifActor()
+    val target: String = "", val text: String = "", val actor: NotifActor = NotifActor(),
+    val commentId: Long = 0, val parentId: Long? = null
 )
 @Serializable data class NotifPage(val seenAt: Long = 0, val items: List<NotifItem> = emptyList())
 @Serializable data class NotifCount(val count: Int = 0)
@@ -50,7 +52,6 @@ object NotifState {
 }
 
 private val Red = Color(0xFFE5484D)
-private val Card16 = RoundedCornerShape(12.dp)
 
 @Composable
 fun RedPill(count: Int, modifier: Modifier = Modifier) {
@@ -60,80 +61,45 @@ fun RedPill(count: Int, modifier: Modifier = Modifier) {
     }
 }
 
-/** Tab bawah "Notifikasi": dua bagian — Notifikasi (balasan & like komentarmu) dan Informasi (pengumuman dari admin untuk semua akun). */
+/** Tab bawah "Notifikasi": balasan & like di komentarmu. Pengumuman admin tampil di Home, bukan di sini. */
 @Composable
 fun NotificationsScreen(onOpen: (CommentOrigin) -> Unit) {
     val openUser = LocalOpenUser.current
     val scope = rememberCoroutineScope()
-    var tab by rememberSaveable { mutableIntStateOf(0) }
     var page by remember { mutableStateOf<NotifPage?>(null) }
-    var info by remember { mutableStateOf<List<Notice>?>(null) }
     var err by remember { mutableStateOf<String?>(null) }
-    var infoErr by remember { mutableStateOf<String?>(null) }
     var reload by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(reload) {
-        err = null; infoErr = null
-        coroutineScope {
-            launch {
-                try { info = Net.api.announcements(30).data }
-                catch (e: CancellationException) { throw e } catch (e: Exception) { if (info == null) infoErr = e.friendly() }
-            }
-            launch {
-                try {
-                    page = Net.api.notifications().data
-                    runCatching { Net.api.notifRead() }.onSuccess { NotifState.unread = 0 } // dibaca = pil merah hilang; tanda "baru" di daftar ini tetap
-                } catch (e: CancellationException) { throw e } catch (e: Exception) { if (page == null) err = e.friendly() }
-            }
-        }
+        err = null
+        try {
+            page = Net.api.notifications().data
+            runCatching { Net.api.notifRead() }.onSuccess { NotifState.unread = 0 } // dibaca = pil merah hilang; tanda "baru" di daftar ini tetap
+        } catch (e: CancellationException) { throw e } catch (e: Exception) { if (page == null) err = e.friendly() }
     }
-
-    val seen = page?.seenAt
-    val notifNew = page?.items?.count { it.unread } ?: 0
-    val infoNew = if (seen == null) 0 else info?.count { it.createdAt > seen } ?: 0
 
     Column(Modifier.fillMaxSize().background(Bg)) {
         Text("Notifikasi", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp))
-        Row(Modifier.fillMaxWidth()) {
-            TabLabel("Notifikasi", notifNew, tab == 0, Modifier.weight(1f)) { tab = 0 }
-            TabLabel("Informasi", infoNew, tab == 1, Modifier.weight(1f)) { tab = 1 }
-        }
         HorizontalDivider(color = Line)
-        if (tab == 0) {
-            val rows = page?.items
-            when {
-                rows == null && err != null -> Retry(err!!) { reload++ }
-                rows == null -> Loading()
-                rows.isEmpty() -> Empty("Belum ada notifikasi.\nBalasan dan like di komentarmu akan muncul di sini.")
-                else -> LazyColumn(Modifier.fillMaxSize()) {
-                    items(rows, key = { it.id }) { n ->
-                        NotifRow(n, onAvatar = { openUser(n.actor.id) }) { scope.launch { runCatching { CommentHistory.resolve(n.target) }.getOrNull()?.let(onOpen) } }
-                        HorizontalDivider(color = Line)
+        val rows = page?.items
+        when {
+            rows == null && err != null -> Retry(err!!) { reload++ }
+            rows == null -> Loading()
+            rows.isEmpty() -> Empty("Belum ada notifikasi.\nBalasan dan like di komentarmu akan muncul di sini.")
+            else -> LazyColumn(Modifier.fillMaxSize()) {
+                items(rows, key = { it.id }) { n ->
+                    NotifRow(n, onAvatar = { openUser(n.actor.id) }) {
+                        scope.launch {
+                            val o = runCatching { CommentHistory.resolve(n.target) }.getOrNull() ?: return@launch
+                            // Titip komentar yang dituju; seri/chapter yang terbuka akan menggulir ke sana dan menyorotnya.
+                            if (n.commentId > 0) CommentFocus.set(n.target, n.commentId, n.parentId)
+                            onOpen(o)
+                        }
                     }
-                }
-            }
-        } else {
-            val list = info
-            when {
-                list == null && infoErr != null -> Retry(infoErr!!) { reload++ }
-                list == null -> Loading()
-                list.isEmpty() -> Empty("Belum ada informasi dari admin.")
-                else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(list, key = { it.id }) { n -> InfoCard(n, unread = seen != null && n.createdAt > seen) }
+                    HorizontalDivider(color = Line)
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun TabLabel(label: String, count: Int, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Column(modifier.clickable(onClick = onClick).padding(top = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, color = if (selected) Color.White else Muted, fontSize = 15.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
-            RedPill(count, Modifier.padding(start = 6.dp))
-        }
-        Box(Modifier.padding(top = 10.dp).fillMaxWidth(0.6f).height(2.dp).background(if (selected) Color.White else Color.Transparent))
     }
 }
 
@@ -153,22 +119,6 @@ private fun NotifRow(n: NotifItem, onAvatar: () -> Unit, onClick: () -> Unit) {
             Text(agoText(n.at), color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
         }
         if (n.unread) Box(Modifier.padding(top = 6.dp).size(9.dp).clip(CircleShape).background(Red))
-    }
-}
-
-@Composable
-private fun InfoCard(n: Notice, unread: Boolean) {
-    val uri = LocalUriHandler.current
-    Column(Modifier.fillMaxWidth().clip(Card16).border(1.dp, if (unread) Red.copy(alpha = 0.6f) else CardLine, Card16).background(CardBg).padding(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("DARI ADMIN", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            if (n.createdAt > 0) Text(agoText(n.createdAt), color = Muted, fontSize = 11.sp)
-            if (unread) Box(Modifier.padding(start = 8.dp).size(9.dp).clip(CircleShape).background(Red))
-        }
-        Text(n.title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
-        if (n.body.isNotBlank()) Text(n.body, color = Color(0xFFD7D9DE), fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 6.dp))
-        if (!n.url.isNullOrBlank()) Text("Buka tautan", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 12.dp).clip(R6).border(1.dp, Color.White, R6).clickable { runCatching { uri.openUri(n.url) } }.padding(horizontal = 14.dp, vertical = 7.dp))
     }
 }
 

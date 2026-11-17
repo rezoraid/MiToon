@@ -58,6 +58,7 @@ private fun AppContent() {
 @Composable
 private fun AppScaffold() {
     val nav = rememberNavController()
+    LvClock.Run()
     val tabs = listOf(Tab("home", "Home", Icons.Default.Home), Tab("explore", "Explore", Icons.Default.Search), Tab("library", "Library", Icons.Default.Favorite))
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
     // Ikon akun di header membuka halaman profil.

@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -49,10 +50,10 @@ class Role(val title: String, val minLevel: Int, val glyph: RoleGlyph, val color
 
 /** Urut naik menurut level. Ambang sama dengan tema bingkai level di [LevelChip]. */
 val Roles: List<Role> = listOf(
-    Role("Pemula", 1, RoleGlyph.Sprout, listOf(Color(0xFFD5D9DF), Color(0xFF9AA0A8)), "Awal perjalananmu di MiToon."),
-    Role("Pembaca", 5, RoleGlyph.Book, listOf(Color(0xFFB5F0CB), Color(0xFF5CC08A)), "Mulai rajin membuka chapter."),
-    Role("Ksatria", 10, RoleGlyph.Shield, listOf(Color(0xFFF0C08E), Color(0xFFC07A3C)), "Penjaga rak komik favoritmu."),
-    Role("Juara", 20, RoleGlyph.Trophy, listOf(Color(0xFFEAF0F8), Color(0xFF9FB1CC)), "Konsisten naik peringkat."),
+    Role("Pemula", 1, RoleGlyph.Sprout, listOf(Color(0xFF8EE3A0), Color(0xFF2FA865)), "Awal perjalananmu di MiToon."),
+    Role("Pembaca", 5, RoleGlyph.Book, listOf(Color(0xFF7FE0F5), Color(0xFF1E9BC4)), "Mulai rajin membuka chapter."),
+    Role("Ksatria", 10, RoleGlyph.Shield, listOf(Color(0xFFF0B27A), Color(0xFFB5651D)), "Penjaga rak komik favoritmu."),
+    Role("Juara", 20, RoleGlyph.Trophy, listOf(Color(0xFFA9B4FF), Color(0xFF5B63E6)), "Konsisten naik peringkat."),
     Role("Legenda", 35, RoleGlyph.Star, listOf(Color(0xFFFFD98A), Color(0xFFFF9F43)), "Namamu mulai dikenal pembaca lain."),
     Role("Mitos", 50, RoleGlyph.Flame, listOf(Color(0xFFFFA48A), Color(0xFFFF4D6A)), "Semangat membacamu menyala."),
     Role("Maha", 100, RoleGlyph.Crown, listOf(Color(0xFFFFF1C2), Color(0xFFE8C972), Color(0xFFB8903A)), "Tingkat emas. Bingkai level berwarna emas."),
@@ -169,7 +170,7 @@ private fun DrawScope.glyph(g: RoleGlyph, b: Brush, ink: Color) {
 }
 
 /**
- * Lencana peran: medali bulat dengan bingkai gradasi + ikon peran di tengah.
+ * Lencana peran: medali bulat berwarna penuh (gradasi warna peran), bingkai lebih gelap, ikon putih di tengah.
  * [locked] = peran belum terbuka (abu-abu, tanpa warna).
  */
 @Composable
@@ -177,20 +178,22 @@ fun RoleBadge(role: Role, size: Dp = 28.dp, modifier: Modifier = Modifier, locke
     Canvas(modifier.size(size)) {
         val s = this.size.minDimension
         val c = Offset(s / 2f, s / 2f)
-        val ring: Brush = when {
-            locked -> SolidColor(Color(0xFF34363D))
+        val rim = lerp(role.colors.last(), Color.Black, 0.3f)
+        val medal: Brush = when {
+            locked -> SolidColor(Color(0xFF2C2E35))
             role.sweep -> Brush.sweepGradient(role.colors + role.colors.first(), c)
             else -> Brush.linearGradient(role.colors, Offset(0f, 0f), Offset(s, s))
         }
-        drawCircle(ring, s / 2f)
-        drawCircle(Brush.verticalGradient(listOf(Color(0xFF262830), Ink)), s / 2f - s * 0.065f)
+        drawCircle(if (locked) Color(0xFF3A3C44) else if (role.sweep) Color(0xFF3A2F5C) else rim, s / 2f)
+        drawCircle(medal, s / 2f - s * 0.06f)
+        if (!locked) drawCircle( // kilau lembut di bagian atas supaya terlihat seperti medali
+            Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.28f), Color.Transparent), 0f, s * 0.6f),
+            s / 2f - s * 0.06f
+        )
         val g = s * 0.56f; val o = (s - g) / 2f
-        val fill: Brush = when {
-            locked -> SolidColor(LockedInk)
-            role.sweep -> Brush.sweepGradient(role.colors + role.colors.first(), Offset(0.5f, 0.5f))
-            else -> Brush.linearGradient(role.colors, Offset(0f, 0f), Offset(1f, 1f))
-        }
-        withTransform({ translate(o, o); scale(g, g, Offset.Zero) }) { glyph(role.glyph, fill, if (locked) Ink else Color(0xFF17181C)) }
+        val glyphFill: Brush = SolidColor(if (locked) Color(0xFF4A4C53) else if (role.sweep) Color(0xFF1A1A24) else Color.White)
+        val ink = if (locked) Color(0xFF2C2E35) else if (role.sweep) Color.White else lerp(role.colors.last(), Color.Black, 0.25f)
+        withTransform({ translate(o, o); scale(g, g, Offset.Zero) }) { glyph(role.glyph, glyphFill, ink) }
     }
 }
 

@@ -13,7 +13,17 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
+import kotlinx.coroutines.flow.collectLatest
+import kotlin.math.PI
+import kotlin.math.cos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -85,9 +95,31 @@ private fun lvTheme(level: Int): LvTheme? = when {
 }
 
 /**
+ * Jam animasi tunggal untuk semua LevelChip. Sebelumnya tiap chip punya 3 transisi tak-hingga sendiri, sehingga di daftar
+ * komentar puluhan animasi jalan bersamaan dan terasa "kedut"/patah-patah. Sekarang hanya satu pengait frame, aktif
+ * hanya selama ada chip bertema di layar, dan semua nilai dihitung dari waktu (tanpa lonjakan saat siklus berulang).
+ */
+object LvClock {
+    var ms by mutableLongStateOf(0L); private set
+    var users by mutableIntStateOf(0)
+
+    @Composable
+    fun Run() {
+        LaunchedEffect(Unit) {
+            snapshotFlow { users > 0 }.collectLatest { on ->
+                if (on) while (true) withFrameNanos { ms = it / 1_000_000 }
+            }
+        }
+    }
+}
+
+/** Posisi 0..1 dalam satu siklus berdurasi [period] ms. */
+private fun cycle(ms: Long, period: Int): Float = (ms % period).toFloat() / period
+
+/**
  * Lencana kecil "Lv. 12". Level 100/500/1000/3000/5000 punya tema sendiri (emas, zamrud, safir, ametis, prisma):
- * bingkai gradasi + kilau tipis; makin tinggi makin hidup (bingkai berputar pelan, cahaya berdenyut). Semua digambar
- * di fase draw, jadi tidak memicu recompose.
+ * bingkai gradasi + kilau tipis; makin tinggi makin hidup (bingkai berputar pelan, cahaya berdenyut halus). Semua digambar
+ * di fase draw dari [LvClock], jadi tidak memicu recompose maupun relayout.
  */
 @Composable
 fun LevelChip(level: Int, modifier: Modifier = Modifier, size: Int = 10) {
@@ -97,15 +129,13 @@ fun LevelChip(level: Int, modifier: Modifier = Modifier, size: Int = 10) {
             modifier = modifier.clip(R6).border(1.dp, Color(0xFF4A4C53), R6).padding(horizontal = 5.dp, vertical = 1.dp))
         return
     }
-    val inf = rememberInfiniteTransition(label = "lv")
-    val spin by inf.animateFloat(0f, 360f, infiniteRepeatable(tween(if (t.spinMs > 0) t.spinMs else 1000, easing = LinearEasing)), label = "spin")
-    val sheen by inf.animateFloat(0f, 1f, infiniteRepeatable(tween(4800, easing = LinearEasing)), label = "sheen")
-    val pulse by inf.animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "pulse")
+    DisposableEffect(Unit) { LvClock.users++; onDispose { LvClock.users-- } }
     Text("Lv. $level", color = t.text, fontSize = size.sp, fontWeight = FontWeight.Bold, maxLines = 1,
         modifier = modifier
             .drawBehind {
-                if (t.pulse) { // cahaya tipis di sekeliling kotak
-                    val a = 0.04f + 0.07f * pulse
+                if (t.pulse) { // cahaya tipis di sekeliling kotak; gelombang sinus supaya naik-turun mulus
+                    val p = cycle(LvClock.ms, 3600)
+                    val a = 0.05f + 0.05f * (0.5f - 0.5f * cos(2f * PI.toFloat() * p))
                     val g1 = 4.dp.toPx(); val g2 = 2.dp.toPx()
                     drawRoundRect(t.glow.copy(alpha = a), Offset(-g1, -g1), Size(this.size.width + 2 * g1, this.size.height + 2 * g1), CornerRadius(7.dp.toPx()))
                     drawRoundRect(t.glow.copy(alpha = a * 1.3f), Offset(-g2, -g2), Size(this.size.width + 2 * g2, this.size.height + 2 * g2), CornerRadius(5.dp.toPx()))
@@ -117,15 +147,19 @@ fun LevelChip(level: Int, modifier: Modifier = Modifier, size: Int = 10) {
                 val c = Offset(w / 2f, h / 2f)
                 val b = 1.dp.toPx()
                 val d = maxOf(w, h)
+                val ms = LvClock.ms
                 // bingkai: sapuan warna (diputar bila tema bergerak), lalu isi gelap di atasnya menyisakan garis tepi
-                rotate(if (t.spinMs > 0) spin else 0f, c) {
+                rotate(if (t.spinMs > 0) cycle(ms, t.spinMs) * 360f else 0f, c) {
                     drawRect(Brush.sweepGradient(t.border + t.border.first(), c), Offset(c.x - d, c.y - d), Size(d * 2, d * 2))
                 }
                 drawRoundRect(Brush.verticalGradient(listOf(t.fillTop, t.fillBottom)), Offset(b, b), Size(w - 2 * b, h - 2 * b), CornerRadius(2.dp.toPx()))
-                if (t.shimmer && sheen < 0.3f) { // kilau lewat sesekali, bukan terus-menerus
+                val sheen = cycle(ms, 5000)
+                if (t.shimmer && sheen < 0.3f) { // kilau lewat sesekali; memudar di kedua ujung agar tidak muncul/hilang tiba-tiba
+                    val k = sheen / 0.3f
+                    val fade = minOf(1f, k * 6f, (1f - k) * 6f)
                     val band = h * 2.4f
-                    val x = -band + (sheen / 0.3f) * (w + band * 2)
-                    drawRect(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.2f), Color.Transparent), Offset(x, 0f), Offset(x + band, h)),
+                    val x = -band + k * (w + band * 2)
+                    drawRect(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.2f * fade), Color.Transparent), Offset(x, 0f), Offset(x + band, h)),
                         Offset(b, b), Size(w - 2 * b, h - 2 * b))
                 }
             }

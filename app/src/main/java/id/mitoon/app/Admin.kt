@@ -346,6 +346,7 @@ private sealed interface UserDialog {
 
 @Composable
 private fun AdminUsersTab() {
+    val openUser = LocalOpenUser.current
     var q by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf("") }
     var page by remember { mutableIntStateOf(1) }
@@ -459,6 +460,7 @@ private fun AdminUsersTab() {
                                     Switch(u.premium, { v -> act(if (v) "Premium diberikan" else "Premium dicabut") { Net.api.adminModerateUser(u.id, AdminUserPatch(premium = v)).data } },
                                         enabled = !busy, colors = SwitchDefaults.colors(checkedTrackColor = Accent))
                                 }
+                                ActionRow("Lihat profil") { openUser(u.id) }
                                 if (u.hasAvatar) ActionRow("Hapus foto profil") { dialog = UserDialog.Photo(u) }
                                 if (u.displayName.isNotBlank()) ActionRow("Reset nama tampilan") { act("Nama @${u.username} direset") { Net.api.adminModerateUser(u.id, AdminUserPatch(clearName = true)).data } }
                                 if (u.bio.isNotBlank()) ActionRow("Hapus bio") { act("Bio @${u.username} dihapus") { Net.api.adminModerateUser(u.id, AdminUserPatch(clearBio = true)).data } }
@@ -505,6 +507,7 @@ private fun AdminAnnounceTab() {
     LaunchedEffect(Unit) { load() }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Buat pengumuman", color = Color.White, fontWeight = FontWeight.Bold)
+        Text("Tampil di Home dan di tab Informasi (Notifikasi) semua akun; pil merah muncul untuk yang belum membacanya.", color = Muted, fontSize = 12.sp)
         Field("Judul", title) { title = it }
         Field("Isi", body, single = false) { body = it }
         Field("URL (opsional)", url) { url = it }

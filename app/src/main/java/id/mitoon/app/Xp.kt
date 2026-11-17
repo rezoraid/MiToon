@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -181,88 +182,33 @@ fun VerifiedBadge(modifier: Modifier = Modifier, size: Dp = 16.dp) {
     }
 }
 
-/** Mark Asal — identitas pendiri MiToon. Bukan centang/mahkota pasaran: monogram M di segel kristal prismatik. */
+/** Mahkota (bentuk sama untuk Owner dan Premium; beda warna). Digambar sendiri, tanpa paket ikon tambahan. */
+private fun DrawScope.crown(fill: Brush) {
+    val s = size.minDimension
+    val body = Path().apply {
+        moveTo(s * 0.10f, s * 0.74f); lineTo(s * 0.06f, s * 0.30f); lineTo(s * 0.32f, s * 0.50f); lineTo(s * 0.50f, s * 0.18f)
+        lineTo(s * 0.68f, s * 0.50f); lineTo(s * 0.94f, s * 0.30f); lineTo(s * 0.90f, s * 0.74f); close()
+    }
+    drawPath(body, fill)
+    drawRoundRect(fill, Offset(s * 0.10f, s * 0.79f), Size(s * 0.80f, s * 0.12f), CornerRadius(s * 0.03f))
+    for (p in listOf(Offset(s * 0.06f, s * 0.27f), Offset(s * 0.50f, s * 0.15f), Offset(s * 0.94f, s * 0.27f))) drawCircle(fill, s * 0.06f, p)
+}
+
+/** Mahkota Owner MiToon: gradasi prisma ungu-biru-pink supaya beda dari mahkota emas Premium. */
 @Composable
 fun OwnerBadge(modifier: Modifier = Modifier, size: Dp = 16.dp) {
     Canvas(modifier.size(size)) {
         val s = this.size.minDimension
-        val c = Offset(s / 2f, s / 2f)
-        // cincin luar tipis
-        drawCircle(
-            Brush.sweepGradient(
-                listOf(Color(0xFFB8A0FF), Color(0xFF6EE7FF), Color(0xFFFF8AD8), Color(0xFFB8A0FF)),
-                c
-            ),
-            radius = s * 0.48f,
-            center = c,
-            style = Stroke(width = s * 0.06f)
-        )
-        // inti segel heksagonal (bukan kotak berputar ala verified)
-        val hex = Path().apply {
-            val r = s * 0.34f
-            for (i in 0..5) {
-                val a = ((-90.0 + i * 60.0) * PI / 180.0)
-                val x = c.x + r * cos(a).toFloat()
-                val y = c.y + r * sin(a).toFloat()
-                if (i == 0) moveTo(x, y) else lineTo(x, y)
-            }
-            close()
-        }
-        drawPath(
-            hex,
-            Brush.linearGradient(
-                listOf(Color(0xFF2A1F4A), Color(0xFF1A2A3A), Color(0xFF3A1A35)),
-                Offset(c.x - s * 0.3f, c.y - s * 0.3f),
-                Offset(c.x + s * 0.3f, c.y + s * 0.3f)
-            )
-        )
-        drawPath(
-            hex,
-            Brush.linearGradient(
-                listOf(Color(0xFFC4B0FF), Color(0xFF7EEBFF), Color(0xFFFFA0D8)),
-                Offset(0f, 0f),
-                Offset(s, s)
-            ),
-            style = Stroke(width = s * 0.045f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-        )
-        // monogram M — dua kaki + puncak tengah, stroke tebal khas
-        val m = Path().apply {
-            val left = s * 0.30f
-            val right = s * 0.70f
-            val top = s * 0.32f
-            val bot = s * 0.68f
-            val midY = s * 0.52f
-            moveTo(left, bot)
-            lineTo(left, top)
-            lineTo(s * 0.50f, midY)
-            lineTo(right, top)
-            lineTo(right, bot)
-        }
-        drawPath(
-            m,
-            Brush.linearGradient(
-                listOf(Color(0xFFE8DEFF), Color(0xFFB8F4FF), Color(0xFFFFD0EC)),
-                Offset(s * 0.3f, s * 0.3f),
-                Offset(s * 0.7f, s * 0.7f)
-            ),
-            style = Stroke(width = s * 0.09f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-        )
+        crown(Brush.linearGradient(listOf(Color(0xFFC4B0FF), Color(0xFF7EEBFF), Color(0xFFFFA0D8)), Offset(0f, 0f), Offset(s, s)))
     }
 }
 
-/** Mahkota emas Premium Member, digambar sendiri (tanpa paket ikon tambahan). */
+/** Mahkota emas Premium Member. */
 @Composable
 fun PremiumBadge(modifier: Modifier = Modifier, size: Dp = 16.dp) {
     Canvas(modifier.size(size)) {
         val s = this.size.minDimension
-        val gold = Brush.linearGradient(listOf(Color(0xFFFFE08A), Color(0xFFFFB02E)), Offset(0f, 0f), Offset(s, s))
-        val body = Path().apply {
-            moveTo(s * 0.10f, s * 0.74f); lineTo(s * 0.06f, s * 0.30f); lineTo(s * 0.32f, s * 0.50f); lineTo(s * 0.50f, s * 0.18f)
-            lineTo(s * 0.68f, s * 0.50f); lineTo(s * 0.94f, s * 0.30f); lineTo(s * 0.90f, s * 0.74f); close()
-        }
-        drawPath(body, gold)
-        drawRoundRect(gold, Offset(s * 0.10f, s * 0.79f), Size(s * 0.80f, s * 0.12f), CornerRadius(s * 0.03f))
-        for (p in listOf(Offset(s * 0.06f, s * 0.27f), Offset(s * 0.50f, s * 0.15f), Offset(s * 0.94f, s * 0.27f))) drawCircle(gold, s * 0.06f, p)
+        crown(Brush.linearGradient(listOf(Color(0xFFFFE08A), Color(0xFFFFB02E)), Offset(0f, 0f), Offset(s, s)))
     }
 }
 

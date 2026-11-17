@@ -34,6 +34,8 @@ import retrofit2.HttpException
     val isOwner: Boolean = false,
     /** Premium Member; ditetapkan owner dari panel admin */
     val premium: Boolean = false,
+    /** centang verified disembunyikan dari tampilan publik oleh pemiliknya */
+    val verifiedHidden: Boolean = false,
     /** dibisukan sampai (epoch ms); 0 = tidak. Selama dibisukan tidak bisa berkomentar (server menolak). */
     val mutedUntil: Long = 0, val muteReason: String = ""
 ) { val name: String get() = displayName.ifBlank { username } }
@@ -42,7 +44,7 @@ import retrofit2.HttpException
 @Serializable data class LoginReq(val identifier: String, val password: String)
 @Serializable data class RegisterReq(val username: String, val email: String, val password: String)
 @Serializable data class GoogleReq(val idToken: String)
-@Serializable data class ProfileReq(val displayName: String? = null, val username: String? = null, val bio: String? = null)
+@Serializable data class ProfileReq(val displayName: String? = null, val username: String? = null, val bio: String? = null, val verifiedHidden: Boolean? = null)
 
 /** Sesi login. Token disimpan hanya bila "Ingat saya" dicentang; kalau tidak, hilang saat aplikasi ditutup. */
 object Auth {
@@ -61,7 +63,7 @@ object Auth {
         user = if (token != null) AuthUser(
             id = prefs.getLong("i", 0), username = prefs.getString("u", "").orEmpty(), avatarV = prefs.getInt("v", 0),
             displayName = prefs.getString("n", "").orEmpty(), bio = prefs.getString("b", "").orEmpty(), xp = prefs.getInt("xp", 0),
-            level = prefs.getInt("lv", 1).coerceAtLeast(1), levelXp = prefs.getInt("lx", 0), levelNeed = prefs.getInt("ln", 40), verified = prefs.getBoolean("vf", false), isOwner = prefs.getBoolean("io", false), premium = prefs.getBoolean("pm", false)
+            level = prefs.getInt("lv", 1).coerceAtLeast(1), levelXp = prefs.getInt("lx", 0), levelNeed = prefs.getInt("ln", 40), verified = prefs.getBoolean("vf", false), isOwner = prefs.getBoolean("io", false), premium = prefs.getBoolean("pm", false), verifiedHidden = prefs.getBoolean("vh", false)
         ) else null
         usernameUnlockAt = if (token != null) prefs.getLong("x", 0) else 0L
     }
@@ -86,7 +88,7 @@ object Auth {
         if (prefs.contains("t")) prefs.edit().putString("u", u.username).putLong("i", u.id).putInt("v", u.avatarV).putString("n", u.displayName).putString("b", u.bio).putLong("x", usernameUnlockAt).also { it.putXp(u) }.apply()
     }
 
-    private fun SharedPreferences.Editor.putXp(u: AuthUser) { putInt("xp", u.xp); putInt("lv", u.level); putInt("lx", u.levelXp); putInt("ln", u.levelNeed); putBoolean("vf", u.verified); putBoolean("io", u.isOwner); putBoolean("pm", u.premium) }
+    private fun SharedPreferences.Editor.putXp(u: AuthUser) { putInt("xp", u.xp); putInt("lv", u.level); putInt("lx", u.levelXp); putInt("ln", u.levelNeed); putBoolean("vf", u.verified); putBoolean("io", u.isOwner); putBoolean("pm", u.premium); putBoolean("vh", u.verifiedHidden) }
 
     private fun unlockAt(u: AuthUser): Long = if (u.usernameCooldownSec > 0) System.currentTimeMillis() + u.usernameCooldownSec * 1000 else 0L
 

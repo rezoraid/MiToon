@@ -60,7 +60,7 @@ import java.security.MessageDigest
 )
 @Serializable data class ProviderInfo(val key: String, val imageHeaders: Map<String, String> = emptyMap())
 // Endpoint opsional (belum ada di backend): bagian UI otomatis disembunyikan bila kosong/gagal.
-@Serializable data class Notice(val id: Long = 0, val title: String = "", val body: String = "", val url: String? = null)
+@Serializable data class Notice(val id: Long = 0, val title: String = "", val body: String = "", val url: String? = null, val createdAt: Long = 0)
 
 @Serializable data class AdminStats(val series: Int = 0, val chapters: Int = 0, val users: Int = 0, val comments: Int = 0, val genres: Int = 0, val banned: Int = 0, val muted: Int = 0, val views_7d: Int = 0)
 @Serializable data class AdminSeriesPage(val total: Int = 0, val items: List<AdminSeries> = emptyList(), val page: Int = 1, val limit: Int = 30, val hasMore: Boolean = false)
@@ -110,7 +110,10 @@ interface Api {
     @GET("v1/series/{id}") suspend fun detail(@Path("id") id: String): Env<Detail>
     @GET("v1/chapters/{id}") suspend fun chapter(@Path("id") id: String): Env<Content>
     @GET("v1/providers") suspend fun providers(): Env<List<ProviderInfo>>
-    @GET("v1/announcements") suspend fun announcements(): Env<List<Notice>>
+    @GET("v1/announcements") suspend fun announcements(@Query("limit") limit: Int? = null): Env<List<Notice>>
+    @GET("v1/notifications") suspend fun notifications(): Env<NotifPage>
+    @GET("v1/notifications/unread") suspend fun notifUnread(): Env<NotifCount>
+    @POST("v1/notifications/read") suspend fun notifRead(): Env<Ok>
     @GET("v1/auth/config") suspend fun authConfig(): Env<AuthConfig>
     @POST("v1/auth/login") suspend fun login(@Body b: LoginReq): Env<AuthRes>
     @POST("v1/auth/register") suspend fun register(@Body b: RegisterReq): Env<AuthRes>

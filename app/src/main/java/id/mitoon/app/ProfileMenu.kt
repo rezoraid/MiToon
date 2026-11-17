@@ -49,7 +49,7 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
                     Column(Modifier.weight(1f).padding(start = 16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(user.name, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                            if (user.verified || user.isOwner) VerifiedBadge(Modifier.padding(start = 6.dp), 18.dp)
+                            if (user.verified && !user.verifiedHidden) VerifiedBadge(Modifier.padding(start = 6.dp), 18.dp)
                         }
                         Text("@${user.username}", color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         StatusLabels(user.isOwner, user.premium, Modifier.padding(top = 6.dp), iconSize = 18.dp, textSize = 13, center = false)

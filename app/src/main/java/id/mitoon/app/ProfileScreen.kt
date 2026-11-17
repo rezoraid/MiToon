@@ -144,7 +144,7 @@ fun ProfileEditScreen(onBack: () -> Unit) {
                 Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(user.name, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
                         modifier = Modifier.weight(1f, fill = false))
-                    if (user.verified || user.isOwner) VerifiedBadge(Modifier.padding(start = 6.dp), 22.dp)
+                    if (user.verified && !user.verifiedHidden) VerifiedBadge(Modifier.padding(start = 6.dp), 22.dp)
                 }
                 Text("@${user.username}", color = Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
                 StatusLabels(user.isOwner, user.premium, Modifier.padding(top = 10.dp), iconSize = 20.dp, textSize = 13)
@@ -165,6 +165,22 @@ fun ProfileEditScreen(onBack: () -> Unit) {
                     if (locked) "Bisa diganti lagi dalam ${cooldownText(leftMs)}" else "Bisa diganti sekali setiap 7 hari",
                     locked, onClick = { dialogErr = null; editUser = true })
                 HorizontalDivider(color = Line)
+                if (user.verified) {
+                    Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Tampilkan centang verified", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Matikan untuk menyembunyikan centang di profil dan komentarmu.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+                        }
+                        Switch(!user.verifiedHidden, { show ->
+                            busy = true; notice = null
+                            scope.launch {
+                                try { Auth.update(Net.api.updateProfile(ProfileReq(verifiedHidden = !show)).data); notice = true to (if (show) "Centang verified ditampilkan" else "Centang verified disembunyikan") }
+                                catch (e: CancellationException) { throw e } catch (e: Exception) { notice = false to e.friendly() } finally { busy = false }
+                            }
+                        }, enabled = !busy, colors = SwitchDefaults.colors(checkedTrackColor = Accent))
+                    }
+                    HorizontalDivider(color = Line)
+                }
             }
         }
     }

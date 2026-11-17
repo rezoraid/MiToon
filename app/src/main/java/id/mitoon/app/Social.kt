@@ -288,6 +288,20 @@ class CommentFeed(val target: String) {
 
 private const val PAGE = 20
 
+/** Registri feed komentar per target ("s:<id seri>" / "c:<id chapter>"); feed disimpan di memori (LRU) supaya bisa di-prefetch. */
+object Comments {
+    private const val MAX = 24
+    private val feeds = object : LinkedHashMap<String, CommentFeed>(32, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CommentFeed>?) = size > MAX
+    }
+
+    @Synchronized
+    fun of(target: String): CommentFeed = feeds.getOrPut(target) { CommentFeed(target) }
+
+    /** Isi diam-diam sebelum sheet/tab dibuka. */
+    fun prefetch(target: String) = of(target).refresh()
+}
+
 
 @Composable
 private fun CommentRow(c: Comment, mine: Boolean, feed: CommentFeed, isReply: Boolean = false) {

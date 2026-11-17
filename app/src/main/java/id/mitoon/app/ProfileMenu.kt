@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-private val CardLine = Color(0xFF3A3C44)
 
 /** Halaman akun: kartu profil + daftar menu (Pengaturan Profil, Riwayat Aktivitas, Pengaturan Akun) + Keluar. */
 @Composable

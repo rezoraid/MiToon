@@ -72,7 +72,6 @@ import java.io.ByteArrayOutputStream
 @Serializable data class CommentRes(val data: Comment, val me: AuthUser? = null)
 @Serializable data class VoteReq(val value: Int)
 @Serializable data class VoteRes(val likes: Int = 0, val dislikes: Int = 0, val myVote: Int = 0)
-@Serializable data class Ok(val ok: Boolean = true)
 
 // ---------------------------------------------------------------- potongan UI kecil
 /** Dipanggil saat nama/foto penulis komentar diketuk (id pengguna); diisi oleh navigasi aplikasi. */

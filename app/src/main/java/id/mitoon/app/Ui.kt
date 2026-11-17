@@ -42,6 +42,7 @@ import kotlinx.coroutines.delay
 val Bg = Color(0xFF17181C)
 val CardBg = Color(0xFF1E1F25)
 val Line = Color(0xFF2C2E36)
+val CardLine = Color(0xFF3A3C44)
 val Accent = Color.White          // aksen = putih (tema hitam-putih)
 val OnAccent = Color.Black        // teks/ikon di atas permukaan Accent
 val Star = Color.White

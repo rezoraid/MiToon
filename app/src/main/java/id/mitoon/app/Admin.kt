@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -27,7 +26,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
-private val R6 = RoundedCornerShape(12.dp)
 
 @Composable
 fun AdminScreen(onBack: () -> Unit) {
@@ -323,11 +321,11 @@ private fun AdminUsersTab() {
                         }
                         Switch(
                             verified,
-                            {
-                                verified = it
+                            { checked ->
+                                verified = checked
                                 scope.launch {
-                                    runCatching { Net.api.adminSetVerified(u.id, AdminVerifiedReq(it)).data }
-                                        .onFailure { verified = !it; /* revert on fail */ }
+                                    runCatching { Net.api.adminSetVerified(u.id, AdminVerifiedReq(checked)).data }
+                                        .onFailure { verified = !checked }
                                 }
                             },
                             colors = SwitchDefaults.colors(checkedTrackColor = Accent)

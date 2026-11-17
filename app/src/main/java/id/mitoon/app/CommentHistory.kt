@@ -125,6 +125,25 @@ private fun EmptyNote(text: String) = Box(Modifier.fillMaxSize().padding(32.dp),
     Text(text, color = Muted, fontSize = 14.sp, lineHeight = 20.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
 }
 
+/** Satu baris komentar + tempatnya (seri/chapter); judul & cover dicari lewat `CommentHistory.resolve`. Dipakai riwayat sendiri dan profil orang lain. */
+@Composable
+fun HistoryCommentRow(m: MyComment, onOpen: (CommentOrigin) -> Unit) {
+    val origin by produceState(CommentHistory.originOf(m.target), m.target) {
+        if (value == null) value = runCatching { CommentHistory.resolve(m.target) }.getOrNull()
+    }
+    val o = origin
+    Row(Modifier.fillMaxWidth().clickable(enabled = o != null) { o?.let(onOpen) }.padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (o != null) Img(o.cover, o.provider, Modifier.width(44.dp).height(60.dp).clip(R6))
+        else Box(Modifier.width(44.dp).height(60.dp).clip(R6).background(CardBg))
+        Column(Modifier.weight(1f)) {
+            Text(o?.title?.ifBlank { "Seri" } ?: "Memuat…", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val where = (if (m.target.startsWith("c:")) o?.chapterNumber?.let { "Chapter $it" } ?: "Chapter" else "Halaman seri") + (if (m.parentId != null) " · Balasan" else "")
+            Text("$where · ${agoText(m.createdAt)}", color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 1.dp))
+            Text(m.body, color = Color(0xFFD7D9DE), fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+        }
+    }
+}
+
 @Composable
 private fun CommentList(onOpen: (CommentOrigin) -> Unit) {
     var items by remember { mutableStateOf<List<MyComment>>(emptyList()) }
@@ -151,23 +170,7 @@ private fun CommentList(onOpen: (CommentOrigin) -> Unit) {
         }
         items.isEmpty() -> EmptyNote("Belum ada komentar.")
         else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp)) {
-            items(items, key = { it.id }) { m ->
-                val origin by produceState(CommentHistory.originOf(m.target), m.target) {
-                    if (value == null) value = runCatching { CommentHistory.resolve(m.target) }.getOrNull()
-                }
-                val o = origin
-                Row(Modifier.fillMaxWidth().clickable(enabled = o != null) { o?.let(onOpen) }.padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (o != null) Img(o.cover, o.provider, Modifier.width(44.dp).height(60.dp).clip(R6))
-                    else Box(Modifier.width(44.dp).height(60.dp).clip(R6).background(CardBg))
-                    Column(Modifier.weight(1f)) {
-                        Text(o?.title?.ifBlank { "Seri" } ?: "Memuat…", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        val where = (if (m.target.startsWith("c:")) o?.chapterNumber?.let { "Chapter $it" } ?: "Chapter" else "Halaman seri") + (if (m.parentId != null) " · Balasan" else "")
-                        Text("$where · ${agoText(m.createdAt)}", color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 1.dp))
-                        Text(m.body, color = Color(0xFFD7D9DE), fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
-                    }
-                }
-                HorizontalDivider(color = Line)
-            }
+            items(items, key = { it.id }) { m -> HistoryCommentRow(m, onOpen); HorizontalDivider(color = Line) }
             if (hasMore) item("more") {
                 LaunchedEffect(items.size) { load(items.lastOrNull()?.id) }
                 Box(Modifier.fillMaxWidth().padding(16.dp), Alignment.Center) { CircularProgressIndicator(Modifier.size(22.dp), Color.White, strokeWidth = 2.dp) }

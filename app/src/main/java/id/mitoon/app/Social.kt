@@ -75,6 +75,9 @@ import java.io.ByteArrayOutputStream
 @Serializable data class Ok(val ok: Boolean = true)
 
 // ---------------------------------------------------------------- potongan UI kecil
+/** Dipanggil saat nama/foto penulis komentar diketuk (id pengguna); diisi oleh navigasi aplikasi. */
+val LocalOpenUser = androidx.compose.runtime.staticCompositionLocalOf<(Long) -> Unit> { {} }
+
 /** Foto profil persegi; tanpa foto = huruf pertama username. */
 @Composable
 fun Avatar(userId: Long, username: String, version: Int, size: Dp, modifier: Modifier = Modifier, shape: androidx.compose.ui.graphics.Shape = R6) {
@@ -300,11 +303,13 @@ object Comments {
 @Composable
 private fun CommentRow(c: Comment, mine: Boolean, feed: CommentFeed, isReply: Boolean = false) {
     val whenText = remember(c.createdAt) { ago(c.createdAt) }
+    val openUser = LocalOpenUser.current
+    val openAuthor: () -> Unit = { if (c.user.id > 0) openUser(c.user.id) }
     Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Avatar(c.user.id, c.user.name, c.user.avatarV, if (isReply) 30.dp else 38.dp)
+        Avatar(c.user.id, c.user.name, c.user.avatarV, if (isReply) 30.dp else 38.dp, Modifier.clickable(onClick = openAuthor))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(c.user.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                Text(c.user.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false).clickable(onClick = openAuthor))
                 LevelChip(c.user.level, Modifier.padding(start = 6.dp), size = 9)
                 Text("  ·  $whenText", color = Muted, fontSize = 12.sp, maxLines = 1)
             }

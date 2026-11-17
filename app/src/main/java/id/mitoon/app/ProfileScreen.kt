@@ -57,7 +57,8 @@ fun ProfileEditScreen(onBack: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var busy by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }     // upload/hapus foto -> spinner di foto
+    var saving by remember { mutableStateOf(false) }   // simpan nama/username -> spinner di tombol dialog
     var notice by remember { mutableStateOf<Pair<Boolean, String>?>(null) }   // (berhasil?, teks)
     var photoMenu by remember { mutableStateOf(false) }
     var editName by remember { mutableStateOf(false) }
@@ -103,7 +104,7 @@ fun ProfileEditScreen(onBack: () -> Unit) {
 
     /** Simpan nama / username. Berhasil -> tutup dialog; gagal -> pesan tampil di dalam dialog. */
     fun save(req: ProfileReq, okMsg: String, onOk: () -> Unit) {
-        busy = true; dialogErr = null
+        saving = true; dialogErr = null
         scope.launch {
             try {
                 Auth.update(Net.api.updateProfile(req).data)
@@ -114,7 +115,7 @@ fun ProfileEditScreen(onBack: () -> Unit) {
                 dialogErr = e.friendly()
                 // 429 = cooldown masih jalan menurut server (mis. diganti dari perangkat lain): selaraskan waktu lokal.
                 if (e is HttpException && e.code() == 429) runCatching { Auth.update(Net.api.me().data) }
-            } finally { busy = false }
+            } finally { saving = false }
         }
     }
 
@@ -178,7 +179,7 @@ fun ProfileEditScreen(onBack: () -> Unit) {
     if (editName) {
         var v by remember { mutableStateOf(user.displayName.ifBlank { user.username }) }
         AlertDialog(
-            onDismissRequest = { if (!busy) editName = false }, containerColor = CardBg, shape = R6,
+            onDismissRequest = { if (!saving) editName = false }, containerColor = CardBg, shape = R6,
             title = { Text("Ubah nama", color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
                 Column {
@@ -188,11 +189,11 @@ fun ProfileEditScreen(onBack: () -> Unit) {
                 }
             },
             confirmButton = {
-                TextButton({ save(ProfileReq(displayName = v.trim()), "Nama diperbarui") { editName = false } }, enabled = !busy && v.trim() != user.name) {
-                    Text("Simpan", color = Color.White, fontWeight = FontWeight.Bold)
+                TextButton({ save(ProfileReq(displayName = v.trim()), "Nama diperbarui") { editName = false } }, enabled = !saving && v.trim() != user.name) {
+                    if (saving) BtnSpinner() else Text("Simpan", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
-            dismissButton = { TextButton({ editName = false }, enabled = !busy) { Text("Batal", color = Muted) } }
+            dismissButton = { TextButton({ editName = false }, enabled = !saving) { Text("Batal", color = Muted) } }
         )
     }
 
@@ -201,7 +202,7 @@ fun ProfileEditScreen(onBack: () -> Unit) {
         var v by remember { mutableStateOf(user.username) }
         val valid = UsernameChars.matches(v)
         AlertDialog(
-            onDismissRequest = { if (!busy) editUser = false }, containerColor = CardBg, shape = R6,
+            onDismissRequest = { if (!saving) editUser = false }, containerColor = CardBg, shape = R6,
             title = { Text("Ubah username", color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
                 Column {
@@ -219,16 +220,16 @@ fun ProfileEditScreen(onBack: () -> Unit) {
                 }
             },
             confirmButton = {
-                TextButton({ dialogErr = null; pendingUsername = v }, enabled = !busy && !locked && valid && v != user.username) {
-                    Text("Lanjut", color = Color.White, fontWeight = FontWeight.Bold)
+                TextButton({ dialogErr = null; pendingUsername = v }, enabled = !saving && !locked && valid && v != user.username) {
+                    if (saving) BtnSpinner() else Text("Lanjut", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
-            dismissButton = { TextButton({ editUser = false }, enabled = !busy) { Text("Batal", color = Muted) } }
+            dismissButton = { TextButton({ editUser = false }, enabled = !saving) { Text("Batal", color = Muted) } }
         )
     }
     pendingUsername?.let { newName ->
         AlertDialog(
-            onDismissRequest = { if (!busy) pendingUsername = null }, containerColor = CardBg, shape = R6,
+            onDismissRequest = { if (!saving) pendingUsername = null }, containerColor = CardBg, shape = R6,
             title = { Text("Ganti username?", color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
                 Text("Username berubah dari @${user.username} menjadi @$newName.\n\n@${user.username} bisa dipakai orang lain, dan kamu baru bisa mengganti username lagi setelah 7 hari.",
@@ -238,14 +239,18 @@ fun ProfileEditScreen(onBack: () -> Unit) {
                 TextButton({
                     pendingUsername = null // konfirmasi ditutup; gagal -> pesan tampil di dialog username, berhasil -> dialog username ikut tutup
                     save(ProfileReq(username = newName), "Username diganti menjadi @$newName") { editUser = false }
-                }, enabled = !busy) { Text("Ya, ganti", color = Color.White, fontWeight = FontWeight.Bold) }
+                }, enabled = !saving) { if (saving) BtnSpinner() else Text("Ya, ganti", color = Color.White, fontWeight = FontWeight.Bold) }
             },
-            dismissButton = { TextButton({ pendingUsername = null }, enabled = !busy) { Text("Batal", color = Muted) } }
+            dismissButton = { TextButton({ pendingUsername = null }, enabled = !saving) { Text("Batal", color = Muted) } }
         )
     }
 }
 
 /** Baris info rata kiri-kanan: label kecil di atas, nilai di bawah, ikon pensil di kanan (gembok bila terkunci). */
+/** Spinner kecil pengganti teks tombol saat menyimpan. */
+@Composable
+private fun BtnSpinner() = CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+
 @Composable
 private fun InfoRow(label: String, value: String, hint: String?, locked: Boolean, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {

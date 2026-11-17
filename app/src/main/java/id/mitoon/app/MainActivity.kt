@@ -62,6 +62,8 @@ private fun AppScaffold() {
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
     // Ikon akun di header membuka halaman profil.
     LaunchedEffect(Auth.menuOpen) { if (Auth.menuOpen) { Auth.menuOpen = false; nav.navigate("profile") { launchSingleTop = true } } }
+    val openUser: (Long) -> Unit = { id -> if (id == Auth.user?.id) nav.navigate("profile") { launchSingleTop = true } else nav.navigate("user/$id") { launchSingleTop = true } }
+    CompositionLocalProvider(LocalOpenUser provides openUser) {
     Scaffold(containerColor = Bg, bottomBar = {
         if (tabs.any { it.route == route }) NavigationBar(containerColor = CardBg) {
             tabs.forEach { t ->
@@ -95,6 +97,11 @@ private fun AppScaffold() {
                     { e -> e.lastChapterId?.let { nav.reader(e.id, it) } ?: nav.detail(e.id) })
             }
             composable("profile/account") { AccountSettingsScreen(nav::popBackStack) }
+            composable("user/{id}") { e ->
+                UserProfileScreen(e.arguments?.getString("id")?.toLongOrNull() ?: 0L, nav::popBackStack) { o ->
+                    if (o.chapterId != null) nav.reader(o.seriesId, o.chapterId) else nav.detail(o.seriesId)
+                }
+            }
             composable("series/{id}") { e ->
                 DetailScreen(e.arguments?.getString("id").orEmpty(), nav::popBackStack, { nav.navigate("search") },
                     { slug -> ExploreRequest.genre = slug; nav.navigate("explore") { popUpTo("home"); launchSingleTop = true; restoreState = true } }) { sid, cid -> nav.reader(sid, cid) }
@@ -108,4 +115,5 @@ private fun AppScaffold() {
             }
         }
     }
+    } // CompositionLocalProvider
 }

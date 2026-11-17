@@ -29,7 +29,3 @@ Butuh JDK 17 dan Android SDK (platform 34). Hasil: `app/build/outputs/apk/releas
 - Font: `app/src/main/res/font/urbanist_*.ttf` (instance statis 400–800 dari font variable Urbanist, lisensi SIL OFL).
 - Ikon: `res/mipmap-*` (adaptive + legacy), logo header: `res/drawable-nodpi/logo.png`, `playstore-icon.png` (512 px).
 - Warna dasar/aksen ada di `Ui.kt` (`Bg`, `CardBg`, `Accent`, `OnAccent`); tema saat ini hitam-putih (Accent = putih).
-
-## Fitur akun, XP, dan komentar
-
-Profil terhubung ke `PUT /v1/auth/me/profile` dan endpoint foto yang sudah tersedia. Username dibatasi cooldown 7 hari dan perubahan dikonfirmasi dari UI. XP dibaca dari `/v1/auth/me`, diberikan untuk chapter yang dibaca (15 XP unik/chapter), komentar (8 XP), dan balasan (4 XP). Like/Dislike menggunakan `/v1/comments/:id/reaction`; balasan menggunakan `parentId` pada `POST /v1/comments`. Daftar komentar disinkronkan otomatis setiap 5 detik selama layar komentar aktif.

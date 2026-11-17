@@ -40,6 +40,7 @@ object Library {
     fun toggleBookmark(id: String, title: String, cover: String, provider: String) {
         val e = entries[id] ?: LibEntry(id, title, cover, provider)
         put(e.copy(bookmarked = !e.bookmarked))
+        if (!e.bookmarked) Xp.event("bookmark", id) // baru ditambahkan ke pustaka (server: sekali per seri)
     }
 
     /** Dipanggil saat chapter dibuka dari halaman detail. */

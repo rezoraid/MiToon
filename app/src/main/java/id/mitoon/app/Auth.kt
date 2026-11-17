@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.credentials.CredentialManager
@@ -17,14 +18,21 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import retrofit2.HttpException
 
-@Serializable data class AuthUser(val id: Long = 0, val username: String = "", val avatarV: Int = 0, val displayName: String = "", val xp: Int = 0, val level: Int = 1, val xpToNextLevel: Int = 100, val usernameNextChangeAt: Long? = null)
+@Serializable data class AuthUser(
+    val id: Long = 0, val username: String = "", val avatarV: Int = 0,
+    /** Nama tampilan bebas; kosong = pakai username. */
+    val displayName: String = "",
+    /** Sisa detik sebelum username boleh diganti lagi (saat respons dibuat). 0 = boleh sekarang. */
+    val usernameCooldownSec: Long = 0,
+    /** XP total, level, XP terkumpul di level ini, dan XP yang dibutuhkan untuk naik level (dari server). */
+    val xp: Int = 0, val level: Int = 1, val levelXp: Int = 0, val levelNeed: Int = 40
+) { val name: String get() = displayName.ifBlank { username } }
 @Serializable data class AuthRes(val token: String, val user: AuthUser)
 @Serializable data class AuthConfig(val google: String? = null)
 @Serializable data class LoginReq(val identifier: String, val password: String)
 @Serializable data class RegisterReq(val username: String, val email: String, val password: String)
 @Serializable data class GoogleReq(val idToken: String)
 @Serializable data class ProfileReq(val displayName: String? = null, val username: String? = null)
-@Serializable data class ReadXpReq(val chapterId: String)
 
 /** Sesi login. Token disimpan hanya bila "Ingat saya" dicentang; kalau tidak, hilang saat aplikasi ditutup. */
 object Auth {
@@ -32,29 +40,48 @@ object Auth {
     var token by mutableStateOf<String?>(null); private set
     var user by mutableStateOf<AuthUser?>(null); private set
     var menuOpen by mutableStateOf(false)
+    /** Kapan (epoch ms, jam perangkat) username boleh diganti lagi; 0 = sekarang boleh. */
+    var usernameUnlockAt by mutableLongStateOf(0L); private set
+    /** Pemberitahuan XP terbaru ("+10 XP", naik level) untuk toast; dikosongkan setelah tampil. */
+    var xpFlash by mutableStateOf<XpFlash?>(null); private set
+    fun clearFlash() { xpFlash = null }
 
     fun init(ctx: Context) {
         prefs = ctx.getSharedPreferences("auth", Context.MODE_PRIVATE)
         token = prefs.getString("t", null)
-        user = if (token != null) AuthUser(prefs.getLong("i", 0), prefs.getString("u", "").orEmpty(), prefs.getInt("v", 0), prefs.getString("n", "").orEmpty()) else null
+        user = if (token != null) AuthUser(
+            id = prefs.getLong("i", 0), username = prefs.getString("u", "").orEmpty(), avatarV = prefs.getInt("v", 0),
+            displayName = prefs.getString("n", "").orEmpty(), xp = prefs.getInt("xp", 0),
+            level = prefs.getInt("lv", 1).coerceAtLeast(1), levelXp = prefs.getInt("lx", 0), levelNeed = prefs.getInt("ln", 40)
+        ) else null
+        usernameUnlockAt = if (token != null) prefs.getLong("x", 0) else 0L
     }
 
     fun save(r: AuthRes, remember: Boolean) {
         token = r.token
         user = r.user
+        usernameUnlockAt = unlockAt(r.user)
         prefs.edit().clear().apply {
-            if (remember) { putString("t", r.token); putString("u", r.user.username); putLong("i", r.user.id); putInt("v", r.user.avatarV); putString("n", r.user.displayName) }
+            if (remember) { putString("t", r.token); putString("u", r.user.username); putLong("i", r.user.id); putInt("v", r.user.avatarV); putString("n", r.user.displayName); putLong("x", usernameUnlockAt); putXp(r.user) }
         }.apply()
+        Xp.event("daily")
     }
 
     /** Data akun terbaru (mis. setelah ganti foto) tanpa mengubah token. */
-    fun update(u: AuthUser) {
+    fun update(u: AuthUser, announce: Boolean = true) {
+        val old = user
+        if (announce && old != null && old.id == u.id && u.xp > old.xp) xpFlash = XpFlash(u.xp - old.xp, u.level, u.level > old.level, System.nanoTime())
         user = u
-        if (prefs.contains("t")) prefs.edit().putString("u", u.username).putLong("i", u.id).putInt("v", u.avatarV).putString("n", u.displayName).apply()
+        usernameUnlockAt = unlockAt(u)
+        if (prefs.contains("t")) prefs.edit().putString("u", u.username).putLong("i", u.id).putInt("v", u.avatarV).putString("n", u.displayName).putLong("x", usernameUnlockAt).also { it.putXp(u) }.apply()
     }
 
+    private fun SharedPreferences.Editor.putXp(u: AuthUser) { putInt("xp", u.xp); putInt("lv", u.level); putInt("lx", u.levelXp); putInt("ln", u.levelNeed) }
+
+    private fun unlockAt(u: AuthUser): Long = if (u.usernameCooldownSec > 0) System.currentTimeMillis() + u.usernameCooldownSec * 1000 else 0L
+
     fun logout() {
-        token = null; user = null; menuOpen = false
+        token = null; user = null; menuOpen = false; usernameUnlockAt = 0L; xpFlash = null; Xp.reset()
         prefs.edit().clear().apply()
     }
 
@@ -65,7 +92,7 @@ object Auth {
     /** Saat aplikasi dibuka: token ditolak server (401) -> keluar. Gagal jaringan = tetap masuk (tetap bisa baca offline). */
     suspend fun validate() {
         if (token == null) return
-        try { update(Net.api.me().data) } catch (e: HttpException) { if (e.code() == 401) logout() } catch (_: Exception) {}
+        try { update(Net.api.me().data, announce = false); Xp.event("daily") } catch (e: HttpException) { if (e.code() == 401) logout() } catch (_: Exception) {}
     }
 }
 

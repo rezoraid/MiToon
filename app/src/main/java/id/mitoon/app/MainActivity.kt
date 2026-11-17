@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -49,6 +50,14 @@ private fun App() {
 
 @Composable
 private fun AppContent() {
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+        AppScaffold()
+        XpToast()
+    }
+}
+
+@Composable
+private fun AppScaffold() {
     val nav = rememberNavController()
     val tabs = listOf(Tab("home", "Home", Icons.Default.Home), Tab("explore", "Explore", Icons.Default.Search), Tab("library", "Library", Icons.Default.Favorite))
     val route = nav.currentBackStackEntryAsState().value?.destination?.route

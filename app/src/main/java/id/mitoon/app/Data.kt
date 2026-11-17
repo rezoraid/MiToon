@@ -35,6 +35,7 @@ import retrofit2.http.DELETE
 import retrofit2.http.PUT
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PATCH
 import retrofit2.http.Path
 import retrofit2.http.Query
 import java.io.File
@@ -77,13 +78,14 @@ interface Api {
     @POST("v1/auth/register") suspend fun register(@Body b: RegisterReq): Env<AuthRes>
     @POST("v1/auth/google") suspend fun googleLogin(@Body b: GoogleReq): Env<AuthRes>
     @GET("v1/auth/me") suspend fun me(): Env<AuthUser>
+    @PATCH("v1/auth/me") suspend fun updateProfile(@Body b: ProfileReq): Env<AuthUser>
     @PUT("v1/auth/me/avatar") suspend fun putAvatar(@Body jpeg: RequestBody): Env<AuthUser>
     @DELETE("v1/auth/me/avatar") suspend fun deleteAvatar(): Env<AuthUser>
-    @PUT("v1/auth/me/profile") suspend fun updateProfile(@Body b: ProfileReq): Env<AuthUser>
-    @POST("v1/auth/me/xp/read") suspend fun awardReadXp(@Body b: ReadXpReq): Env<AuthUser>
     @GET("v1/comments") suspend fun comments(@Query("target") target: String, @Query("limit") limit: Int = 20, @Query("before") before: Long? = null): Env<CommentPage>
-    @POST("v1/comments") suspend fun addComment(@Body b: CommentReq): Env<Comment>
-    @POST("v1/comments/{id}/reaction") suspend fun reactComment(@Path("id") id: Long, @Body b: ReactionReq): Env<ReactionRes>
+    @GET("v1/comments/{id}/replies") suspend fun replies(@Path("id") id: Long, @Query("after") after: Long? = null, @Query("limit") limit: Int = 20): Env<CommentPage>
+    @POST("v1/comments") suspend fun addComment(@Body b: CommentReq): CommentRes
+    @PUT("v1/comments/{id}/vote") suspend fun voteComment(@Path("id") id: Long, @Body b: VoteReq): Env<VoteRes>
+    @POST("v1/xp/event") suspend fun xpEvent(@Body b: XpReq): Env<XpRes>
     @DELETE("v1/comments/{id}") suspend fun deleteComment(@Path("id") id: Long): Env<Ok>
 }
 

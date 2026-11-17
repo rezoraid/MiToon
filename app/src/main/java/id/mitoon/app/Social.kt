@@ -53,7 +53,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.ByteArrayOutputStream
 
 // ---------------------------------------------------------------- model
-@Serializable data class CommentUser(val id: Long = 0, val username: String = "", val avatarV: Int = 0, val displayName: String = "", val level: Int = 1, val verified: Boolean = false) {
+@Serializable data class CommentUser(val id: Long = 0, val username: String = "", val avatarV: Int = 0, val displayName: String = "", val level: Int = 1, val verified: Boolean = false, val isOwner: Boolean = false) {
     val name: String get() = displayName.ifBlank { username }
 }
 @Serializable data class Comment(
@@ -310,7 +310,7 @@ private fun CommentRow(c: Comment, mine: Boolean, feed: CommentFeed, isReply: Bo
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(c.user.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false).clickable(onClick = openAuthor))
-                if (c.user.verified) VerifiedBadge(Modifier.padding(start = 4.dp), 14.dp)
+                StatusBadges(c.user.verified, c.user.isOwner, size = 14.dp)
                 RoleBadge(roleFor(c.user.level), 16.dp, Modifier.padding(start = 6.dp))
                 LevelChip(c.user.level, Modifier.padding(start = 4.dp), size = 9)
                 Text("  ·  $whenText", color = Muted, fontSize = 12.sp, maxLines = 1)

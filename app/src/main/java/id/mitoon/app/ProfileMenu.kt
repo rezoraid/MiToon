@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,24 +34,28 @@ private val CardLine = Color(0xFF3A3C44)
 
 /** Halaman akun: kartu profil + daftar menu (Pengaturan Profil, Riwayat Aktivitas, Pengaturan Akun) + Keluar. */
 @Composable
-fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit, onAccount: () -> Unit, onRoles: () -> Unit = {}) {
+fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit, onAccount: () -> Unit, onRoles: () -> Unit = {}, onAdmin: () -> Unit = {}) {
     val user = Auth.user
     if (user == null) { Box(Modifier.fillMaxSize().background(Bg)); return }
     Column(Modifier.fillMaxSize().background(Bg)) {
         SubTopBar("Akun", onBack)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             // ---- kartu profil
-            Column(Modifier.fillMaxWidth().clip(R6).border(1.dp, CardLine, R6).background(CardBg).clickable(onClick = onEdit).padding(16.dp)) {
+            val ownerBorder = if (user.isOwner) Color(0xFF7B6AA8) else CardLine
+            Column(Modifier.fillMaxWidth().clip(R6).border(1.dp, ownerBorder, R6).background(CardBg).clickable(onClick = onEdit).padding(16.dp)) {
+                if (user.isOwner) {
+                    Text("Asal · mark pendiri", color = Color(0xFFC4B0FF), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Avatar(user.id, user.name, user.avatarV, 64.dp)
                     Column(Modifier.weight(1f).padding(start = 14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            RoleTag(user.level, iconSize = 22.dp)
+                            RoleTag(user.level, iconSize = 22.dp, isOwner = user.isOwner)
                             LevelChip(user.level, Modifier.padding(start = 8.dp), size = 11)
                         }
                         Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(user.name, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                            if (user.verified) VerifiedBadge(Modifier.padding(start = 6.dp), 18.dp)
+                            StatusBadges(user.verified, user.isOwner, size = 18.dp)
                             Icon(Icons.Filled.Edit, null, tint = Muted, modifier = Modifier.padding(start = 8.dp).size(16.dp))
                         }
                         Text("@${user.username}", color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -67,6 +72,7 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
             MenuRow(Icons.Filled.Star, "Peran & Lencana", onRoles)
             MenuRow(Icons.AutoMirrored.Filled.List, "Riwayat Aktivitas", onHistory)
             MenuRow(Icons.Filled.Settings, "Pengaturan Akun", onAccount)
+            if (user.isOwner) MenuRow(Icons.Filled.Build, "Panel Admin", onAdmin)
             HorizontalDivider(color = Line)
             Box(Modifier.fillMaxWidth().padding(top = 8.dp), Alignment.Center) {
                 TextButton({ Auth.logout() }) { Text("Keluar", color = Muted, fontWeight = FontWeight.Bold, fontSize = 16.sp) }

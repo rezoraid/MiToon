@@ -27,7 +27,7 @@ import java.util.Locale
 @Serializable data class PublicUser(
     val id: Long = 0, val username: String = "", val displayName: String = "", val bio: String = "", val avatarV: Int = 0,
     val xp: Int = 0, val level: Int = 1, val joinedAt: Long = 0, val commentCount: Int = 0,
-    val verified: Boolean = false
+    val verified: Boolean = false, val isOwner: Boolean = false
 ) { val name: String get() = displayName.ifBlank { username } }
 
 /** Halaman profil orang lain: foto, nama, level, ringkasan, lalu daftar komik yang dibaca + chapter terakhirnya (ketuk untuk melanjutkan baca). */
@@ -70,12 +70,13 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
                         Avatar(u.id, u.name, u.avatarV, 104.dp, shape = CircleShape)
                         Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(u.name, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                            if (u.verified) VerifiedBadge(Modifier.padding(start = 6.dp), 20.dp)
+                            StatusBadges(u.verified, u.isOwner, size = 20.dp)
                         }
                         Text("@${u.username}", color = Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+                        if (u.isOwner) Text("Asal · mark pendiri", color = Color(0xFFC4B0FF), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
                         Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                             LevelChip(u.level, size = 12)
-                            RoleTag(u.level, Modifier.padding(start = 10.dp), iconSize = 24.dp)
+                            RoleTag(u.level, Modifier.padding(start = 10.dp), iconSize = 24.dp, isOwner = u.isOwner)
                         }
                         if (u.bio.isNotBlank()) Text(u.bio, color = Color(0xFFD7D9DE), fontSize = 14.sp, lineHeight = 20.sp, textAlign = TextAlign.Center, maxLines = 4, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(top = 14.dp, start = 16.dp, end = 16.dp))

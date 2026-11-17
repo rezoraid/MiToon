@@ -60,7 +60,32 @@ import java.security.MessageDigest
 )
 @Serializable data class ProviderInfo(val key: String, val imageHeaders: Map<String, String> = emptyMap())
 // Endpoint opsional (belum ada di backend): bagian UI otomatis disembunyikan bila kosong/gagal.
-@Serializable data class Notice(val title: String = "", val body: String = "", val url: String? = null)
+@Serializable data class Notice(val id: Long = 0, val title: String = "", val body: String = "", val url: String? = null)
+
+@Serializable data class AdminStats(val series: Int = 0, val chapters: Int = 0, val users: Int = 0, val comments: Int = 0, val genres: Int = 0, val views_7d: Int = 0)
+@Serializable data class AdminSeriesPage(val total: Int = 0, val items: List<AdminSeries> = emptyList(), val page: Int = 1, val limit: Int = 30, val hasMore: Boolean = false)
+@Serializable data class AdminSeries(
+    val id: Long = 0, val provider: String = "", val ref: String = "", val unifiedId: String = "",
+    val title: String = "", val cover: String = "", val url: String = "", val type: String? = null, val status: String? = null,
+    val synopsis: String = "", val author: String = "", val artist: String = "", val year: Int? = null, val rating: Double? = null,
+    val chapterCount: Int? = null, val latestChapter: String? = null, val chapterN: Int = 0, val genres: List<String> = emptyList(),
+    val genreSlugs: List<String> = emptyList(),
+    val detailFetchedAt: String? = null, val firstSeenAt: String? = null, val lastSeenAt: String? = null, val updatedAt: String? = null,
+    val chapters: List<AdminChapter> = emptyList()
+)
+@Serializable data class AdminChapter(val id: Long = 0, val ref: String = "", val number: Double? = null, val numberText: String = "", val title: String = "", val releasedAt: String? = null)
+@Serializable data class AdminSeriesPatch(
+    val title: String? = null, val cover: String? = null, val url: String? = null, val type: String? = null, val status: String? = null,
+    val synopsis: String? = null, val author: String? = null, val artist: String? = null, val year: Int? = null, val rating: Double? = null,
+    val chapterCount: Int? = null, val latestChapter: String? = null, val genres: List<String>? = null
+)
+@Serializable data class AdminChapterPatch(val title: String? = null, val numberText: String? = null, val number: Double? = null)
+@Serializable data class AdminUsersPage(val total: Int = 0, val items: List<AdminUser> = emptyList(), val page: Int = 1, val limit: Int = 30, val hasMore: Boolean = false)
+@Serializable data class AdminUser(val id: Long = 0, val username: String = "", val email: String? = null, val displayName: String = "", val bio: String = "", val xp: Int = 0, val verified: Boolean = false, val avatarV: Int = 0, val commentCount: Int = 0, val createdAt: String? = null)
+@Serializable data class AdminUserBrief(val id: Long = 0, val username: String = "", val verified: Boolean = false)
+@Serializable data class AdminVerifiedReq(val verified: Boolean)
+@Serializable data class AdminAnnounceReq(val title: String, val body: String? = null, val url: String? = null, val expiresAt: String? = null)
+@Serializable data class Ok(val ok: Boolean = true)
 
 interface Api {
     @GET("v1/latest") suspend fun latest(@Query("page") page: Int = 1, @Query("limit") limit: Int = 12, @Query("type") type: String? = null): Env<List<Series>>
@@ -93,6 +118,19 @@ interface Api {
     @GET("v1/users/{id}/comments") suspend fun userComments(@Path("id") id: Long, @Query("limit") limit: Int = 20, @Query("before") before: Long? = null): Env<MyCommentPage>
     @GET("v1/comments/mine") suspend fun myComments(@Query("limit") limit: Int = 20, @Query("before") before: Long? = null): Env<MyCommentPage>
     @DELETE("v1/comments/{id}") suspend fun deleteComment(@Path("id") id: Long): Env<Ok>
+    // ---- Admin (owner only) ----
+    @GET("v1/admin/stats") suspend fun adminStats(): Env<AdminStats>
+    @GET("v1/admin/series") suspend fun adminSeries(@Query("q") q: String? = null, @Query("provider") provider: String? = null, @Query("page") page: Int = 1, @Query("limit") limit: Int = 30): Env<AdminSeriesPage>
+    @GET("v1/admin/series/{id}") suspend fun adminSeriesDetail(@Path("id") id: Long): Env<AdminSeries>
+    @PATCH("v1/admin/series/{id}") suspend fun adminUpdateSeries(@Path("id") id: Long, @Body b: AdminSeriesPatch): Env<AdminSeries>
+    @DELETE("v1/admin/series/{id}") suspend fun adminDeleteSeries(@Path("id") id: Long): Env<Ok>
+    @PATCH("v1/admin/chapters/{id}") suspend fun adminUpdateChapter(@Path("id") id: Long, @Body b: AdminChapterPatch): Env<Ok>
+    @DELETE("v1/admin/chapters/{id}") suspend fun adminDeleteChapter(@Path("id") id: Long): Env<Ok>
+    @GET("v1/admin/users") suspend fun adminUsers(@Query("q") q: String? = null, @Query("page") page: Int = 1, @Query("limit") limit: Int = 30): Env<AdminUsersPage>
+    @PATCH("v1/admin/users/{id}") suspend fun adminSetVerified(@Path("id") id: Long, @Body b: AdminVerifiedReq): Env<AdminUserBrief>
+    @GET("v1/admin/announcements") suspend fun adminAnnouncements(): Env<List<Notice>>
+    @POST("v1/admin/announcements") suspend fun adminCreateAnnouncement(@Body b: AdminAnnounceReq): Env<Notice>
+    @DELETE("v1/admin/announcements/{id}") suspend fun adminDeleteAnnouncement(@Path("id") id: Long): Env<Ok>
 }
 
 object Net {

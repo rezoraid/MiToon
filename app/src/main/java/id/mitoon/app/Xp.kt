@@ -24,6 +24,7 @@ import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.flow.collectLatest
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.sin
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -177,6 +178,84 @@ fun VerifiedBadge(modifier: Modifier = Modifier, size: Dp = 16.dp) {
         for (deg in listOf(0f, 45f)) rotate(deg, c) { drawRoundRect(seal, Offset(c.x - sq / 2, c.y - sq / 2), Size(sq, sq), CornerRadius(sq * 0.28f)) }
         val p = Path().apply { moveTo(s * 0.31f, s * 0.52f); lineTo(s * 0.44f, s * 0.65f); lineTo(s * 0.70f, s * 0.36f) }
         drawPath(p, Color.White, style = Stroke(s * 0.11f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    }
+}
+
+/** Mark Asal — identitas pendiri MiToon. Bukan centang/mahkota pasaran: monogram M di segel kristal prismatik. */
+@Composable
+fun OwnerBadge(modifier: Modifier = Modifier, size: Dp = 16.dp) {
+    Canvas(modifier.size(size)) {
+        val s = this.size.minDimension
+        val c = Offset(s / 2f, s / 2f)
+        // cincin luar tipis
+        drawCircle(
+            Brush.sweepGradient(
+                listOf(Color(0xFFB8A0FF), Color(0xFF6EE7FF), Color(0xFFFF8AD8), Color(0xFFB8A0FF)),
+                c
+            ),
+            radius = s * 0.48f,
+            center = c,
+            style = Stroke(width = s * 0.06f)
+        )
+        // inti segel heksagonal (bukan kotak berputar ala verified)
+        val hex = Path().apply {
+            val r = s * 0.34f
+            for (i in 0..5) {
+                val a = ((-90.0 + i * 60.0) * PI / 180.0)
+                val x = c.x + r * cos(a).toFloat()
+                val y = c.y + r * sin(a).toFloat()
+                if (i == 0) moveTo(x, y) else lineTo(x, y)
+            }
+            close()
+        }
+        drawPath(
+            hex,
+            Brush.linearGradient(
+                listOf(Color(0xFF2A1F4A), Color(0xFF1A2A3A), Color(0xFF3A1A35)),
+                Offset(c.x - s * 0.3f, c.y - s * 0.3f),
+                Offset(c.x + s * 0.3f, c.y + s * 0.3f)
+            )
+        )
+        drawPath(
+            hex,
+            Brush.linearGradient(
+                listOf(Color(0xFFC4B0FF), Color(0xFF7EEBFF), Color(0xFFFFA0D8)),
+                Offset(0f, 0f),
+                Offset(s, s)
+            ),
+            style = Stroke(width = s * 0.045f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        )
+        // monogram M — dua kaki + puncak tengah, stroke tebal khas
+        val m = Path().apply {
+            val left = s * 0.30f
+            val right = s * 0.70f
+            val top = s * 0.32f
+            val bot = s * 0.68f
+            val midY = s * 0.52f
+            moveTo(left, bot)
+            lineTo(left, top)
+            lineTo(s * 0.50f, midY)
+            lineTo(right, top)
+            lineTo(right, bot)
+        }
+        drawPath(
+            m,
+            Brush.linearGradient(
+                listOf(Color(0xFFE8DEFF), Color(0xFFB8F4FF), Color(0xFFFFD0EC)),
+                Offset(s * 0.3f, s * 0.3f),
+                Offset(s * 0.7f, s * 0.7f)
+            ),
+            style = Stroke(width = s * 0.09f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        )
+    }
+}
+
+/** Badge status di samping nama: mark Asal (pendiri) atau verified biru. */
+@Composable
+fun StatusBadges(verified: Boolean, isOwner: Boolean, modifier: Modifier = Modifier, size: Dp = 16.dp) {
+    Row(modifier, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        if (isOwner) OwnerBadge(Modifier.padding(start = 6.dp), size)
+        else if (verified) VerifiedBadge(Modifier.padding(start = 6.dp), size)
     }
 }
 

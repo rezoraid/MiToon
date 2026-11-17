@@ -93,7 +93,9 @@ private fun AppScaffold() {
                 LibraryScreen({ nav.detail(it) }, { e -> e.lastChapterId?.let { nav.reader(e.id, it) } ?: nav.detail(e.id) }, { nav.navigate("search") })
             }
             composable("search") { SearchScreen(nav::popBackStack) { nav.detail(it) } }
-            composable("profile") { ProfileScreen(nav::popBackStack, { nav.navigate("profile/edit") }, { nav.navigate("profile/history") }, { nav.navigate("profile/account") }, { nav.navigate("profile/roles") }) }
+            composable("profile") { ProfileScreen(nav::popBackStack, { nav.navigate("profile/edit") }, { nav.navigate("profile/history") }, { nav.navigate("profile/account") }, { nav.navigate("profile/roles") }, { nav.navigate("admin") }) }
+            composable("admin") { AdminScreen(nav::popBackStack) }
+            composable("admin/series/{id}") { e -> AdminSeriesEditScreen(e.arguments?.getString("id")?.toLongOrNull() ?: 0L, nav::popBackStack) }
             composable("profile/roles") { RolesScreen(nav::popBackStack) }
             composable("profile/edit") { ProfileEditScreen(nav::popBackStack) }
             composable("profile/history") {

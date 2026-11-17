@@ -197,9 +197,16 @@ fun RoleBadge(role: Role, size: Dp = 28.dp, modifier: Modifier = Modifier, locke
     }
 }
 
-/** Ikon peran + nama peran, satu baris. */
+/** Ikon peran + nama peran, satu baris. Owner menimpa judul menjadi "Owner" dengan warna emas. */
 @Composable
-fun RoleTag(level: Int, modifier: Modifier = Modifier, iconSize: Dp = 22.dp, textSize: Int = 13) {
+fun RoleTag(level: Int, modifier: Modifier = Modifier, iconSize: Dp = 22.dp, textSize: Int = 13, isOwner: Boolean = false) {
+    if (isOwner) {
+        Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+            OwnerBadge(size = iconSize)
+            Text("Asal", color = Color(0xFFC4B0FF), fontSize = textSize.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(start = 6.dp))
+        }
+        return
+    }
     val r = roleFor(level)
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         RoleBadge(r, iconSize)
@@ -218,6 +225,16 @@ fun RolesScreen(onBack: () -> Unit) {
         SubTopBar("Peran & Lencana", onBack)
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp)) {
             item("now") {
+                if (user.isOwner) {
+                    Column(Modifier.fillMaxWidth().clip(R6).border(1.dp, Color(0xFF7B6AA8), R6).background(CardBg).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        OwnerBadge(size = 72.dp)
+                        Text("Asal", color = Color(0xFFC4B0FF), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
+                        Text("Mark pendiri · sumber MiToon", color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp))
+                        LevelChip(user.level, Modifier.padding(top = 10.dp), size = 12)
+                        XpBar(user, Modifier.padding(top = 14.dp))
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
                 Column(Modifier.fillMaxWidth().clip(R6).border(1.dp, Color(0xFF3A3C44), R6).background(CardBg).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     RoleBadge(cur, 84.dp)
                     Text(cur.title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))

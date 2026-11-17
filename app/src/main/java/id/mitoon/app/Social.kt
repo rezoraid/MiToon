@@ -311,7 +311,8 @@ private fun CommentRow(c: Comment, mine: Boolean, feed: CommentFeed, isReply: Bo
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(c.user.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false).clickable(onClick = openAuthor))
                 if (c.user.verified) VerifiedBadge(Modifier.padding(start = 4.dp), 14.dp)
-                LevelChip(c.user.level, Modifier.padding(start = 6.dp), size = 9)
+                RoleBadge(roleFor(c.user.level), 16.dp, Modifier.padding(start = 6.dp))
+                LevelChip(c.user.level, Modifier.padding(start = 4.dp), size = 9)
                 Text("  ·  $whenText", color = Muted, fontSize = 12.sp, maxLines = 1)
             }
             if (c.replyTo.isNotBlank()) Text("Membalas ${c.replyTo}", color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))

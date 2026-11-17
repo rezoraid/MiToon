@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,7 +33,7 @@ private val CardLine = Color(0xFF3A3C44)
 
 /** Halaman akun: kartu profil + daftar menu (Pengaturan Profil, Riwayat Aktivitas, Pengaturan Akun) + Keluar. */
 @Composable
-fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit, onAccount: () -> Unit) {
+fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit, onAccount: () -> Unit, onRoles: () -> Unit = {}) {
     val user = Auth.user
     if (user == null) { Box(Modifier.fillMaxSize().background(Bg)); return }
     Column(Modifier.fillMaxSize().background(Bg)) {
@@ -44,7 +45,7 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
                     Avatar(user.id, user.name, user.avatarV, 64.dp)
                     Column(Modifier.weight(1f).padding(start = 14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(rankTitle(user.level), color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            RoleTag(user.level, iconSize = 22.dp)
                             LevelChip(user.level, Modifier.padding(start = 8.dp), size = 11)
                         }
                         Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -56,12 +57,14 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
                     }
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Muted, modifier = Modifier.size(24.dp))
                 }
+                if (user.bio.isNotBlank()) Text(user.bio, color = Color(0xFFD7D9DE), fontSize = 13.sp, lineHeight = 19.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 14.dp))
                 XpBar(user, Modifier.padding(top = 14.dp))
             }
 
             Spacer(Modifier.height(20.dp))
             HorizontalDivider(color = Line)
             MenuRow(Icons.Filled.Person, "Pengaturan Profil", onEdit)
+            MenuRow(Icons.Filled.Star, "Peran & Lencana", onRoles)
             MenuRow(Icons.AutoMirrored.Filled.List, "Riwayat Aktivitas", onHistory)
             MenuRow(Icons.Filled.Settings, "Pengaturan Akun", onAccount)
             HorizontalDivider(color = Line)

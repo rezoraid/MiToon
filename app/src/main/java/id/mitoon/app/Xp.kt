@@ -64,21 +64,6 @@ object Xp {
     }
 }
 
-/** Gelar berdasarkan level. */
-fun rankTitle(level: Int): String = when {
-    level >= 5000 -> "Abadi"
-    level >= 3000 -> "Dewa"
-    level >= 1000 -> "Agung"
-    level >= 500 -> "Maestro"
-    level >= 100 -> "Maha"
-    level >= 50 -> "Mitos"
-    level >= 35 -> "Legenda"
-    level >= 20 -> "Juara"
-    level >= 10 -> "Ksatria"
-    level >= 5 -> "Pembaca"
-    else -> "Pemula"
-}
-
 /** Tema lencana level tinggi: warna bingkai (sapuan), isi, teks, cahaya; spinMs = putaran bingkai (0 = diam). */
 private class LvTheme(
     val border: List<Color>, val fillTop: Color, val fillBottom: Color, val text: Color, val glow: Color,

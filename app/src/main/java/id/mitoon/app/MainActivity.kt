@@ -63,6 +63,9 @@ private fun AppScaffold() {
     // Ikon akun di header membuka halaman profil.
     LaunchedEffect(Auth.menuOpen) { if (Auth.menuOpen) { Auth.menuOpen = false; nav.navigate("profile") { launchSingleTop = true } } }
     val openUser: (Long) -> Unit = { id -> if (id == Auth.user?.id) nav.navigate("profile") { launchSingleTop = true } else nav.navigate("user/$id") { launchSingleTop = true } }
+    Auth.roleUnlocked?.let { r ->
+        RoleUnlockDialog(r, { Auth.roleUnlocked = null }) { Auth.roleUnlocked = null; nav.navigate("profile/roles") { launchSingleTop = true } }
+    }
     CompositionLocalProvider(LocalOpenUser provides openUser) {
     Scaffold(containerColor = Bg, bottomBar = {
         if (tabs.any { it.route == route }) NavigationBar(containerColor = CardBg) {
@@ -89,7 +92,8 @@ private fun AppScaffold() {
                 LibraryScreen({ nav.detail(it) }, { e -> e.lastChapterId?.let { nav.reader(e.id, it) } ?: nav.detail(e.id) }, { nav.navigate("search") })
             }
             composable("search") { SearchScreen(nav::popBackStack) { nav.detail(it) } }
-            composable("profile") { ProfileScreen(nav::popBackStack, { nav.navigate("profile/edit") }, { nav.navigate("profile/history") }, { nav.navigate("profile/account") }) }
+            composable("profile") { ProfileScreen(nav::popBackStack, { nav.navigate("profile/edit") }, { nav.navigate("profile/history") }, { nav.navigate("profile/account") }, { nav.navigate("profile/roles") }) }
+            composable("profile/roles") { RolesScreen(nav::popBackStack) }
             composable("profile/edit") { ProfileEditScreen(nav::popBackStack) }
             composable("profile/history") {
                 ActivityHistoryScreen(nav::popBackStack,

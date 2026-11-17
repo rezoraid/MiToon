@@ -25,7 +25,7 @@ import java.util.Locale
 
 /** Profil pengguna lain (`GET v1/users/:id`): tanpa email atau data akun. */
 @Serializable data class PublicUser(
-    val id: Long = 0, val username: String = "", val displayName: String = "", val avatarV: Int = 0,
+    val id: Long = 0, val username: String = "", val displayName: String = "", val bio: String = "", val avatarV: Int = 0,
     val xp: Int = 0, val level: Int = 1, val joinedAt: Long = 0, val commentCount: Int = 0,
     val verified: Boolean = false
 ) { val name: String get() = displayName.ifBlank { username } }
@@ -75,8 +75,10 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
                         Text("@${u.username}", color = Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
                         Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                             LevelChip(u.level, size = 12)
-                            Text("  ${rankTitle(u.level)}", color = Color(0xFFD7D9DE), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            RoleTag(u.level, Modifier.padding(start = 10.dp), iconSize = 24.dp)
                         }
+                        if (u.bio.isNotBlank()) Text(u.bio, color = Color(0xFFD7D9DE), fontSize = 14.sp, lineHeight = 20.sp, textAlign = TextAlign.Center, maxLines = 4, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 14.dp, start = 16.dp, end = 16.dp))
                         Row(Modifier.padding(top = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                             Stat("${u.xp}", "Total XP")
                             Box(Modifier.padding(horizontal = 22.dp).width(1.dp).height(28.dp).background(Line))

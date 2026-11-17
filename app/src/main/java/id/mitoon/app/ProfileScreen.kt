@@ -62,6 +62,7 @@ fun ProfileEditScreen(onBack: () -> Unit) {
     var notice by remember { mutableStateOf<Pair<Boolean, String>?>(null) }   // (berhasil?, teks)
     var photoMenu by remember { mutableStateOf(false) }
     var editName by remember { mutableStateOf(false) }
+    var editBio by remember { mutableStateOf(false) }
     var editUser by remember { mutableStateOf(false) }
     var pendingUsername by remember { mutableStateOf<String?>(null) }          // menunggu konfirmasi
     var dialogErr by remember { mutableStateOf<String?>(null) }
@@ -157,6 +158,8 @@ fun ProfileEditScreen(onBack: () -> Unit) {
                 HorizontalDivider(color = Line)
                 InfoRow("Nama", user.name, null, false, onClick = { dialogErr = null; editName = true })
                 HorizontalDivider(color = Line)
+                InfoRow("Bio", user.bio.ifBlank { "Belum diisi" }, "Cerita singkat tentangmu (maks. 150 karakter)", false, onClick = { dialogErr = null; editBio = true }, maxLines = 3)
+                HorizontalDivider(color = Line)
                 InfoRow("Username", "@${user.username}",
                     if (locked) "Bisa diganti lagi dalam ${cooldownText(leftMs)}" else "Bisa diganti sekali setiap 7 hari",
                     locked, onClick = { dialogErr = null; editUser = true })
@@ -197,6 +200,32 @@ fun ProfileEditScreen(onBack: () -> Unit) {
                 }
             },
             dismissButton = { TextButton({ editName = false }, enabled = !saving) { Text("Batal", color = Muted) } }
+        )
+    }
+
+    // ---------------------------------------------------------------- dialog bio
+    if (editBio) {
+        var v by remember { mutableStateOf(user.bio) }
+        AlertDialog(
+            onDismissRequest = { if (!saving) editBio = false }, containerColor = CardBg, shape = R6,
+            title = { Text("Ubah bio", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        v, { if (it.length <= 150 && it.count { c -> c == '\n' } <= 2) v = it },
+                        minLines = 3, maxLines = 5, shape = R6, modifier = Modifier.fillMaxWidth(), colors = fieldColors(),
+                        placeholder = { Text("Tulis sesuatu tentangmu…", color = Muted) }
+                    )
+                    Text("${v.length}/150  ·  Maksimal 3 baris. Kosongkan untuk menghapus.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+                    dialogErr?.let { Text(it, color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp)) }
+                }
+            },
+            confirmButton = {
+                TextButton({ save(ProfileReq(bio = v.trim()), "Bio diperbarui") { editBio = false } }, enabled = !saving && v.trim() != user.bio) {
+                    if (saving) BtnSpinner() else Text("Simpan", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = { TextButton({ editBio = false }, enabled = !saving) { Text("Batal", color = Muted) } }
         )
     }
 
@@ -255,11 +284,11 @@ fun ProfileEditScreen(onBack: () -> Unit) {
 private fun BtnSpinner() = CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
 
 @Composable
-private fun InfoRow(label: String, value: String, hint: String?, locked: Boolean, onClick: () -> Unit) {
+private fun InfoRow(label: String, value: String, hint: String?, locked: Boolean, onClick: () -> Unit, maxLines: Int = 1) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(label, color = Muted, fontSize = 12.sp)
-            Text(value, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+            Text(value, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = maxLines, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
             if (hint != null) Text(hint, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 3.dp))
         }
         Icon(if (locked) Icons.Filled.Lock else Icons.Filled.Edit, null, tint = Muted, modifier = Modifier.padding(start = 12.dp).size(18.dp))

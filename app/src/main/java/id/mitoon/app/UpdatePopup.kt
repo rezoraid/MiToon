@@ -59,7 +59,7 @@ fun NoticePopupHost() {
     val uri = LocalUriHandler.current
     var show by remember { mutableStateOf<Notice?>(null) }
     LaunchedEffect(Auth.user?.id) {
-        val list = runCatching { Net.api.announcements(20).data }.getOrNull() ?: return@LaunchedEffect
+        val list = runCatching { Net.api.announcements(20, "popup").data }.getOrNull() ?: return@LaunchedEffect
         val seen = prefs.getStringSet("dismissed", emptySet()) ?: emptySet()
         show = list.firstOrNull { n ->
             n.popup && n.id.toString() !in seen && (n.version.isNullOrBlank() || isNewerVersion(n.version, BuildConfig.VERSION_NAME))
@@ -70,15 +70,19 @@ fun NoticePopupHost() {
             if (persist) prefs.edit().putStringSet("dismissed", (prefs.getStringSet("dismissed", emptySet()) ?: emptySet()) + n.id.toString()).apply()
             show = null
         }
-        Dialog({ close() }, DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)) {
-            Box(Modifier.fillMaxSize().padding(horizontal = 22.dp), Alignment.Center) {
-                NoticeCard(
-                    n, onClose = { close() },
-                    onPrimary = { if (!n.url.isNullOrBlank()) runCatching { uri.openUri(n.url) }; close(persist = n.version.isNullOrBlank()) },
-                    onSecondary = { close() }
-                )
-            }
-        }
+        NoticePopupDialog(
+            n, onClose = { close() },
+            onPrimary = { if (!n.url.isNullOrBlank()) runCatching { uri.openUri(n.url) }; close(persist = n.version.isNullOrBlank()) },
+            onSecondary = { close() }
+        )
+    }
+}
+
+/** Dialog layar penuh berisi [NoticeCard] di tengah (dipakai popup aplikasi dan tombol "Uji popup" di panel admin). */
+@Composable
+fun NoticePopupDialog(n: Notice, onClose: () -> Unit, onPrimary: () -> Unit, onSecondary: () -> Unit) {
+    Dialog(onClose, DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)) {
+        Box(Modifier.fillMaxSize().padding(horizontal = 22.dp), Alignment.Center) { NoticeCard(n, onClose, onPrimary, onSecondary) }
     }
 }
 

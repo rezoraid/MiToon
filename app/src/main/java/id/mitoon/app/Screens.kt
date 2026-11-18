@@ -59,7 +59,6 @@ fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Uni
             full { Pills(tabs, s) { sel = it } }
             if (s == "sorotan") {
                 if (hv.spotlight.isNotEmpty()) full { Spotlight(hv.spotlight, onOpen) }
-                if (hv.notices.isNotEmpty()) full { Column(Modifier.padding(top = 12.dp)) { Notices(hv.notices) } }
             }
             full { if (s == "sorotan") SectionTitle("Update Komik", onMore) else SectionTitle(tabs.firstOrNull { it.first == s }?.second ?: "") }
         }

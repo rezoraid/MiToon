@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun AdminScreen(onBack: () -> Unit) {
     var tab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Ringkasan", "Komik", "User", "Pengumuman")
+    val tabs = listOf("Ringkasan", "Komik", "User", "Informasi")
     Column(Modifier.fillMaxSize().background(Bg)) {
         Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
@@ -265,10 +265,12 @@ fun AdminSeriesEditScreen(id: Long, onBack: () -> Unit) {
 }
 
 @Composable
-private fun Field(label: String, value: String, single: Boolean = true, onChange: (String) -> Unit) {
+private fun Field(label: String, value: String, single: Boolean = true, supporting: String? = null, isError: Boolean = false, onChange: (String) -> Unit) {
     OutlinedTextField(
         value, onChange,
         label = { Text(label) },
+        supportingText = supporting?.let { { Text(it) } },
+        isError = isError,
         modifier = Modifier.fillMaxWidth(),
         singleLine = single,
         minLines = if (single) 1 else 3,
@@ -489,13 +491,26 @@ private fun AdminUsersTab() {
     }
 }
 
+private const val INFO_TITLE_MAX = 120
+private const val INFO_BODY_MAX = 500
+
+/** Lama berlaku informasi: label -> jumlah hari (0 = tanpa batas). */
+private val InfoLifetimes = listOf("Selamanya" to 0, "1 hari" to 1, "7 hari" to 7, "30 hari" to 30)
+
+private fun isoUtc(ms: Long): String =
+    java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }.format(java.util.Date(ms))
+
 @Composable
 private fun AdminAnnounceTab() {
-    var list by remember { mutableStateOf<List<Notice>>(emptyList()) }
+    var list by remember { mutableStateOf<List<Notice>?>(null) }
     var err by remember { mutableStateOf<String?>(null) }
     var title by remember { mutableStateOf("") }
     var body by remember { mutableStateOf("") }
     var url by remember { mutableStateOf("") }
+    var days by remember { mutableIntStateOf(0) }
+    var sending by remember { mutableStateOf(false) }
+    var done by remember { mutableStateOf(false) }
+    var delete by remember { mutableStateOf<Notice?>(null) }
     val scope = rememberCoroutineScope()
     fun load() {
         scope.launch {
@@ -505,43 +520,83 @@ private fun AdminAnnounceTab() {
         }
     }
     LaunchedEffect(Unit) { load() }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Buat pengumuman", color = Color.White, fontWeight = FontWeight.Bold)
-        Text("Tampil di Home dan di tab Informasi (Notifikasi) semua akun; pil merah muncul untuk yang belum membacanya.", color = Muted, fontSize = 12.sp)
-        Field("Judul", title) { title = it }
-        Field("Isi", body, single = false) { body = it }
-        Field("URL (opsional)", url) { url = it }
-        Button(
-            {
-                scope.launch {
-                    runCatching {
-                        Net.api.adminCreateAnnouncement(AdminAnnounceReq(title.trim(), body.ifBlank { null }, url.ifBlank { null })).data
-                    }.onSuccess { title = ""; body = ""; url = ""; load() }
-                        .onFailure { err = it.friendly() }
-                }
-            },
-            enabled = title.isNotBlank(),
-            colors = ButtonDefaults.buttonColors(containerColor = Accent)
-        ) { Text("Kirim", color = Color.Black, fontWeight = FontWeight.Bold) }
-        if (err != null) Text(err!!, color = Color(0xFFFF6B6B))
-        HorizontalDivider(color = Line, modifier = Modifier.padding(vertical = 8.dp))
-        Text("Aktif", color = Color.White, fontWeight = FontWeight.Bold)
-        list.forEach { n ->
-            Row(
-                Modifier.fillMaxWidth().clip(R6).border(1.dp, CardLine, R6).background(CardBg).padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(n.title, color = Color.White, fontWeight = FontWeight.Bold)
-                    if (n.body.isNotBlank()) Text(n.body, color = Muted, fontSize = 12.sp)
-                }
-                IconButton({
-                    scope.launch {
-                        if (n.id > 0) runCatching { Net.api.adminDeleteAnnouncement(n.id) }.onSuccess { load() }
-                    }
-                }) { Icon(Icons.Filled.Delete, null, tint = Color(0xFFFF6B6B)) }
+    LaunchedEffect(done) { if (done) { kotlinx.coroutines.delay(2500); done = false } }
+
+    val urlBad = url.isNotBlank() && !Regex("^https?://\\S+$", RegexOption.IGNORE_CASE).matches(url.trim())
+    val valid = title.isNotBlank() && !urlBad && !sending
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        // ---- Form
+        Column(Modifier.fillMaxWidth().clip(R6).border(1.dp, CardLine, R6).background(CardBg).padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Informasi baru", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                Text("Muncul di Notifikasi › Informasi untuk semua akun, dengan pil merah bagi yang belum membaca. Tidak tampil di Home.", color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
             }
-            Spacer(Modifier.height(6.dp))
+            Field("Judul", title, supporting = "${title.length}/$INFO_TITLE_MAX") { title = it.take(INFO_TITLE_MAX) }
+            Field("Isi (opsional)", body, single = false, supporting = "${body.length}/$INFO_BODY_MAX · **tebal** didukung") { body = it.take(INFO_BODY_MAX) }
+            Field("Tautan (opsional)", url, supporting = if (urlBad) "Harus diawali http:// atau https://" else null, isError = urlBad) { url = it }
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Berlaku", color = Muted, fontSize = 12.sp)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    InfoLifetimes.forEach { (label, d) ->
+                        val on = days == d
+                        Text(label, color = if (on) OnAccent else Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium,
+                            modifier = Modifier.clip(R6).background(if (on) Accent else Color.Transparent).border(1.dp, if (on) Accent else CardLine, R6)
+                                .clickable { days = d }.padding(horizontal = 14.dp, vertical = 7.dp))
+                    }
+                }
+            }
+            if (title.isNotBlank()) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Pratinjau", color = Muted, fontSize = 12.sp)
+                Column(Modifier.fillMaxWidth().clip(R6).background(Bg)) {
+                    NoticeRow(Notice(title = title.trim(), body = body.trim(), url = url.trim().ifBlank { null }), unread = true)
+                }
+            }
+            Button(
+                {
+                    sending = true; err = null
+                    scope.launch {
+                        val exp = if (days > 0) isoUtc(System.currentTimeMillis() + days * 86_400_000L) else null
+                        runCatching { Net.api.adminCreateAnnouncement(AdminAnnounceReq(title.trim(), body.trim().ifBlank { null }, url.trim().ifBlank { null }, exp)).data }
+                            .onSuccess { title = ""; body = ""; url = ""; days = 0; done = true; load() }
+                            .onFailure { err = it.friendly() }
+                        sending = false
+                    }
+                },
+                Modifier.fillMaxWidth().height(46.dp), enabled = valid, shape = R6,
+                colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = OnAccent, disabledContainerColor = CardLine, disabledContentColor = Muted)
+            ) {
+                if (sending) CircularProgressIndicator(Modifier.size(18.dp), OnAccent, strokeWidth = 2.dp)
+                else Text(if (done) "Terkirim ✓" else "Terbitkan", fontWeight = FontWeight.Bold)
+            }
+            if (err != null) Text(err!!, color = RedText, fontSize = 13.sp)
         }
+
+        // ---- Daftar aktif
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Aktif${list?.let { " (${it.size})" }.orEmpty()}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            val items = list
+            when {
+                items == null && err == null -> Box(Modifier.fillMaxWidth().padding(16.dp), Alignment.Center) { CircularProgressIndicator(Modifier.size(22.dp), Accent, strokeWidth = 2.dp) }
+                items.isNullOrEmpty() -> Text("Belum ada informasi aktif.", color = Muted, fontSize = 13.sp)
+                else -> items.forEach { n ->
+                    Row(Modifier.fillMaxWidth().clip(R6).border(1.dp, CardLine, R6).background(CardBg).padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(plainText(n.title), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            if (n.body.isNotBlank()) Text(plainText(n.body), color = Muted, fontSize = 12.sp, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            val meta = (if (n.createdAt > 0) "Terbit ${dateText(n.createdAt)}" else "Terbit") + "  ·  " + (n.expiresAt?.let { "Berakhir ${dateText(it)}" } ?: "Tanpa batas waktu")
+                            Text(meta, color = Muted, fontSize = 11.sp)
+                        }
+                        IconButton({ delete = n }) { Icon(Icons.Filled.Delete, "Hapus", tint = RedText) }
+                    }
+                }
+            }
+        }
+    }
+    delete?.let { n ->
+        AdminConfirm("Hapus informasi?", "\"${plainText(n.title)}\" akan hilang dari tab Informasi semua akun.", "Hapus", {
+            delete = null
+            scope.launch { if (n.id > 0) runCatching { Net.api.adminDeleteAnnouncement(n.id) }.onSuccess { load() }.onFailure { err = it.friendly() } }
+        }, { delete = null })
     }
 }

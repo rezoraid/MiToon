@@ -216,57 +216,6 @@ fun Spotlight(items: List<Series>, onOpen: (Series) -> Unit) {
     }
 }
 
-/** Pengumuman admin di Home: baris datar (ikon bulat, judul, cuplikan 2 baris, tanggal) tanpa kartu berbingkai; ketuk = baca lengkap. */
-@Composable
-fun Notices(items: List<Notice>) {
-    var open by remember { mutableStateOf<Notice?>(null) }
-    Column(Modifier.fillMaxWidth()) {
-        items.take(3).forEachIndexed { i, n ->
-            if (i > 0) HorizontalDivider(color = Line)
-            Row(Modifier.fillMaxWidth().clickable { open = n }.padding(vertical = 12.dp),
-                verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Box(Modifier.size(40.dp).clip(CircleShape).background(Color(0xFF2A2C32)), Alignment.Center) {
-                    Icon(Icons.Default.Info, null, tint = Color.White, modifier = Modifier.size(20.dp))
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(plainText(n.title), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (n.body.isNotBlank()) Text(plainText(n.body), color = Muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 2,
-                        overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
-                    if (n.createdAt > 0) Text(dateText(n.createdAt), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
-                }
-            }
-        }
-    }
-    open?.let { NoticeDialog(it) { open = null } }
-}
-
-@Composable
-private fun NoticeDialog(n: Notice, onDismiss: () -> Unit) {
-    val uri = LocalUriHandler.current
-    val hasUrl = !n.url.isNullOrBlank()
-    AlertDialog(onDismiss, containerColor = CardBg,
-        title = { Text(plainText(n.title), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                if (n.createdAt > 0) Text(dateText(n.createdAt), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 10.dp))
-                if (n.body.isNotBlank()) Text(boldText(n.body), color = Color(0xFFD7D9DE), fontSize = 14.sp, lineHeight = 21.sp)
-            }
-        },
-        confirmButton = { TextButton(onDismiss) { Text("Tutup", color = Color.White, fontWeight = FontWeight.Bold) } },
-        dismissButton = { if (hasUrl) TextButton({ runCatching { uri.openUri(n.url!!) }; onDismiss() }) { Text("Buka tautan", color = Muted) } })
-}
-
-/** Teks admin kadang berformat markdown ringan (**tebal**, # judul); untuk cuplikan satu-dua baris semua penanda dibuang. */
-private fun plainText(s: String) = s.replace("**", "").replace("`", "").replace(Regex("(?m)^#+\\s*"), "").replace(Regex("\\s*\\n\\s*"), " ").trim()
-
-private fun boldText(s: String) = buildAnnotatedString {
-    s.replace(Regex("(?m)^#+\\s*"), "").split("**").forEachIndexed { i, part ->
-        if (i % 2 == 1) withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color.White)) { append(part) } else append(part)
-    }
-}
-
-private fun dateText(ms: Long): String = java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale("id")).format(java.util.Date(ms))
-
 /** Grid 3 kolom (jarak 7dp seperti referensi) + infinite scroll. `header` = item full-width di atas grid. */
 @Composable
 fun SeriesGrid(vm: PagedVm, onOpen: (Series) -> Unit, upCount: Int = 0, modifier: Modifier = Modifier, header: LazyGridScope.() -> Unit = {}) {

@@ -57,15 +57,12 @@ class PagedVm(private val snapKey: String? = null, private val loader: suspend (
 }
 
 class HomeVm : ViewModel() {
-    private val noticeSer = ListSerializer(Notice.serializer())
     // Diisi dulu dari snapshot disk (instan), lalu disegarkan dari server.
     var spotlight by mutableStateOf(Net.readSnap("home-spotlight", seriesListSer).orEmpty()); private set
     var genres by mutableStateOf(Net.genresSnap().sortedByDescending { it.count }.take(20)); private set
-    var notices by mutableStateOf(Net.readSnap("home-notices", noticeSer).orEmpty()); private set
 
     init {
         viewModelScope.launch { runCatching { Net.api.popular(limit = 6).data }.onSuccess { spotlight = it; Net.writeSnap("home-spotlight", seriesListSer, it) } }
         viewModelScope.launch { runCatching { Net.genres().sortedByDescending { it.count }.take(20) }.onSuccess { genres = it } }
-        viewModelScope.launch { runCatching { Net.api.announcements().data }.onSuccess { notices = it; Net.writeSnap("home-notices", noticeSer, it) } }
     }
 }

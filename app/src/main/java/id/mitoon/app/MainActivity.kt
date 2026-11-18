@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -64,7 +65,7 @@ private fun AppScaffold() {
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
     // Pil merah notifikasi: cek tiap menit selama login, dan setiap kali pindah layar (kecuali saat sedang membuka tab Notifikasi).
     val uid = Auth.user?.id
-    LaunchedEffect(uid) { if (uid == null) NotifState.unread = 0 else while (true) { NotifState.refresh(); kotlinx.coroutines.delay(60_000) } }
+    LaunchedEffect(uid) { if (uid == null) NotifState.clear() else while (true) { NotifState.refresh(); kotlinx.coroutines.delay(60_000) } }
     LaunchedEffect(route) { if (uid != null && route != "notifications") NotifState.refresh() }
     // Ikon akun di header membuka halaman profil.
     LaunchedEffect(Auth.menuOpen) { if (Auth.menuOpen) { Auth.menuOpen = false; nav.navigate("profile") { launchSingleTop = true } } }
@@ -89,7 +90,7 @@ private fun AppScaffold() {
         }
     }) { pad ->
         // Default Navigation memakai fade ~700ms -> terasa lambat. Dimatikan supaya perpindahan layar instan.
-        NavHost(nav, "home", Modifier.padding(pad),
+        NavHost(nav, "home", Modifier.padding(pad).consumeWindowInsets(pad),
             enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None },
             popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None }) {
             composable("home") {

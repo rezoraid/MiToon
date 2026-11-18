@@ -74,7 +74,11 @@ import java.security.MessageDigest
 )
 @Serializable data class ProviderInfo(val key: String, val imageHeaders: Map<String, String> = emptyMap())
 // Endpoint opsional (belum ada di backend): bagian UI otomatis disembunyikan bila kosong/gagal.
-@Serializable data class Notice(val id: Long = 0, val title: String = "", val body: String = "", val url: String? = null, val createdAt: Long = 0, val expiresAt: Long? = null)
+@Serializable data class Notice(
+    val id: Long = 0, val title: String = "", val body: String = "", val url: String? = null, val createdAt: Long = 0, val expiresAt: Long? = null,
+    /** true = tampil sebagai popup di tengah layar; [version] terisi = info pembaruan aplikasi. */
+    val popup: Boolean = false, val imageUrl: String? = null, val version: String? = null, val buttonText: String? = null, val cancelText: String? = null
+)
 
 @Serializable data class AdminStats(val series: Int = 0, val chapters: Int = 0, val users: Int = 0, val comments: Int = 0, val genres: Int = 0, val banned: Int = 0, val muted: Int = 0, val views_7d: Int = 0)
 @Serializable data class AdminSeriesPage(val total: Int = 0, val items: List<AdminSeries> = emptyList(), val page: Int = 1, val limit: Int = 30, val hasMore: Boolean = false)
@@ -111,7 +115,10 @@ import java.security.MessageDigest
     val clearBio: Boolean? = null, val clearName: Boolean? = null
 )
 @Serializable data class AdminDeletedCount(val deleted: Int = 0)
-@Serializable data class AdminAnnounceReq(val title: String, val body: String? = null, val url: String? = null, val expiresAt: String? = null)
+@Serializable data class AdminAnnounceReq(
+    val title: String, val body: String? = null, val url: String? = null, val expiresAt: String? = null,
+    val popup: Boolean = false, val imageUrl: String? = null, val version: String? = null, val buttonText: String? = null, val cancelText: String? = null
+)
 @Serializable data class Ok(val ok: Boolean = true)
 
 interface Api {

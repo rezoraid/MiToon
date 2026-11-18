@@ -492,7 +492,7 @@ private fun AdminUsersTab() {
 }
 
 private const val INFO_TITLE_MAX = 120
-private const val INFO_BODY_MAX = 500
+private const val INFO_BODY_MAX = 1500
 
 /** Lama berlaku informasi: label -> jumlah hari (0 = tanpa batas). */
 private val InfoLifetimes = listOf("Selamanya" to 0, "1 hari" to 1, "7 hari" to 7, "30 hari" to 30)
@@ -508,6 +508,11 @@ private fun AdminAnnounceTab() {
     var body by remember { mutableStateOf("") }
     var url by remember { mutableStateOf("") }
     var days by remember { mutableIntStateOf(0) }
+    var popup by remember { mutableStateOf(false) }
+    var imageUrl by remember { mutableStateOf("") }
+    var version by remember { mutableStateOf("") }
+    var buttonText by remember { mutableStateOf("") }
+    var cancelText by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
     var done by remember { mutableStateOf(false) }
     var delete by remember { mutableStateOf<Notice?>(null) }
@@ -523,18 +528,38 @@ private fun AdminAnnounceTab() {
     LaunchedEffect(done) { if (done) { kotlinx.coroutines.delay(2500); done = false } }
 
     val urlBad = url.isNotBlank() && !Regex("^https?://\\S+$", RegexOption.IGNORE_CASE).matches(url.trim())
-    val valid = title.isNotBlank() && !urlBad && !sending
+    val httpRx = Regex("^https?://\\S+$", RegexOption.IGNORE_CASE)
+    val imgBad = popup && imageUrl.isNotBlank() && !httpRx.matches(imageUrl.trim())
+    val verBad = popup && version.isNotBlank() && !Regex("^[0-9A-Za-z.+_-]{1,20}$").matches(version.trim())
+    val valid = title.isNotBlank() && !urlBad && !imgBad && !verBad && !sending
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         // ---- Form
         Column(Modifier.fillMaxWidth().clip(R6).border(1.dp, CardLine, R6).background(CardBg).padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("Informasi baru", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
-                Text("Muncul di Notifikasi › Informasi untuk semua akun, dengan pil merah bagi yang belum membaca. Tidak tampil di Home.", color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
+                Text("Muncul di Notifikasi › Informasi untuk semua akun, dengan pil merah bagi yang belum membaca. Aktifkan popup untuk info penting seperti pembaruan aplikasi.", color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
             }
             Field("Judul", title, supporting = "${title.length}/$INFO_TITLE_MAX") { title = it.take(INFO_TITLE_MAX) }
             Field("Isi (opsional)", body, single = false, supporting = "${body.length}/$INFO_BODY_MAX · **tebal** didukung") { body = it.take(INFO_BODY_MAX) }
             Field("Tautan (opsional)", url, supporting = if (urlBad) "Harus diawali http:// atau https://" else null, isError = urlBad) { url = it }
+            // ---- Popup di tengah layar (mis. info pembaruan aplikasi)
+            Row(
+                Modifier.fillMaxWidth().clip(R6).border(1.dp, if (popup) Accent else CardLine, R6).clickable { popup = !popup }.padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("Tampilkan sebagai popup", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("Muncul di tengah layar saat aplikasi dibuka (sekali per akun-perangkat), ada tombol X.", color = Muted, fontSize = 12.sp, lineHeight = 16.sp)
+                }
+                Switch(popup, { popup = it }, colors = SwitchDefaults.colors(checkedTrackColor = Accent, checkedThumbColor = OnAccent, uncheckedTrackColor = CardLine, uncheckedThumbColor = Muted, uncheckedBorderColor = CardLine))
+            }
+            if (popup) {
+                Field("Gambar (opsional, URL)", imageUrl, supporting = if (imgBad) "Harus diawali http:// atau https://" else "Disarankan rasio 16:9, mis. 1280×720", isError = imgBad) { imageUrl = it }
+                Field("Versi aplikasi (opsional)", version, supporting = if (verBad) "Hanya angka/huruf/titik, maks. 20 karakter" else "mis. 2.6.0 — diisi = info pembaruan; popup hilang otomatis setelah aplikasi diperbarui", isError = verBad) { version = it.take(20) }
+                Field("Teks tombol utama", buttonText, supporting = "Kosong = otomatis (Perbarui sekarang / Buka tautan / Mengerti)") { buttonText = it.take(24) }
+                Field("Teks tombol batal", cancelText, supporting = "Kosong = \"Nanti saja\" (hanya muncul bila ada tautan)") { cancelText = it.take(24) }
+            }
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Berlaku", color = Muted, fontSize = 12.sp)
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -548,17 +573,25 @@ private fun AdminAnnounceTab() {
             }
             if (title.isNotBlank()) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Pratinjau", color = Muted, fontSize = 12.sp)
-                Column(Modifier.fillMaxWidth().clip(R6).background(Bg)) {
-                    NoticeRow(Notice(title = title.trim(), body = body.trim(), url = url.trim().ifBlank { null }), unread = true)
-                }
+                val draft = Notice(
+                    title = title.trim(), body = body.trim(), url = url.trim().ifBlank { null }, popup = popup,
+                    imageUrl = imageUrl.trim().ifBlank { null }.takeIf { popup && !imgBad }, version = version.trim().ifBlank { null }.takeIf { popup && !verBad },
+                    buttonText = buttonText.trim().ifBlank { null }, cancelText = cancelText.trim().ifBlank { null }
+                )
+                if (popup) Box(Modifier.fillMaxWidth().clip(R6).background(Color.Black.copy(alpha = 0.35f)).padding(14.dp), Alignment.Center) { NoticeCard(draft, {}, {}, {}) }
+                else Column(Modifier.fillMaxWidth().clip(R6).background(Bg)) { NoticeRow(draft, unread = true) }
             }
             Button(
                 {
                     sending = true; err = null
                     scope.launch {
                         val exp = if (days > 0) isoUtc(System.currentTimeMillis() + days * 86_400_000L) else null
-                        runCatching { Net.api.adminCreateAnnouncement(AdminAnnounceReq(title.trim(), body.trim().ifBlank { null }, url.trim().ifBlank { null }, exp)).data }
-                            .onSuccess { title = ""; body = ""; url = ""; days = 0; done = true; load() }
+                        runCatching { Net.api.adminCreateAnnouncement(AdminAnnounceReq(
+                            title.trim(), body.trim().ifBlank { null }, url.trim().ifBlank { null }, exp,
+                            popup = popup, imageUrl = imageUrl.trim().ifBlank { null }.takeIf { popup }, version = version.trim().ifBlank { null }.takeIf { popup },
+                            buttonText = buttonText.trim().ifBlank { null }.takeIf { popup }, cancelText = cancelText.trim().ifBlank { null }.takeIf { popup }
+                        )).data }
+                            .onSuccess { title = ""; body = ""; url = ""; days = 0; popup = false; imageUrl = ""; version = ""; buttonText = ""; cancelText = ""; done = true; load() }
                             .onFailure { err = it.friendly() }
                         sending = false
                     }
@@ -584,7 +617,7 @@ private fun AdminAnnounceTab() {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text(plainText(n.title), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                             if (n.body.isNotBlank()) Text(plainText(n.body), color = Muted, fontSize = 12.sp, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                            val meta = (if (n.createdAt > 0) "Terbit ${dateText(n.createdAt)}" else "Terbit") + "  ·  " + (n.expiresAt?.let { "Berakhir ${dateText(it)}" } ?: "Tanpa batas waktu")
+                            val meta = (if (n.createdAt > 0) "Terbit ${dateText(n.createdAt)}" else "Terbit") + "  ·  " + (n.expiresAt?.let { "Berakhir ${dateText(it)}" } ?: "Tanpa batas waktu") + (if (n.popup) "  ·  Popup" + (n.version?.let { " v$it" } ?: "") else "")
                             Text(meta, color = Muted, fontSize = 11.sp)
                         }
                         IconButton({ delete = n }) { Icon(Icons.Filled.Delete, "Hapus", tint = RedText) }

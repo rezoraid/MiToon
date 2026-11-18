@@ -68,7 +68,7 @@ object NotifState {
 
 private val Red = Color(0xFFE5484D)
 private val Unread = Color(0xFF20222A)
-private val Soft = Color(0xFFD7D9DE)
+internal val Soft = Color(0xFFD7D9DE)
 
 @Composable
 fun RedPill(count: Int, modifier: Modifier = Modifier) {

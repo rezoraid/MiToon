@@ -36,6 +36,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -132,8 +133,7 @@ private fun WelcomePage() {
             MascotGif(R.raw.mascot_welcome, 250.dp, 405f / 512f)
         }
         Text("SELAMAT DATANG", color = Color(0xFFAAA9FF), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.4.sp)
-        Text("Dunia cerita,
-ada di genggaman.", color = Color.White, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.8).sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp))
+        Text("Dunia cerita,\nada di genggaman.", color = Color.White, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.8).sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp))
         Text("Temukan manga dan novel favoritmu, lalu nikmati setiap chapter dengan nyaman.", color = Muted, fontSize = 15.sp, lineHeight = 22.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp, start = 10.dp, end = 10.dp, bottom = 92.dp))
     }
 }
@@ -142,8 +142,7 @@ ada di genggaman.", color = Color.White, fontSize = 34.sp, lineHeight = 40.sp, f
 private fun FeaturesPage() {
     Column(Modifier.fillMaxSize().padding(horizontal = 24.dp), verticalArrangement = Arrangement.Center) {
         Text("PENGALAMAN MEMBACA", color = Color(0xFFAAA9FF), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-        Text("Semua yang kamu
-butuhkan.", color = Color.White, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.8).sp, modifier = Modifier.padding(top = 10.dp, bottom = 24.dp))
+        Text("Semua yang kamu\nbutuhkan.", color = Color.White, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.8).sp, modifier = Modifier.padding(top = 10.dp, bottom = 24.dp))
         FeatureCard(Icons.Default.Search, "Cari & jelajahi", "Temukan manga dan novel dari berbagai sumber.", Color(0xFF8B70FF))
         FeatureCard(Icons.Default.Favorite, "Pustaka pribadi", "Simpan favorit dan lanjutkan dari chapter terakhir.", Color(0xFF398DF5))
         FeatureCard(Icons.Default.Notifications, "Komentar & notifikasi", "Ikuti obrolan dan kabar terbaru dari komunitas.", Color(0xFFEF9A45))

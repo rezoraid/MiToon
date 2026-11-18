@@ -63,12 +63,11 @@ private fun NavHostController.reader(sid: String, cid: String, replace: Boolean 
 
 @Composable
 private fun App() {
-    // Login wajib: belum ada sesi = layar login; login baru = sambutan singkat; lalu aplikasi masuk dengan zoom lembut.
-    val stage = when { Auth.token == null -> 0; Auth.welcome -> 1; else -> 2 }
+    // Login wajib: belum ada sesi = layar pembuka + login (geser ke atas); setelah login aplikasi masuk dengan zoom lembut.
+    val stage = if (Auth.token == null) 0 else 2
     Crossfade(stage, animationSpec = tween(320), label = "root") { st ->
         when (st) {
             0 -> AuthScreen()
-            1 -> WelcomeScreen { Auth.pendingEntrance = true; Auth.welcome = false }
             else -> AppEntrance { AppContent() }
         }
     }

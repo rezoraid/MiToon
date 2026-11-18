@@ -52,9 +52,7 @@ object Auth {
     var token by mutableStateOf<String?>(null); private set
     var user by mutableStateOf<AuthUser?>(null); private set
     var menuOpen by mutableStateOf(false)
-    /** true sesaat setelah login baru: layar sambutan tampil dulu sebelum masuk aplikasi. */
-    var welcome by mutableStateOf(false)
-    /** Penanda satu kali: aplikasi baru saja dibuka dari layar sambutan -> animasi masuk. */
+    /** Penanda satu kali: aplikasi baru saja dibuka setelah login -> animasi masuk. */
     var pendingEntrance = false
     /** Peran baru yang baru saja terbuka (level naik melewati ambang); ditampilkan sekali lalu dikosongkan. */
     var roleUnlocked by mutableStateOf<Role?>(null)
@@ -79,7 +77,7 @@ object Auth {
         prefs.edit().clear().apply {
             if (remember) { putString("t", r.token); putString("u", r.user.username); putLong("i", r.user.id); putInt("v", r.user.avatarV); putString("n", r.user.displayName); putString("b", r.user.bio); putLong("x", usernameUnlockAt); putXp(r.user) }
         }.apply()
-        welcome = true
+        pendingEntrance = true
         Xp.event("daily")
     }
 
@@ -98,7 +96,7 @@ object Auth {
     private fun unlockAt(u: AuthUser): Long = if (u.usernameCooldownSec > 0) System.currentTimeMillis() + u.usernameCooldownSec * 1000 else 0L
 
     fun logout() {
-        token = null; user = null; menuOpen = false; welcome = false; roleUnlocked = null; usernameUnlockAt = 0L; Xp.reset()
+        token = null; user = null; menuOpen = false; roleUnlocked = null; usernameUnlockAt = 0L; Xp.reset()
         prefs.edit().clear().apply()
     }
 

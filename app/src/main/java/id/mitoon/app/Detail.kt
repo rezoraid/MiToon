@@ -49,6 +49,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -345,6 +346,7 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
         }
     }
 
+    val seriesTitle = (detail?.title ?: Library.entries[seriesId]?.title).orEmpty()
     val total = c?.images?.size ?: 0
     val page = (listState.firstVisibleItemIndex + 1).coerceIn(1, maxOf(total, 1))
     val atEnd = total > 0 && !listState.canScrollForward
@@ -360,12 +362,12 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
             }
         }
         AnimatedVisibility(bars, Modifier.align(Alignment.TopCenter), fadeIn(tween(90)), fadeOut(tween(90))) {
-            ReaderTopBar(c?.number?.let { "Chapter $it" } ?: "Baca", onBack) { showList = true }
+            ReaderTopBar(c?.number?.let { "Chapter $it" } ?: "Baca", seriesTitle, onBack, onComments = { showComments = true }, onSettings = { showSettings = true }) { showList = true }
         }
         if (c != null && total > 0) AnimatedVisibility(bars, Modifier.align(Alignment.BottomCenter), fadeIn(tween(90)), fadeOut(tween(90))) {
             BottomBar(page, total, { i -> scope.launch { listState.scrollToItem(i) } }, playing, c.prev != null, c.next != null,
                 onPrev = { c.prev?.let(onChapter) }, onNext = { c.next?.let(onChapter) },
-                onSettings = { showSettings = true }, onPlay = { playing = !playing; if (playing) bars = false }, onComments = { showComments = true })
+                onPlay = { playing = !playing; if (playing) bars = false })
         }
     }
 
@@ -394,13 +396,18 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
 @Composable
 private fun Modifier.noTap(): Modifier = clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
 
+/** Bar atas: judul seri (kecil) + chapter aktif, lalu aksi sekunder (komentar, pengaturan, daftar chapter) di kanan. */
 @Composable
-private fun ReaderTopBar(title: String, onBack: () -> Unit, onMenu: () -> Unit) =
+private fun ReaderTopBar(title: String, subtitle: String, onBack: () -> Unit, onComments: () -> Unit, onSettings: () -> Unit, onMenu: () -> Unit) =
     Column(Modifier.fillMaxWidth().background(Pill).noTap()) {
-        Row(Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             BarIcon(true, onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
-            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f).padding(horizontal = 6.dp))
+            Column(Modifier.weight(1f).padding(horizontal = 6.dp), verticalArrangement = Arrangement.Center) {
+                if (subtitle.isNotBlank()) Text(subtitle, color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            BarIcon(true, onComments) { CommentIcon(Color.White, 22.dp) }
+            BarIcon(true, onSettings) { Icon(Icons.Default.Settings, "Pengaturan baca", tint = Color.White, modifier = Modifier.size(22.dp)) }
             BarIcon(true, onMenu) { Icon(Icons.Default.Menu, "Daftar chapter", tint = Color.White) }
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(Line))
@@ -417,35 +424,43 @@ private fun PauseIcon(color: Color = Color.White) = Canvas(Modifier.size(20.dp))
     drawRoundRect(color, Offset(w * 0.58f, h * 0.12f), Size(w * 0.24f, h * 0.76f), r)
 }
 
-/** Satu tombol bar bawah: ikon + label kecil, lebar sama rata sehingga mudah dijangkau jempol. */
+/** Tombol chapter sebelumnya/berikutnya: `primary` = terisi putih (arah maju), lainnya = garis tipis. Nonaktif bila tidak ada chapter. */
 @Composable
-private fun RowScope.NavCell(label: String, enabled: Boolean = true, active: Boolean = false, onClick: () -> Unit, icon: @Composable () -> Unit) =
-    Column(Modifier.weight(1f).height(56.dp).alpha(if (enabled) 1f else 0.3f).clickable(enabled = enabled, onClick = onClick),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Box(Modifier.size(width = 40.dp, height = 28.dp).clip(R6).background(if (active) Color.White else Color.Transparent), Alignment.Center) { icon() }
-        Text(label, color = if (active) Color.White else Muted, fontSize = 10.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 2.dp))
+private fun RowScope.ChapterButton(label: String, enabled: Boolean, primary: Boolean, forward: Boolean, onClick: () -> Unit) {
+    val fg = if (primary) OnAccent else Color.White
+    val icon = if (forward) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.AutoMirrored.Filled.KeyboardArrowLeft
+    Row(Modifier.weight(1f).height(44.dp).alpha(if (enabled) 1f else 0.35f).clip(R6)
+        .then(if (primary) Modifier.background(Accent) else Modifier.border(1.dp, Color(0xFF4A4C53), R6))
+        .clickable(enabled = enabled, onClick = onClick).padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        if (!forward) Icon(icon, null, tint = fg, modifier = Modifier.size(20.dp))
+        Text(label, color = fg, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        if (forward) Icon(icon, null, tint = fg, modifier = Modifier.size(20.dp))
     }
+}
 
+/** Bar bawah: posisi halaman + slider, lalu satu baris kontrol: Sebelumnya | auto-scroll | Berikutnya. */
 @Composable
 private fun BottomBar(
     page: Int, total: Int, onSeek: (Int) -> Unit, playing: Boolean, canPrev: Boolean, canNext: Boolean,
-    onPrev: () -> Unit, onNext: () -> Unit, onSettings: () -> Unit, onPlay: () -> Unit, onComments: () -> Unit
+    onPrev: () -> Unit, onNext: () -> Unit, onPlay: () -> Unit
 ) {
     Column(Modifier.fillMaxWidth().background(Pill).noTap()) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(Line))
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("$page", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.widthIn(min = 24.dp))
-            PageSlider(page, total, onSeek, Modifier.weight(1f).padding(horizontal = 10.dp))
-            Text("$total", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(buildAnnotatedString {
+                withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) { append("$page") }
+                withStyle(SpanStyle(color = Muted)) { append(" / $total") }
+            }, fontSize = 13.sp, modifier = Modifier.widthIn(min = 52.dp))
+            PageSlider(page, total, onSeek, Modifier.weight(1f).padding(horizontal = 8.dp))
+            Text("${if (total > 0) page * 100 / total else 0}%", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Medium, modifier = Modifier.widthIn(min = 36.dp), textAlign = TextAlign.End)
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            NavCell("Prev", canPrev, onClick = onPrev) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Chapter sebelumnya", tint = Color.White, modifier = Modifier.size(26.dp)) }
-            NavCell("Atur", onClick = onSettings) { Icon(Icons.Default.Settings, "Pengaturan", tint = Color.White, modifier = Modifier.size(22.dp)) }
-            NavCell(if (playing) "Jeda" else "Putar", active = playing, onClick = onPlay) {
-                if (playing) PauseIcon(Color.Black) else Icon(Icons.Default.PlayArrow, "Auto-scroll", tint = Color.White, modifier = Modifier.size(26.dp))
+        Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            ChapterButton("Sebelumnya", canPrev, primary = false, forward = false, onClick = onPrev)
+            Box(Modifier.size(44.dp).clip(R6).then(if (playing) Modifier.background(Color.White) else Modifier.border(1.dp, Color(0xFF4A4C53), R6)).clickable(onClick = onPlay), Alignment.Center) {
+                if (playing) PauseIcon(Color.Black) else Icon(Icons.Default.PlayArrow, "Auto-scroll", tint = Color.White, modifier = Modifier.size(24.dp))
             }
-            NavCell("Komentar", onClick = onComments) { CommentIcon(Color.White, 22.dp) }
-            NavCell("Next", canNext, onClick = onNext) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Chapter berikutnya", tint = Color.White, modifier = Modifier.size(26.dp)) }
+            ChapterButton("Berikutnya", canNext, primary = true, forward = true, onClick = onNext)
         }
     }
 }
@@ -457,7 +472,7 @@ private fun PageSlider(page: Int, total: Int, onSeek: (Int) -> Unit, modifier: M
     val frac = if (total > 1) (page - 1).toFloat() / (total - 1) else 0f
     fun at(x: Float, w: Int) = if (total > 1 && w > 0) ((x / w).coerceIn(0f, 1f) * (total - 1)).roundToInt() else 0
     Canvas(
-        modifier.height(36.dp)
+        modifier.height(32.dp)
             .pointerInput(total) { detectTapGestures { o -> seek(at(o.x, size.width)) } }
             .pointerInput(total) {
                 detectHorizontalDragGestures(onDragStart = { o -> seek(at(o.x, size.width)) }) { change, _ ->
@@ -465,11 +480,12 @@ private fun PageSlider(page: Int, total: Int, onSeek: (Int) -> Unit, modifier: M
                 }
             }
     ) {
-        val th = 4.dp.toPx(); val cy = size.height / 2
-        drawRoundRect(Color(0xFF4A4C53), Offset(0f, cy - th / 2), Size(size.width, th), CornerRadius(2.dp.toPx()))
-        val x = (size.width * frac).coerceIn(2.dp.toPx(), size.width - 2.dp.toPx())
-        drawRoundRect(Color(0xFF9EA2AD), Offset(0f, cy - th / 2), Size(x, th), CornerRadius(2.dp.toPx()))
-        drawRoundRect(Color.White, Offset(x - 1.5.dp.toPx(), cy - 9.dp.toPx()), Size(3.dp.toPx(), 18.dp.toPx()), CornerRadius(1.dp.toPx()))
+        val th = 3.dp.toPx(); val cy = size.height / 2; val r = 7.dp.toPx()
+        val x = (size.width * frac).coerceIn(r, size.width - r)
+        drawRoundRect(Color(0xFF3A3C44), Offset(0f, cy - th / 2), Size(size.width, th), CornerRadius(th / 2))
+        drawRoundRect(Color.White, Offset(0f, cy - th / 2), Size(x, th), CornerRadius(th / 2))
+        drawCircle(Color.White.copy(alpha = 0.18f), r + 4.dp.toPx(), Offset(x, cy))
+        drawCircle(Color.White, r, Offset(x, cy))
     }
 }
 

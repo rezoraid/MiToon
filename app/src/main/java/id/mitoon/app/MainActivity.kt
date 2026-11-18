@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -54,7 +53,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private val tabRoutes = setOf("home", "explore", "library", "notifications")
+private val tabRoutes = setOf("home", "explore", "library")
 private fun NavBackStackEntry.isTab() = destination.route in tabRoutes
 
 private fun NavHostController.detail(id: String) = navigate("series/${Uri.encode(id)}")
@@ -86,9 +85,9 @@ private fun AppContent() {
 private fun AppScaffold() {
     val nav = rememberNavController()
     LvClock.Run()
-    val tabs = listOf(Tab("home", "Home", Icons.Default.Home), Tab("explore", "Explore", Icons.Default.Search), Tab("library", "Library", Icons.Default.Favorite), Tab("notifications", "Notifikasi", Icons.Default.Notifications))
+    val tabs = listOf(Tab("home", "Home", Icons.Default.Home), Tab("explore", "Explore", Icons.Default.Search), Tab("library", "Library", Icons.Default.Favorite))
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
-    // Pil merah notifikasi: cek tiap menit selama login, dan setiap kali pindah layar (kecuali saat sedang membuka tab Notifikasi).
+    // Pil merah notifikasi (lonceng di header): cek tiap menit selama login, dan setiap kali pindah layar (kecuali saat sedang membuka halaman Notifikasi).
     val uid = Auth.user?.id
     LaunchedEffect(uid) { if (uid == null) NotifState.clear() else while (true) { NotifState.refresh(); kotlinx.coroutines.delay(60_000) } }
     LaunchedEffect(route) { if (uid != null && route != "notifications") NotifState.refresh() }
@@ -98,17 +97,14 @@ private fun AppScaffold() {
     Auth.roleUnlocked?.let { r ->
         RoleUnlockDialog(r, { Auth.roleUnlocked = null }) { Auth.roleUnlocked = null; nav.navigate("profile/roles") { launchSingleTop = true } }
     }
-    CompositionLocalProvider(LocalOpenUser provides openUser) {
+    val openNotif: () -> Unit = { nav.navigate("notifications") { launchSingleTop = true } }
+    CompositionLocalProvider(LocalOpenUser provides openUser, LocalOpenNotif provides openNotif) {
     Scaffold(containerColor = Bg, bottomBar = {
         if (tabs.any { it.route == route }) NavigationBar(containerColor = CardBg) {
             tabs.forEach { t ->
                 NavigationBarItem(route == t.route, {
                     nav.navigate(t.route) { popUpTo("home"); launchSingleTop = true; restoreState = true }
-                }, {
-                    if (t.route == "notifications" && NotifState.unread > 0) BadgedBox({
-                        Badge(containerColor = Color(0xFFE5484D), contentColor = Color.White) { Text(if (NotifState.unread > 99) "99+" else "${NotifState.unread}") }
-                    }) { Icon(t.icon, t.label) } else Icon(t.icon, t.label)
-                }, label = { Text(t.label, fontSize = 11.sp) },
+                }, { Icon(t.icon, t.label) }, label = { Text(t.label, fontSize = 11.sp) },
                     colors = NavigationBarItemDefaults.colors(selectedIconColor = Accent, selectedTextColor = Accent,
                         indicatorColor = Color.Transparent, unselectedIconColor = Muted, unselectedTextColor = Muted))
             }
@@ -130,7 +126,7 @@ private fun AppScaffold() {
                 LibraryScreen({ nav.detail(it) }, { e -> e.lastChapterId?.let { nav.reader(e.id, it) } ?: nav.detail(e.id) }, { nav.navigate("search") })
             }
             composable("notifications") {
-                NotificationsScreen { o -> if (o.chapterId != null) nav.reader(o.seriesId, o.chapterId) else nav.detail(o.seriesId) }
+                NotificationsScreen(nav::popBackStack) { o -> if (o.chapterId != null) nav.reader(o.seriesId, o.chapterId) else nav.detail(o.seriesId) }
             }
             composable("search") { SearchScreen(nav::popBackStack) { nav.detail(it) } }
             composable("profile") { ProfileScreen(nav::popBackStack, { nav.navigate("profile/edit") }, { nav.navigate("profile/history") }, { nav.navigate("profile/account") }, { nav.navigate("profile/roles") }, { nav.navigate("admin") }) }

@@ -255,14 +255,14 @@ object Net {
      * dari cover yang sedang terlihat. [skip] = jumlah item pertama yang sudah diminta langsung oleh UI.
      */
     fun preloadCovers(list: List<Series>, skip: Int = 0) {
-        val todo = list.drop(skip).filter { it.cover.isNotBlank() }.take(24)
+        val todo = list.drop(skip).filter { it.cover.isNotBlank() }.take(12)
         if (todo.isEmpty()) return
         netScope.launch {
             val wait = QUIET_MS - (System.currentTimeMillis() - bootAt)
             if (wait > 0) delay(wait)
-            todo.chunked(6).forEach { chunk ->
+            todo.chunked(3).forEach { chunk ->
                 chunk.groupBy { it.provider }.forEach { (p, items) -> preloadImages(items.map { it.cover }, hdr[p].orEmpty()) }
-                delay(350)
+                delay(1500)
             }
         }
     }
@@ -433,7 +433,11 @@ class MiToonApp : Application(), ImageLoaderFactory {
     }
 
     override fun newImageLoader() = ImageLoader.Builder(this)
-        .okHttpClient(Net.client.newBuilder().cache(null).build())
+        .okHttpClient(Net.client.newBuilder().cache(null)
+            // Gambar punya antrean sendiri (maks. 8 paralel per host) dan timeout lebih longgar: puluhan cover paralel di jaringan lambat
+            // saling berebut bandwidth sampai kena timeout 25 dtk -> kotak kosong.
+            .dispatcher(Dispatcher().apply { maxRequests = 32; maxRequestsPerHost = 8 })
+            .readTimeout(40, TimeUnit.SECONDS).callTimeout(90, TimeUnit.SECONDS).build())
         .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.30).build() }
         .respectCacheHeaders(false) // gambar yang sudah ada di disk dipakai langsung, tanpa cek ulang ke server
         .diskCache { DiskCache.Builder().directory(cacheDir.resolve("img")).maxSizeBytes(200L * 1024 * 1024).build() }

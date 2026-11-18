@@ -80,9 +80,9 @@ fun RedPill(count: Int, modifier: Modifier = Modifier) {
 
 private val noticeSer = ListSerializer(Notice.serializer())
 
-/** Tab bawah "Notifikasi": dua tab — Aktivitas (balasan & like komentarmu) dan Informasi (pengumuman admin). */
+/** Halaman "Notifikasi" (lonceng di header kanan atas): dua tab — Aktivitas (balasan & like komentarmu) dan Informasi (pengumuman admin). */
 @Composable
-fun NotificationsScreen(onOpen: (CommentOrigin) -> Unit) {
+fun NotificationsScreen(onBack: () -> Unit, onOpen: (CommentOrigin) -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var page by remember { mutableStateOf<NotifPage?>(null) }
     var notices by remember { mutableStateOf(Net.readSnap("info-notices", noticeSer)) }
@@ -115,7 +115,7 @@ fun NotificationsScreen(onOpen: (CommentOrigin) -> Unit) {
     val newInfo = if (1 in viewed) 0 else notices?.count { it.createdAt > infoSeen } ?: 0
 
     Column(Modifier.fillMaxSize().background(Bg)) {
-        Text("Notifikasi", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 6.dp))
+        TopBar("Notifikasi", onBack)
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
             NotifTab("Aktivitas", tab == 0, newActivity, Modifier.weight(1f)) { tab = 0 }
             NotifTab("Informasi", tab == 1, newInfo, Modifier.weight(1f)) { tab = 1 }

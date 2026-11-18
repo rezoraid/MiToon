@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -52,6 +53,9 @@ val R6 = RoundedCornerShape(3.dp) // nama lama; semua tombol/chip/kartu memakai 
 /** Diisi saat genre di halaman detail ditekan; ExploreScreen membacanya sekali lalu mengosongkannya. */
 object ExploreRequest { var genre by mutableStateOf<String?>(null) }
 fun genreSlug(name: String) = name.lowercase().replace(Regex("[^\\p{L}\\p{N}]+"), "-").trim('-')
+
+/** Dibuka dari ikon lonceng di header; diisi oleh AppScaffold. */
+val LocalOpenNotif = staticCompositionLocalOf<() -> Unit> { {} }
 
 /** Kotak genre: persegi, bisa ditekan. */
 @Composable
@@ -98,13 +102,20 @@ fun MiToonTheme(content: @Composable () -> Unit) = MaterialTheme(
 @Composable
 fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale = ContentScale.Crop, extra: Map<String, String>? = null) {
     val ctx = LocalContext.current
+    // Gagal muat (mis. header referer belum siap saat app baru dibuka, atau koneksi goyang) -> coba lagi sampai 2x
+    // dengan header yang dibaca ulang saat itu juga (supaya tidak memakai header lama).
+    var attempt by remember(url) { mutableIntStateOf(0) }
+    var failed by remember(url) { mutableStateOf(false) }
+    // Jaringan lambat -> request timeout lalu kotak tetap kosong. Coba lagi dengan jeda bertahap (1,5 dtk, 3 dtk, ...) sampai 4x.
+    LaunchedEffect(failed) { if (failed && attempt < 4) { delay(1500L * (attempt + 1)); attempt++; failed = false } }
     val h = extra ?: Net.hdr[provider].orEmpty()
     // Kunci memori eksplisit: gambar yang sudah tampil di kartu langsung dipakai sebagai placeholder di detail (tanpa kotak kosong).
-    val req = remember(url, h) {
-        ImageRequest.Builder(ctx).data(url).memoryCacheKey(url).placeholderMemoryCacheKey(url)
+    val req = remember(url, h, attempt) {
+        ImageRequest.Builder(ctx).data(url.trim()).memoryCacheKey(url).placeholderMemoryCacheKey(url)
             .apply { h.forEach { (k, v) -> addHeader(k, v) } }.build()
     }
-    AsyncImage(model = req, contentDescription = null, modifier = modifier.background(CardBg), contentScale = scale)
+    AsyncImage(model = req, contentDescription = null, modifier = modifier.background(CardBg), contentScale = scale,
+        onError = { if (url.isNotBlank()) failed = true })
 }
 
 @Composable
@@ -152,6 +163,14 @@ fun Header(onSearch: () -> Unit, onBack: (() -> Unit)? = null) = Column {
             withStyle(SpanStyle(color = Muted)) { append("Toon") }
         }, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
         IconButton(onSearch) { Icon(Icons.Default.Search, "Cari", tint = Muted, modifier = Modifier.size(26.dp)) }
+        val openNotif = LocalOpenNotif.current
+        IconButton(openNotif) {
+            val n = NotifState.unread
+            if (n > 0) BadgedBox({
+                Badge(containerColor = Color(0xFFE5484D), contentColor = Color.White) { Text(if (n > 99) "99+" else "$n") }
+            }) { Icon(Icons.Default.Notifications, "Notifikasi", tint = Muted, modifier = Modifier.size(26.dp)) }
+            else Icon(Icons.Default.Notifications, "Notifikasi", tint = Muted, modifier = Modifier.size(26.dp))
+        }
         IconButton({ Auth.menuOpen = true }) {
             val u = Auth.user
             if (u != null && u.avatarV > 0) Avatar(u.id, u.username, u.avatarV, 30.dp)

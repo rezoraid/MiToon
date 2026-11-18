@@ -65,7 +65,7 @@ object CommentHistory {
     fun clear() { origins.clear(); prefs.edit().clear().apply() }
 
     private suspend fun seriesOrigin(id: String, chapterId: String? = null, chapterNumber: String? = null): CommentOrigin? {
-        val d = Net.detailCache[id] ?: Net.api.detail(id).data
+        val d = Net.detailCache[id] ?: Net.detail(id)
         return CommentOrigin(id, d.title, d.cover, d.provider, chapterId, chapterNumber)
     }
 
@@ -76,7 +76,7 @@ object CommentHistory {
             target.startsWith("s:") -> seriesOrigin(target.drop(2))
             target.startsWith("c:") -> {
                 val cid = target.drop(2)
-                val c = Net.cachedChapter(cid) ?: Net.api.chapter(cid).data
+                val c = Net.cachedChapter(cid) ?: Net.chapter(cid)
                 c.seriesId?.let { seriesOrigin(it, cid, c.number) }
             }
             else -> null

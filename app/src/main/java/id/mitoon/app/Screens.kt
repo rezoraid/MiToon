@@ -50,7 +50,7 @@ fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Uni
     var sel by rememberSaveable { mutableStateOf("sorotan") }
     val s = sel
     val feed = keyedVm("home-$s") {
-        PagedVm("home-$s") { p -> when (s) { "sorotan" -> Net.api.latest(p).data; "populer" -> Net.api.popular(p).data; else -> Net.api.byGenre(s, p).data } }
+        PagedVm("home-$s") { p -> when (s) { "sorotan" -> Net.latest(p); "populer" -> Net.popular(p); else -> Net.api.byGenre(s, p).data } }
     }
     val tabs = listOf("sorotan" to "Sorotan", "populer" to "Populer") + hv.genres.map { it.slug to it.name }
     Column(Modifier.fillMaxSize()) {
@@ -68,8 +68,8 @@ fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Uni
 // ------------------------------------------------------------------ EXPLORE (jelajah + satu tombol filter)
 private suspend fun explore(p: Int, g: String?, sort: String, type: String?): List<Series> = when {
     g != null -> Net.api.byGenre(g, p, sort = sort, type = type).data
-    sort == "popular" -> Net.api.popular(p).data
-    else -> Net.api.latest(p, type = type).data
+    sort == "popular" -> Net.popular(p)
+    else -> Net.latest(p, type = type)
 }
 
 private val typeNames = mapOf("manga" to "Manga", "manhwa" to "Manhwa", "manhua" to "Manhua", "comic" to "Komik", "novel" to "Novel")

@@ -42,7 +42,7 @@ class PagedVm(private val snapKey: String? = null, private val loader: suspend (
                 .onSuccess { r ->
                     if (page == 1) {
                         if (r.isEmpty()) end = true
-                        else { items = r; page = 2; snapKey?.let { Net.writeSnap(it, seriesListSer, r) }; r.take(4).forEach { Net.prefetchDetail(it.id) }; Net.preloadCovers(r) }
+                        else { items = r; page = 2; snapKey?.let { Net.writeSnap(it, seriesListSer, r) }; r.take(3).forEach { Net.prefetchDetail(it.id) }; Net.preloadCovers(r, skip = 12) }
                     } else {
                         val seen = items.mapTo(HashSet()) { it.id }
                         val fresh = r.filter { it.id !in seen }
@@ -62,7 +62,8 @@ class HomeVm : ViewModel() {
     var genres by mutableStateOf(Net.genresSnap().sortedByDescending { it.count }.take(20)); private set
 
     init {
-        viewModelScope.launch { runCatching { Net.api.popular(limit = 6).data }.onSuccess { spotlight = it; Net.writeSnap("home-spotlight", seriesListSer, it) } }
+        // Sama dengan request tab Populer & warm-up (limit 12) -> digabung jadi satu; sorotan = 6 teratas.
+        viewModelScope.launch { runCatching { Net.popular(1, 12).take(6) }.onSuccess { spotlight = it; Net.writeSnap("home-spotlight", seriesListSer, it) } }
         viewModelScope.launch { runCatching { Net.genres().sortedByDescending { it.count }.take(20) }.onSuccess { genres = it } }
     }
 }

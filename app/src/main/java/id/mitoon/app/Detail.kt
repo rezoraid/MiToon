@@ -122,7 +122,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
         if (tick > 0) value = null
         // Belum ada di memori -> coba disk dulu (tampil instan, juga saat offline), lalu segarkan dari server.
         if (value == null) Net.loadDetailDisk(id)?.let { value = Result.success(it) }
-        val r = runCatching { Net.api.detail(id).data }
+        val r = runCatching { Net.detail(id) }
         r.getOrNull()?.let { Net.storeDetail(id, it) }
         if (r.isSuccess || value == null) value = r
     }
@@ -276,7 +276,7 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     // Chapter yang pernah dibuka / sudah di-prefetch tampil seketika; versi terbaru diambil diam-diam (UI hanya berubah bila isinya beda).
     val res by produceState<Result<Content>?>(Net.cachedChapter(chapterId)?.let { Result.success(it) }, chapterId, tick) {
         if (tick > 0) value = null
-        val r = runCatching { Net.api.chapter(chapterId).data }
+        val r = runCatching { Net.chapter(chapterId) }
         r.getOrNull()?.let { Net.storeChapter(chapterId, it) }
         if (r.isSuccess) { if (value?.getOrNull() != r.getOrNull()) value = r } else if (value == null) value = r
     }
@@ -341,7 +341,7 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     val detail by produceState<Detail?>(Net.detailCache[seriesId], seriesId, showList) {
         if (value == null && showList) {
             value = Net.loadDetailDisk(seriesId)
-                ?: runCatching { Net.api.detail(seriesId).data }.getOrNull()?.also { Net.storeDetail(seriesId, it) }
+                ?: runCatching { Net.detail(seriesId) }.getOrNull()?.also { Net.storeDetail(seriesId, it) }
         }
     }
 

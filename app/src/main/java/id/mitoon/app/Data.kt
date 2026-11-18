@@ -12,17 +12,31 @@ import coil.request.ImageRequest
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import okhttp3.Cache
 import okhttp3.ConnectionPool
 import okhttp3.Dispatcher
+import okhttp3.EventListener
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.TimeUnit
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -161,6 +175,32 @@ object Net {
     private fun <V> lru(max: Int): MutableMap<String, V> = object : LinkedHashMap<String, V>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, V>?): Boolean = size > max
     }
+    private val netScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val inflight = ConcurrentHashMap<String, Deferred<Any?>>()
+    private val bootAt = System.currentTimeMillis()
+
+    /**
+     * Permintaan identik yang sedang berjalan digabung jadi satu (Home + warm-up + prefetch + layar yang sama
+     * dulu menembak URL yang sama 2-3x barengan). Lanjut walau pemanggil pertama dibatalkan; error diteruskan ke semua penunggu.
+     */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun <T> shared(key: String, call: suspend () -> T): T {
+        val d = inflight.computeIfAbsent(key) {
+            netScope.async(start = CoroutineStart.LAZY) { try { call() } finally { inflight.remove(key) } }
+        } as Deferred<T>
+        d.start()
+        return d.await()
+    }
+
+    suspend fun latest(page: Int = 1, limit: Int = 12, type: String? = null): List<Series> = shared("latest:$page:$limit:$type") { api.latest(page, limit, type).data }
+    suspend fun popular(page: Int = 1, limit: Int = 12): List<Series> = shared("popular:$page:$limit") { api.popular(page, limit).data }
+    suspend fun detail(id: String): Detail = shared("detail:$id") { api.detail(id).data }
+    suspend fun chapter(id: String): Content = shared("chapter:$id") { api.chapter(id).data }
+    suspend fun unread(): NotifCount = shared("unread") { api.notifUnread().data }
+
+    /** Beberapa detik pertama setelah proses mulai = hanya untuk layar yang terlihat; prefetch spekulatif menunggu. */
+    private const val QUIET_MS = 2500L
+
     /** Info dasar seri dari kartu yang diklik: dipakai untuk menampilkan halaman detail seketika. */
     val previews: MutableMap<String, Series> = lru(200)
     /** Detail lengkap yang pernah dimuat: buka ulang = langsung tampil. */
@@ -210,9 +250,21 @@ object Net {
         }
     }
 
-    /** Cover seri di daftar diunduh ke disk begitu daftar tiba -> saat di-scroll, gambar muncul tanpa jeda. */
-    fun preloadCovers(list: List<Series>) {
-        list.filter { it.cover.isNotBlank() }.groupBy { it.provider }.forEach { (p, items) -> preloadImages(items.take(30).map { it.cover }, hdr[p].orEmpty()) }
+    /**
+     * Cover di LUAR layar diunduh ke disk sedikit demi sedikit (bukan 90 sekaligus) supaya tidak merebut koneksi
+     * dari cover yang sedang terlihat. [skip] = jumlah item pertama yang sudah diminta langsung oleh UI.
+     */
+    fun preloadCovers(list: List<Series>, skip: Int = 0) {
+        val todo = list.drop(skip).filter { it.cover.isNotBlank() }.take(24)
+        if (todo.isEmpty()) return
+        netScope.launch {
+            val wait = QUIET_MS - (System.currentTimeMillis() - bootAt)
+            if (wait > 0) delay(wait)
+            todo.chunked(6).forEach { chunk ->
+                chunk.groupBy { it.provider }.forEach { (p, items) -> preloadImages(items.map { it.cover }, hdr[p].orEmpty()) }
+                delay(350)
+            }
+        }
     }
 
     /** Ambil chapter + 8 gambar pertamanya lebih dulu (dipanggil untuk chapter berikutnya / chapter yang kemungkinan dibuka). */
@@ -222,7 +274,9 @@ object Net {
             return
         }
         MainScope().launch {
-            runCatching { api.chapter(id).data }.onSuccess { storeChapter(id, it); preloadImages(it.images.take(8), it.imageHeaders) }
+            val wait = QUIET_MS - (System.currentTimeMillis() - bootAt)
+            if (wait > 0) delay(wait)
+            runCatching { chapter(id) }.onSuccess { storeChapter(id, it); preloadImages(it.images.take(8), it.imageHeaders) }
         }
     }
 
@@ -233,18 +287,18 @@ object Net {
     fun warmHomeSnaps() {
         val ser = ListSerializer(Series.serializer())
         MainScope().launch {
-            runCatching { api.latest(1).data }.onSuccess {
+            runCatching { latest(1) }.onSuccess {
                 writeSnap("home-sorotan", ser, it)
-                preloadCovers(it)
-                it.take(8).forEach { s -> prefetchDetail(s.id) }
+                preloadCovers(it, skip = 9) // 9 pertama diminta langsung oleh grid Home
+                it.take(6).forEach { s -> prefetchDetail(s.id) }
             }
         }
         MainScope().launch {
-            runCatching { api.popular(1).data }.onSuccess {
+            runCatching { popular(1) }.onSuccess {
                 writeSnap("home-populer", ser, it)
                 writeSnap("home-spotlight", ser, it.take(6))
-                preloadCovers(it)
-                it.take(6).forEach { s -> prefetchDetail(s.id) }
+                preloadCovers(it, skip = 6) // 6 pertama = sorotan Home, diminta langsung oleh UI
+                it.take(4).forEach { s -> prefetchDetail(s.id) }
             }
         }
         MainScope().launch { runCatching { genres() } }
@@ -262,13 +316,20 @@ object Net {
 
     /** Simpan ke memori (panggil dari thread utama) lalu ke disk di background; maksimal 60 seri disimpan. */
     private val warming = HashSet<String>()
-    /** Ambil detail (daftar chapter) di belakang layar supaya saat kartu ditekan sudah ada di cache -> terbuka instan. */
+    private val prefetchGate = Semaphore(2)
+    /** Ambil detail (daftar chapter) di belakang layar supaya saat kartu ditekan sudah ada di cache -> terbuka instan. Maks. 2 sekaligus, menunggu layar utama selesai dulu. */
     fun prefetchDetail(id: String) {
         if (detailCache.containsKey(id) || !warming.add(id)) return
         MainScope().launch {
-            val d = loadDetailDisk(id) ?: runCatching { api.detail(id).data }.getOrNull()
-            if (d != null) { detailCache[id] = d; storeDetail(id, d) }
-            warming.remove(id)
+            try {
+                val wait = QUIET_MS - (System.currentTimeMillis() - bootAt)
+                if (wait > 0) delay(wait)
+                prefetchGate.withPermit {
+                    if (detailCache.containsKey(id)) return@withPermit
+                    val d = loadDetailDisk(id) ?: runCatching { detail(id) }.getOrNull()
+                    if (d != null) { detailCache[id] = d; storeDetail(id, d) }
+                }
+            } finally { warming.remove(id) }
         }
     }
 
@@ -286,7 +347,17 @@ object Net {
     private val genreSer = ListSerializer(Genre.serializer())
     /** Genre terakhir yang tersimpan di disk (kosong bila belum pernah dimuat). */
     fun genresSnap(): List<Genre> = readSnap("genres", genreSer).orEmpty()
-    suspend fun genres(): List<Genre> = genreCache ?: api.genres().data.also { genreCache = it; writeSnap("genres", genreSer, it) }
+    suspend fun genres(): List<Genre> = genreCache ?: shared("genres") { api.genres().data }.also { genreCache = it; writeSnap("genres", genreSer, it) }
+
+    private val hdrSer = MapSerializer(String.serializer(), MapSerializer(String.serializer(), String.serializer()))
+    /** Header gambar (referer) per provider: disimpan di disk supaya cover langsung diminta dengan header benar sejak frame pertama. */
+    suspend fun loadProviders() {
+        val m = shared("providers") { api.providers().data }.associate { it.key to it.imageHeaders }
+        hdr = m
+        writeSnap("providers-hdr", hdrSer, m)
+    }
+
+    private val PUBLIC = listOf("v1/latest", "v1/popular", "v1/search", "v1/genres", "v1/series/", "v1/chapters/", "v1/providers", "v1/announcements")
 
     fun init(ctx: Context) {
         detailDir = File(ctx.cacheDir, "detail").also { it.mkdirs() }
@@ -294,23 +365,48 @@ object Net {
         chapterDir = File(ctx.cacheDir, "chapters").also { it.mkdirs() }
         commentDir = File(ctx.cacheDir, "comments").also { it.mkdirs() }
         appCtx = ctx.applicationContext
+        hdr = readSnap("providers-hdr", hdrSer).orEmpty()
         // Backend mengirim ETag + Cache-Control: cache HTTP lebih besar mencegah request berulang.
         // Dispatcher default hanya 5 request paralel per host -> gambar antre. Dinaikkan supaya cover/halaman chapter lebih cepat.
         val dispatcher = Dispatcher().apply { maxRequests = 96; maxRequestsPerHost = 24 }
-        val apiHost = BuildConfig.API_BASE_URL.toHttpUrl().host
+        val apiUrl = BuildConfig.API_BASE_URL.toHttpUrl()
+        val apiHost = apiUrl.host
+        val basePath = apiUrl.encodedPath
+        // Koneksi pertama ke server dibuat SATU kali: request lain menunggu sampai koneksi (TLS) siap lalu memakainya bersama (HTTP/2),
+        // bukan 8-10 handshake TLS paralel saat aplikasi dibuka.
+        val firstClaimed = AtomicBoolean(false)
+        val connected = CountDownLatch(1)
         client = OkHttpClient.Builder()
             .cache(Cache(File(ctx.cacheDir, "http"), 40L * 1024 * 1024)).dispatcher(dispatcher)
             .connectionPool(ConnectionPool(16, 5, TimeUnit.MINUTES)) // koneksi TLS dipakai ulang -> request berikutnya tanpa handshake
             .connectTimeout(5, TimeUnit.SECONDS).readTimeout(15, TimeUnit.SECONDS).writeTimeout(15, TimeUnit.SECONDS)
             .callTimeout(25, TimeUnit.SECONDS).retryOnConnectionFailure(true)
+            .eventListenerFactory { _ ->
+                object : EventListener() {
+                    override fun connectionAcquired(call: okhttp3.Call, connection: okhttp3.Connection) { if (call.request().url.host == apiHost) connected.countDown() }
+                    override fun callFailed(call: okhttp3.Call, ioe: java.io.IOException) { if (call.request().url.host == apiHost) connected.countDown() }
+                }
+            }
             .addInterceptor { chain -> // GET yang gagal sesaat (sinyal goyang) diulang sekali, langsung
                 val req = chain.request()
                 try { chain.proceed(req) } catch (e: java.io.IOException) { if (req.method == "GET") chain.proceed(req) else throw e }
             }
-            .addInterceptor { chain -> // token login hanya dikirim ke server API, tidak pernah ke host gambar
+            .addInterceptor { chain -> // token login hanya ke endpoint pribadi di server API (katalog publik tanpa token = bisa di-cache CDN)
                 val req = chain.request()
                 val t = Auth.token
-                chain.proceed(if (t != null && req.url.host == apiHost) req.newBuilder().header("Authorization", "Bearer $t").build() else req)
+                val rel = req.url.encodedPath.removePrefix(basePath)
+                val priv = req.url.host == apiHost && PUBLIC.none { rel.startsWith(it) }
+                chain.proceed(if (t != null && priv) req.newBuilder().header("Authorization", "Bearer $t").build() else req)
+            }
+            .addInterceptor { chain ->
+                val req = chain.request()
+                if (req.url.host != apiHost) return@addInterceptor chain.proceed(req)
+                if (firstClaimed.compareAndSet(false, true)) {
+                    try { chain.proceed(req) } finally { connected.countDown() } // jawaban dari cache HTTP juga melepas antrean
+                } else {
+                    try { connected.await(3, TimeUnit.SECONDS) } catch (e: InterruptedException) { throw java.io.InterruptedIOException("dibatalkan") }
+                    chain.proceed(req)
+                }
             }.build()
         val json = Json { ignoreUnknownKeys = true; coerceInputValues = true; explicitNulls = false }
         api = Retrofit.Builder().baseUrl(BuildConfig.API_BASE_URL).client(client)
@@ -326,15 +422,14 @@ class MiToonApp : Application(), ImageLoaderFactory {
         Library.init(this)
         Auth.init(this)
         CommentHistory.init(this)
-        // "Lanjutkan" instan: chapter terakhir dibaca + detail 5 seri terakhir disiapkan sejak aplikasi dibuka.
+        // Urutan penting: header gambar dulu (kecil, sekaligus membuka koneksi pertama), lalu data layar utama.
+        // Prefetch spekulatif (detail/chapter lanjutan) menunggu beberapa detik di dalam Net supaya tidak berebut dengan layar yang terlihat.
+        MainScope().launch { runCatching { Net.loadProviders() } }
+        Net.warmHomeSnaps()
+        MainScope().launch { Auth.validate() }
         val recent = Library.entries.values.filter { it.readAt > 0 }.sortedByDescending { it.readAt }
         recent.firstOrNull()?.lastChapterId?.let { Net.prefetchChapter(it) }
-        recent.take(2).getOrNull(1)?.lastChapterId?.let { Net.prefetchChapter(it) }
-        recent.take(5).forEach { Net.prefetchDetail(it.id) }
-        // Snapshot Home/Explore + header provider di background -> buka tab pertama tanpa menunggu.
-        Net.warmHomeSnaps()
-        MainScope().launch { runCatching { Net.hdr = Net.api.providers().data.associate { it.key to it.imageHeaders } } }
-        MainScope().launch { Auth.validate() }
+        recent.take(3).forEach { Net.prefetchDetail(it.id) }
     }
 
     override fun newImageLoader() = ImageLoader.Builder(this)

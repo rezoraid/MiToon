@@ -39,12 +39,11 @@ fun WelcomeScreen(onDone: () -> Unit) {
     val bar = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         coroutineScope {
-            launch { logo.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessLow)) }
-            launch { delay(120); ring.animateTo(1f, tween(900, easing = FastOutSlowInEasing)) }
-            launch { delay(350); text.animateTo(1f, tween(450, easing = FastOutSlowInEasing)) }
-            launch { delay(200); bar.animateTo(1f, tween(1000, easing = LinearEasing)) }
+            launch { logo.animateTo(1f, spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium)) }
+            launch { delay(80); ring.animateTo(1f, tween(500, easing = FastOutSlowInEasing)) }
+            launch { delay(150); text.animateTo(1f, tween(300, easing = FastOutSlowInEasing)) }
+            launch { delay(100); bar.animateTo(1f, tween(550, easing = LinearEasing)) }
         }
-        delay(150)
         onDone()
     }
     val name = Auth.user?.name.orEmpty()

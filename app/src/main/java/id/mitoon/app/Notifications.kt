@@ -59,7 +59,7 @@ object NotifState {
     val unread: Int get() = notif + info
     fun clear() { notif = 0; info = 0 }
     suspend fun refresh() {
-        runCatching { Net.api.notifUnread().data }.onSuccess {
+        runCatching { Net.unread() }.onSuccess {
             // Server lama hanya mengirim `count` total: tampilkan saja sebagai total.
             if (it.notif + it.info == 0 && it.count > 0) { notif = it.count; info = 0 } else { notif = it.notif; info = it.info }
         }

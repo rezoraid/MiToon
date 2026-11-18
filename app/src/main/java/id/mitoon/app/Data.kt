@@ -75,9 +75,7 @@ import java.security.MessageDigest
 @Serializable data class ProviderInfo(val key: String, val imageHeaders: Map<String, String> = emptyMap())
 // Endpoint opsional (belum ada di backend): bagian UI otomatis disembunyikan bila kosong/gagal.
 @Serializable data class Notice(
-    val id: Long = 0, val title: String = "", val body: String = "", val url: String? = null, val createdAt: Long = 0, val expiresAt: Long? = null,
-    /** true = tampil sebagai popup di tengah layar; [version] terisi = info pembaruan aplikasi. */
-    val popup: Boolean = false, val imageUrl: String? = null, val version: String? = null, val buttonText: String? = null, val cancelText: String? = null
+    val id: Long = 0, val title: String = "", val body: String = "", val url: String? = null, val createdAt: Long = 0, val expiresAt: Long? = null
 )
 
 @Serializable data class AdminStats(val series: Int = 0, val chapters: Int = 0, val users: Int = 0, val comments: Int = 0, val genres: Int = 0, val banned: Int = 0, val muted: Int = 0, val views_7d: Int = 0)
@@ -116,8 +114,7 @@ import java.security.MessageDigest
 )
 @Serializable data class AdminDeletedCount(val deleted: Int = 0)
 @Serializable data class AdminAnnounceReq(
-    val title: String, val body: String? = null, val url: String? = null, val expiresAt: String? = null,
-    val popup: Boolean = false, val imageUrl: String? = null, val version: String? = null, val buttonText: String? = null, val cancelText: String? = null
+    val title: String, val body: String? = null, val url: String? = null, val expiresAt: String? = null
 )
 @Serializable data class Ok(val ok: Boolean = true)
 
@@ -131,7 +128,7 @@ interface Api {
     @GET("v1/series/{id}") suspend fun detail(@Path("id") id: String): Env<Detail>
     @GET("v1/chapters/{id}") suspend fun chapter(@Path("id") id: String): Env<Content>
     @GET("v1/providers") suspend fun providers(): Env<List<ProviderInfo>>
-    @GET("v1/announcements") suspend fun announcements(@Query("limit") limit: Int? = null, @Query("kind") kind: String? = null): Env<List<Notice>>
+    @GET("v1/announcements") suspend fun announcements(@Query("limit") limit: Int? = null): Env<List<Notice>>
     @GET("v1/notifications") suspend fun notifications(): Env<NotifPage>
     @GET("v1/notifications/unread") suspend fun notifUnread(): Env<NotifCount>
     @POST("v1/notifications/read") suspend fun notifRead(@Query("kind") kind: String? = null): Env<Ok>
@@ -168,7 +165,7 @@ interface Api {
     @DELETE("v1/admin/users/{id}/avatar") suspend fun adminClearUserAvatar(@Path("id") id: Long): Env<AdminUser>
     @DELETE("v1/admin/users/{id}/comments") suspend fun adminDeleteUserComments(@Path("id") id: Long): Env<AdminDeletedCount>
     @DELETE("v1/admin/users/{id}") suspend fun adminDeleteUser(@Path("id") id: Long): Env<Ok>
-    @GET("v1/admin/announcements") suspend fun adminAnnouncements(@Query("kind") kind: String? = null): Env<List<Notice>>
+    @GET("v1/admin/announcements") suspend fun adminAnnouncements(): Env<List<Notice>>
     @POST("v1/admin/announcements") suspend fun adminCreateAnnouncement(@Body b: AdminAnnounceReq): Env<Notice>
     @DELETE("v1/admin/announcements/{id}") suspend fun adminDeleteAnnouncement(@Path("id") id: Long): Env<Ok>
 }

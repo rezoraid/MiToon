@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun AdminScreen(onBack: () -> Unit) {
     var tab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Ringkasan", "Komik", "User", "Informasi", "Pembaruan")
+    val tabs = listOf("Ringkasan", "Komik", "User", "Informasi")
     Column(Modifier.fillMaxSize().background(Bg)) {
         Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
@@ -48,7 +48,6 @@ fun AdminScreen(onBack: () -> Unit) {
             1 -> AdminSeriesTab()
             2 -> AdminUsersTab()
             3 -> AdminAnnounceTab()
-            4 -> AdminUpdateTab()
         }
     }
 }
@@ -527,15 +526,14 @@ private fun PublishButton(enabled: Boolean, sending: Boolean, done: Boolean, lab
     }
 }
 
-/** Satu baris di daftar aktif (Informasi & Pembaruan): judul, cuplikan isi, meta, tombol hapus. */
+/** Satu baris di daftar aktif (Informasi): judul, cuplikan isi, meta, tombol hapus. */
 @Composable
 private fun AdminNoticeRow(n: Notice, onDelete: () -> Unit) {
     Row(Modifier.fillMaxWidth().clip(R6).border(1.dp, CardLine, R6).background(CardBg).padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(plainText(n.title), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             if (n.body.isNotBlank()) Text(plainText(n.body), color = Muted, fontSize = 12.sp, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-            val meta = (if (n.createdAt > 0) "Terbit ${dateText(n.createdAt)}" else "Terbit") + "  ·  " + (n.expiresAt?.let { "Berakhir ${dateText(it)}" } ?: "Tanpa batas waktu") +
-                (n.version?.takeIf { it.isNotBlank() }?.let { "  ·  v$it" } ?: "")
+            val meta = (if (n.createdAt > 0) "Terbit ${dateText(n.createdAt)}" else "Terbit") + "  ·  " + (n.expiresAt?.let { "Berakhir ${dateText(it)}" } ?: "Tanpa batas waktu")
             Text(meta, color = Muted, fontSize = 11.sp)
         }
         IconButton(onDelete) { Icon(Icons.Filled.Delete, "Hapus", tint = RedText) }
@@ -543,9 +541,8 @@ private fun AdminNoticeRow(n: Notice, onDelete: () -> Unit) {
 }
 
 private val HttpRx = Regex("^https?://\\S+$", RegexOption.IGNORE_CASE)
-private val VersionRx = Regex("^[0-9A-Za-z.+_-]{1,20}$")
 
-/** Tab Informasi: pengumuman biasa (Notifikasi › Informasi). Popup pembaruan ada di tab Pembaruan. */
+/** Tab Informasi: pengumuman biasa (Notifikasi › Informasi). */
 @Composable
 private fun AdminAnnounceTab() {
     var list by remember { mutableStateOf<List<Notice>?>(null) }
@@ -560,7 +557,7 @@ private fun AdminAnnounceTab() {
     val scope = rememberCoroutineScope()
     fun load() {
         scope.launch {
-            runCatching { Net.api.adminAnnouncements("info").data }
+            runCatching { Net.api.adminAnnouncements().data }
                 .onSuccess { list = it; err = null }
                 .onFailure { err = it.friendly() }
         }
@@ -612,121 +609,6 @@ private fun AdminAnnounceTab() {
     }
     delete?.let { n ->
         AdminConfirm("Hapus informasi?", "\"${plainText(n.title)}\" akan hilang dari tab Informasi semua akun.", "Hapus", {
-            delete = null
-            scope.launch { if (n.id > 0) runCatching { Net.api.adminDeleteAnnouncement(n.id) }.onSuccess { load() }.onFailure { err = it.friendly() } }
-        }, { delete = null })
-    }
-}
-
-/**
- * Tab Pembaruan: popup di tengah layar (info versi baru aplikasi) lengkap dengan gambar, versi, tautan unduh, dan teks tombol.
- * Pratinjau selalu tampil dan persis sama dengan yang dilihat pengguna; "Uji popup" membukanya penuh di layar ini.
- */
-@Composable
-private fun AdminUpdateTab() {
-    var list by remember { mutableStateOf<List<Notice>?>(null) }
-    var err by remember { mutableStateOf<String?>(null) }
-    var title by remember { mutableStateOf("") }
-    var body by remember { mutableStateOf("") }
-    var version by remember { mutableStateOf("") }
-    var url by remember { mutableStateOf("") }
-    var imageUrl by remember { mutableStateOf("") }
-    var buttonText by remember { mutableStateOf("") }
-    var cancelText by remember { mutableStateOf("") }
-    var days by remember { mutableIntStateOf(0) }
-    var sending by remember { mutableStateOf(false) }
-    var done by remember { mutableStateOf(false) }
-    var testing by remember { mutableStateOf(false) }
-    var delete by remember { mutableStateOf<Notice?>(null) }
-    val scope = rememberCoroutineScope()
-    fun load() {
-        scope.launch {
-            runCatching { Net.api.adminAnnouncements("popup").data }
-                .onSuccess { list = it; err = null }
-                .onFailure { err = it.friendly() }
-        }
-    }
-    LaunchedEffect(Unit) { load() }
-    LaunchedEffect(done) { if (done) { kotlinx.coroutines.delay(2500); done = false } }
-
-    val urlBad = url.isNotBlank() && !HttpRx.matches(url.trim())
-    val imgBad = imageUrl.isNotBlank() && !HttpRx.matches(imageUrl.trim())
-    val verBad = version.isNotBlank() && !VersionRx.matches(version.trim())
-    val valid = title.isNotBlank() && !urlBad && !imgBad && !verBad && !sending
-
-    // Pratinjau memakai contoh bila kolom masih kosong, supaya tampilannya selalu kelihatan.
-    val v = version.trim().ifBlank { null }.takeIf { !verBad }
-    val draft = Notice(
-        title = title.trim().ifBlank { "Versi ${v ?: "2.6.0"} tersedia" },
-        body = body.trim().ifBlank { "**Baru**\n- Tulis catatan perubahan di sini\n- Satu baris per poin" },
-        url = url.trim().ifBlank { null }.takeIf { !urlBad },
-        popup = true,
-        imageUrl = imageUrl.trim().ifBlank { null }.takeIf { !imgBad },
-        version = v,
-        buttonText = buttonText.trim().ifBlank { null },
-        cancelText = cancelText.trim().ifBlank { null }
-    )
-
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        Column(Modifier.fillMaxWidth().clip(R6).border(1.dp, CardLine, R6).background(CardBg).padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Popup pembaruan baru", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
-                Text("Muncul di tengah layar saat aplikasi dibuka, sekali per perangkat, dengan tombol X. Hilang otomatis setelah aplikasi diperbarui ke versi yang diisi.", color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
-            }
-            Field("Versi aplikasi", version, supporting = if (verBad) "Hanya angka/huruf/titik, maks. 20 karakter" else "mis. 2.6.0", isError = verBad) { version = it.take(20) }
-            Field("Judul", title, supporting = "${title.length}/$INFO_TITLE_MAX · kosong = \"Versi … tersedia\"") { title = it.take(INFO_TITLE_MAX) }
-            Field("Catatan perubahan", body, single = false, supporting = "${body.length}/$INFO_BODY_MAX · **tebal** dan baris \"- poin\" didukung") { body = it.take(INFO_BODY_MAX) }
-            Field("Tautan unduh", url, supporting = if (urlBad) "Harus diawali http:// atau https://" else "Dibuka tombol utama (GitHub Releases, Play Store, dll.)", isError = urlBad) { url = it }
-            Field("Gambar (URL, opsional)", imageUrl, supporting = if (imgBad) "Harus diawali http:// atau https://" else "Disarankan rasio 16:9, mis. 1280×720", isError = imgBad) { imageUrl = it }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Box(Modifier.weight(1f)) { Field("Tombol utama", buttonText, supporting = "Kosong = otomatis") { buttonText = it.take(24) } }
-                Box(Modifier.weight(1f)) { Field("Tombol batal", cancelText, supporting = "Kosong = Nanti saja") { cancelText = it.take(24) } }
-            }
-            LifetimeChips(days) { days = it }
-        }
-
-        // ---- Pratinjau
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Pratinjau", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            Box(Modifier.fillMaxWidth().clip(R6).background(Color.Black.copy(alpha = 0.45f)).border(1.dp, Line, R6).padding(14.dp), Alignment.Center) {
-                NoticeCard(draft, {}, {}, {})
-            }
-            OutlinedButton(
-                { testing = true }, Modifier.fillMaxWidth().height(44.dp), shape = R6,
-                border = androidx.compose.foundation.BorderStroke(1.dp, CardLine), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
-            ) { Text("Uji popup di layar penuh", fontWeight = FontWeight.Medium) }
-        }
-
-        PublishButton(valid, sending, done, "Terbitkan pembaruan") {
-            sending = true; err = null
-            scope.launch {
-                val exp = if (days > 0) isoUtc(System.currentTimeMillis() + days * 86_400_000L) else null
-                runCatching {
-                    Net.api.adminCreateAnnouncement(AdminAnnounceReq(
-                        draft.title, draft.body, draft.url, exp, popup = true,
-                        imageUrl = draft.imageUrl, version = draft.version, buttonText = draft.buttonText, cancelText = draft.cancelText
-                    )).data
-                }.onSuccess { title = ""; body = ""; version = ""; url = ""; imageUrl = ""; buttonText = ""; cancelText = ""; days = 0; done = true; load() }
-                    .onFailure { err = it.friendly() }
-                sending = false
-            }
-        }
-        if (err != null) Text(err!!, color = RedText, fontSize = 13.sp)
-
-        // ---- Daftar aktif
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Aktif${list?.let { " (${it.size})" }.orEmpty()}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            val items = list
-            when {
-                items == null && err == null -> Box(Modifier.fillMaxWidth().padding(16.dp), Alignment.Center) { CircularProgressIndicator(Modifier.size(22.dp), Accent, strokeWidth = 2.dp) }
-                items.isNullOrEmpty() -> Text("Belum ada popup pembaruan aktif.", color = Muted, fontSize = 13.sp)
-                else -> items.forEach { n -> AdminNoticeRow(n) { delete = n } }
-            }
-        }
-    }
-    if (testing) NoticePopupDialog(draft, onClose = { testing = false }, onPrimary = { testing = false }, onSecondary = { testing = false })
-    delete?.let { n ->
-        AdminConfirm("Hapus popup pembaruan?", "\"${plainText(n.title)}\" tidak akan ditampilkan lagi ke pengguna yang belum melihatnya.", "Hapus", {
             delete = null
             scope.launch { if (n.id > 0) runCatching { Net.api.adminDeleteAnnouncement(n.id) }.onSuccess { load() }.onFailure { err = it.friendly() } }
         }, { delete = null })

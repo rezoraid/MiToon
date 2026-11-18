@@ -77,7 +77,6 @@ private fun App() {
 private fun AppContent() {
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
         AppScaffold()
-        NoticePopupHost()
     }
 }
 

@@ -293,7 +293,7 @@ internal fun boldText(s: String) = buildAnnotatedString {
 internal fun dateText(ms: Long): String = java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale("id")).format(java.util.Date(ms))
 
 @Composable
-private fun Loading() = Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(Modifier.size(26.dp), Color.White, strokeWidth = 2.dp) }
+private fun Loading() = Box(Modifier.fillMaxSize(), Alignment.Center) { MascotLoading(size = 120.dp) }
 
 @Composable
 private fun Empty(text: String) = Box(Modifier.fillMaxSize().padding(32.dp), Alignment.Center) {

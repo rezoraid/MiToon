@@ -333,8 +333,43 @@ object Net {
         }
     }
 
+    /** Cover yang terbukti tampil di halaman detail (id -> URL). Dipakai kartu daftar bila cover dari daftar kosong/gagal dimuat. */
+    val coverFix = androidx.compose.runtime.mutableStateMapOf<String, String>()
+    private val coverGate = Semaphore(4)
+    private val fixing = HashSet<String>()
+    private val fixTried = HashMap<String, Long>()
+    private fun validCover(u: String?) = u != null && (u.startsWith("http://") || u.startsWith("https://"))
+
+    /**
+     * Cari cover untuk kartu yang covernya kosong/gagal: cache -> disk -> server. Cache yang covernya kosong/rusak TIDAK dipercaya
+     * (dulu langsung dipakai lalu berhenti -> kartu kosong selamanya). [force] = abaikan cache, ambil ulang dari server
+     * (dipakai saat URL cover yang ada gagal dimuat). Dicoba ulang paling cepat tiap 20 dtk per seri.
+     */
+    suspend fun fixCover(id: String, force: Boolean = false, bad: String? = null) {
+        if (!force && coverFix.containsKey(id)) return
+        val now = System.currentTimeMillis()
+        if (now - (fixTried[id] ?: 0L) < 20_000L) return
+        if (!fixing.add(id)) return
+        try {
+            fixTried[id] = now
+            coverGate.withPermit {
+                var d = if (force) null else (detailCache[id] ?: loadDetailDisk(id))
+                if (d == null || !validCover(d.cover) || d.cover == bad) {
+                    d = try { detail(id).also { storeDetail(id, it) } }
+                    catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                    catch (e: Exception) { null }
+                }
+                d?.cover?.takeIf { validCover(it) && it != bad }?.let { coverFix[id] = it }
+            }
+        } finally { fixing.remove(id) }
+    }
+
+    /** URL cover di [coverFix] ternyata gagal dimuat -> buang supaya kartu bisa mencari ulang (bukan terkunci pada URL rusak). */
+    fun dropCoverFix(id: String, url: String) { if (coverFix[id] == url) coverFix.remove(id) }
+
     fun storeDetail(id: String, d: Detail) {
         detailCache[id] = d
+        d.cover.takeIf { validCover(it) }?.let { coverFix[id] = it }
         MainScope().launch(Dispatchers.IO) {
             runCatching {
                 detailFile(id).writeText(detailJson.encodeToString(Detail.serializer(), d))
@@ -441,5 +476,9 @@ class MiToonApp : Application(), ImageLoaderFactory {
         .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.30).build() }
         .respectCacheHeaders(false) // gambar yang sudah ada di disk dipakai langsung, tanpa cek ulang ke server
         .diskCache { DiskCache.Builder().directory(cacheDir.resolve("img")).maxSizeBytes(200L * 1024 * 1024).build() }
+        .components {
+            // GIF animasi (mascot loading): ImageDecoder di API 28+, GifDecoder di bawahnya.
+            if (android.os.Build.VERSION.SDK_INT >= 28) add(coil.decode.ImageDecoderDecoder.Factory()) else add(coil.decode.GifDecoder.Factory())
+        }
         .allowRgb565(true).crossfade(120).build()
 }

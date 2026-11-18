@@ -106,7 +106,7 @@ private fun DetailTabs(tab: Int, onTab: (Int) -> Unit) = Column(Modifier.padding
 // ------------------------------------------------------------------ DETAIL KOMIK (mengikuti layout Siikomik)
 @Composable
 private fun LazyLoader() =
-    Box(Modifier.fillMaxWidth().padding(vertical = 28.dp), Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp), Accent, strokeWidth = 2.dp) }
+    MascotLoading(Modifier.fillMaxWidth().padding(vertical = 20.dp), 96.dp, "Memuat chapter…")
 
 @Composable
 private fun RetryBox(text: String, onRetry: () -> Unit) =
@@ -354,7 +354,7 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
 
     Box(Modifier.fillMaxSize()) {
         when {
-            res == null -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = Accent) }
+            res == null -> Box(Modifier.fillMaxSize(), Alignment.Center) { MascotLoading(size = 150.dp, label = "Menyiapkan chapter…") }
             c == null -> Failed { tick++ }
             c.images.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Chapter belum tersedia", color = Muted) }
             else -> LazyColumn(Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { bars = !bars }, listState) {
@@ -496,7 +496,7 @@ private fun ChapterSheet(detail: Detail?, current: String, onDismiss: () -> Unit
         Text("Daftar chapter", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp))
         val chapters = detail?.chapters.orEmpty()
         if (chapters.isEmpty()) Box(Modifier.fillMaxWidth().padding(vertical = 40.dp), Alignment.Center) {
-            if (detail == null) CircularProgressIndicator(Modifier.size(24.dp), Accent, strokeWidth = 2.dp) else Text("Belum ada chapter.", color = Muted)
+            if (detail == null) MascotLoading(size = 90.dp) else Text("Belum ada chapter.", color = Muted)
         } else {
             val st = rememberLazyListState(initialFirstVisibleItemIndex = chapters.indexOfFirst { it.id == current }.coerceAtLeast(0))
             LazyColumn(Modifier.heightIn(max = 480.dp), st, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp)) {

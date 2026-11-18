@@ -62,6 +62,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.profileinstaller:profileinstaller:1.3.1") // pasang baseline profile (Compose) -> start & scroll pertama lebih lancar
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("io.coil-kt:coil-gif:2.7.0") // mascot loading (GIF animasi)
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-kotlinx-serialization:2.11.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

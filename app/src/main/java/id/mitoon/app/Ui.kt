@@ -100,14 +100,14 @@ fun MiToonTheme(content: @Composable () -> Unit) = MaterialTheme(
 )
 
 @Composable
-fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale = ContentScale.Crop, extra: Map<String, String>? = null) {
+fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale = ContentScale.Crop, extra: Map<String, String>? = null, retries: Int = 4, onFail: (() -> Unit)? = null) {
     val ctx = LocalContext.current
     // Gagal muat (mis. header referer belum siap saat app baru dibuka, atau koneksi goyang) -> coba lagi sampai 2x
     // dengan header yang dibaca ulang saat itu juga (supaya tidak memakai header lama).
     var attempt by remember(url) { mutableIntStateOf(0) }
     var failed by remember(url) { mutableStateOf(false) }
     // Jaringan lambat -> request timeout lalu kotak tetap kosong. Coba lagi dengan jeda bertahap (1,5 dtk, 3 dtk, ...) sampai 4x.
-    LaunchedEffect(failed) { if (failed && attempt < 4) { delay(1500L * (attempt + 1)); attempt++; failed = false } }
+    LaunchedEffect(failed) { if (failed) { if (attempt < retries) { delay(1500L * (attempt + 1)); attempt++; failed = false } else onFail?.invoke() } }
     val h = extra ?: Net.hdr[provider].orEmpty()
     // Kunci memori eksplisit: gambar yang sudah tampil di kartu langsung dipakai sebagai placeholder di detail (tanpa kotak kosong).
     val req = remember(url, h, attempt) {
@@ -118,10 +118,31 @@ fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale =
         onError = { if (url.isNotBlank()) failed = true })
 }
 
+/** Mascot loading (GIF animasi, background transparan): menggantikan spinner polos di layar yang menunggu lama. */
+@Composable
+fun MascotLoading(modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 110.dp, label: String? = null) {
+    val ctx = LocalContext.current
+    val req = remember { ImageRequest.Builder(ctx).data(R.raw.mascot_loading).memoryCacheKey("mascot_loading").build() }
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        AsyncImage(model = req, contentDescription = "Memuat", modifier = Modifier.height(size).aspectRatio(384f / 512f), contentScale = ContentScale.Fit)
+        if (label != null) Text(label, color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
 @Composable
 fun SeriesCard(s: Series, up: Boolean, sub: String? = null, onClick: () -> Unit) {
     Box(Modifier.fillMaxWidth().aspectRatio(COVER_RATIO).clip(R6).clickable(onClick = onClick)) {
-        Img(s.cover, s.provider, Modifier.fillMaxSize())
+        // Cover dari daftar kosong / gagal dimuat -> pakai cover dari detail seri (diambil sekali dari server, bukan dari cache yang bisa kosong).
+        var bad by remember(s.id, s.cover) { mutableStateOf(false) }
+        val fixed = Net.coverFix[s.id]
+        val url = fixed ?: s.cover
+        // Dapat URL cover baru -> beri kesempatan memuat lagi.
+        LaunchedEffect(fixed) { if (fixed != null) bad = false }
+        // Kosong: cari cover. Gagal dimuat: buang URL rusak lalu ambil ulang dari server (force) dan jangan pakai URL yang sama lagi.
+        LaunchedEffect(s.id, url.isBlank(), bad) {
+            if (url.isBlank() || bad) Net.fixCover(s.id, force = bad, bad = url.takeIf { bad && it.isNotBlank() })
+        }
+        Img(url, s.provider, Modifier.fillMaxSize(), retries = 1, onFail = { bad = true; Net.dropCoverFix(s.id, url) })
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.38f)
             .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xF2000000)))))
         s.rating?.takeIf { it > 0 }?.let {
@@ -247,7 +268,7 @@ fun SeriesGrid(vm: PagedVm, onOpen: (Series) -> Unit, upCount: Int = 0, modifier
         if (vm.items.isEmpty() && vm.loading) items(9) { Box(Modifier.aspectRatio(COVER_RATIO).background(CardBg, R6)) }
         itemsIndexed(vm.items, key = { _, s -> s.id }) { i, s -> SeriesCard(s, i < upCount) { onOpen(s) } }
         if (vm.loading && vm.items.isNotEmpty()) full {
-            Box(Modifier.fillMaxWidth().padding(8.dp), Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp), Accent, strokeWidth = 2.dp) }
+            MascotLoading(Modifier.fillMaxWidth().padding(vertical = 8.dp), 84.dp)
         }
         vm.error?.let { e -> full {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {

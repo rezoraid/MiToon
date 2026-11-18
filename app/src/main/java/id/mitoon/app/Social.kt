@@ -19,6 +19,13 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.shape.CircleShape
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.lazy.items
@@ -176,24 +183,36 @@ class CommentFeed(val target: String) {
                 hasMore = if (tail.isNotEmpty()) hasMore else p.hasMore
                 fetchedAt = System.currentTimeMillis(); error = null
                 snapshot()
+                prefetchRest()
             } catch (e: CancellationException) { throw e } catch (e: Exception) { if (rows.isEmpty()) error = e.friendly() }
             finally { loading = false; busy = false }
+        }
+    }
+
+    /** Satu halaman berikutnya; false bila gagal. Dipakai pemuat latar belakang dan `loadMore`. */
+    private suspend fun fetchMore(): Boolean = try {
+        val p = Net.api.comments(target, limit = PAGE, before = rows.lastOrNull()?.id).data
+        val seen = rows.mapTo(HashSet()) { it.id }
+        val fresh = p.items.filter { it.id !in seen }
+        rows = rows + fresh
+        total = p.total
+        hasMore = p.hasMore && fresh.isNotEmpty() // tidak ada lanjutan -> hentikan pemuat
+        true
+    } catch (e: CancellationException) { throw e } catch (_: Exception) { moreError = true; false }
+
+    /** Sisa komentar diambil diam-diam sampai habis (maks. 5 halaman) supaya daftar tidak memuat-muat saat digulir. */
+    private fun prefetchRest() {
+        if (loadingMore || !hasMore) return
+        loadingMore = true; moreError = false
+        MainScope().launch {
+            try { var g = 0; while (hasMore && g++ < 5) if (!fetchMore()) break } finally { loadingMore = false }
         }
     }
 
     fun loadMore() {
         if (loadingMore || loading || rows.isEmpty() || !hasMore) return
         loadingMore = true; moreError = false
-        MainScope().launch {
-            try {
-                val p = Net.api.comments(target, limit = PAGE, before = rows.lastOrNull()?.id).data
-                val seen = rows.mapTo(HashSet()) { it.id }
-                val fresh = p.items.filter { it.id !in seen }
-                rows = rows + fresh
-                total = p.total
-                hasMore = p.hasMore && fresh.isNotEmpty() // tidak ada lanjutan -> hentikan pemuat
-            } catch (e: CancellationException) { throw e } catch (_: Exception) { moreError = true } finally { loadingMore = false }
-        }
+        MainScope().launch { try { fetchMore() } finally { loadingMore = false } }
     }
 
     /**
@@ -347,7 +366,7 @@ class CommentFeed(val target: String) {
     }
 }
 
-private const val PAGE = 20
+private const val PAGE = 50
 
 /** Titipan dari layar Notifikasi: komentar mana yang harus dicari dan disorot setelah seri/chapter-nya terbuka. Dipakai sekali. */
 object CommentFocus {
@@ -438,15 +457,20 @@ private fun ReplyToggle(c: Comment, t: ReplyThread?, feed: CommentFeed) {
     }
 }
 
-/** Kerangka statis selama komentar belum ada (tanpa animasi -> tidak ada kedutan, tinggi sudah mirip aslinya). */
+/** Kerangka selama komentar dimuat: denyut alpha halus yang dibaca di fase layer (tanpa recompose). */
 @Composable
-private fun CommentSkeleton() = Column {
-    repeat(3) {
-        Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(38.dp).background(Color(0xFF2A2C32), R6))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.width(110.dp).height(12.dp).background(Color(0xFF2A2C32), R6))
-                Box(Modifier.fillMaxWidth(0.8f).height(12.dp).background(Color(0xFF24262C), R6))
+private fun CommentSkeleton() {
+    val pulse = rememberInfiniteTransition(label = "skeleton")
+    val a by pulse.animateFloat(0.45f, 1f, infiniteRepeatable(tween(850, easing = LinearEasing), RepeatMode.Reverse), label = "a")
+    Column(Modifier.graphicsLayer { alpha = a }) {
+        repeat(5) { i ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.size(38.dp).clip(CircleShape).background(Color(0xFF2A2C32)))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.width(if (i % 2 == 0) 110.dp else 80.dp).height(12.dp).clip(R6).background(Color(0xFF2A2C32)))
+                    Box(Modifier.fillMaxWidth(if (i % 3 == 0) 0.9f else 0.7f).height(12.dp).clip(R6).background(Color(0xFF24262C)))
+                    if (i % 2 == 0) Box(Modifier.fillMaxWidth(0.5f).height(12.dp).clip(R6).background(Color(0xFF24262C)))
+                }
             }
         }
     }
@@ -503,12 +527,12 @@ fun LazyListScope.commentItems(feed: CommentFeed) {
         }
         else -> {
             rows.forEach { c ->
-                item("c${c.id}", contentType = "row") { CommentRow(c, c.user.id == meId, feed) }
+                item("c${c.id}", contentType = "row") { Box(Modifier.animateItem()) { CommentRow(c, c.user.id == meId, feed) } }
                 val t = feed.threads[c.id]
-                if (c.replyCount > 0 || (t != null && t.items.isNotEmpty())) item("t${c.id}", contentType = "toggle") { ReplyToggle(c, t, feed) }
+                if (c.replyCount > 0 || (t != null && t.items.isNotEmpty())) item("t${c.id}", contentType = "toggle") { Box(Modifier.animateItem()) { ReplyToggle(c, t, feed) } }
                 if (t != null && t.expanded) {
                     t.items.forEach { r ->
-                        item("r${r.id}", contentType = "reply") { Box(Modifier.padding(start = 50.dp)) { CommentRow(r, r.user.id == meId, feed, isReply = true) } }
+                        item("r${r.id}", contentType = "reply") { Box(Modifier.animateItem().padding(start = 50.dp)) { CommentRow(r, r.user.id == meId, feed, isReply = true) } }
                     }
                     if (t.loading || t.error || t.hasMore) item("m${c.id}", contentType = "rmore") {
                         Box(Modifier.padding(start = 50.dp).fillMaxWidth().padding(vertical = 6.dp), Alignment.CenterStart) {

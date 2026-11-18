@@ -6,8 +6,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.tween
+import androidx.navigation.NavBackStackEntry
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -35,9 +40,22 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         )
+        requestHighRefreshRate()
         setContent { MiToonTheme { App() } }
     }
+
+    /** Minta mode layar dengan refresh rate tertinggi (90/120 Hz) pada resolusi yang sama; banyak HP memakai 60 Hz untuk aplikasi bila tidak diminta. */
+    @Suppress("DEPRECATION")
+    private fun requestHighRefreshRate() = runCatching {
+        val d = windowManager.defaultDisplay
+        val cur = d.mode
+        val best = d.supportedModes.filter { it.physicalWidth == cur.physicalWidth && it.physicalHeight == cur.physicalHeight }.maxByOrNull { it.refreshRate } ?: return@runCatching
+        window.attributes = window.attributes.also { it.preferredDisplayModeId = best.modeId }
+    }
 }
+
+private val tabRoutes = setOf("home", "explore", "library", "notifications")
+private fun NavBackStackEntry.isTab() = destination.route in tabRoutes
 
 private fun NavHostController.detail(id: String) = navigate("series/${Uri.encode(id)}")
 private fun NavHostController.detail(s: Series) { Net.previews[s.id] = s; detail(s.id) }
@@ -46,8 +64,15 @@ private fun NavHostController.reader(sid: String, cid: String, replace: Boolean 
 
 @Composable
 private fun App() {
-    // Login wajib: selama belum ada sesi, hanya layar login yang tampil.
-    if (Auth.token == null) AuthScreen() else AppContent()
+    // Login wajib: belum ada sesi = layar login; login baru = sambutan singkat; lalu aplikasi masuk dengan zoom lembut.
+    val stage = when { Auth.token == null -> 0; Auth.welcome -> 1; else -> 2 }
+    Crossfade(stage, animationSpec = tween(320), label = "root") { st ->
+        when (st) {
+            0 -> AuthScreen()
+            1 -> WelcomeScreen { Auth.pendingEntrance = true; Auth.welcome = false }
+            else -> AppEntrance { AppContent() }
+        }
+    }
 }
 
 @Composable
@@ -89,10 +114,12 @@ private fun AppScaffold() {
             }
         }
     }) { pad ->
-        // Default Navigation memakai fade ~700ms -> terasa lambat. Dimatikan supaya perpindahan layar instan.
+        // Transisi singkat (<250 ms) dan ringan: pindah tab = fade; buka layar = fade + geser tipis; kembali = layar atas menyingkir.
         NavHost(nav, "home", Modifier.padding(pad).consumeWindowInsets(pad),
-            enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None },
-            popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None }) {
+            enterTransition = { if (initialState.isTab() && targetState.isTab()) fadeIn(tween(160)) else fadeIn(tween(200, 30)) + slideInHorizontally(tween(240)) { it / 12 } },
+            exitTransition = { fadeOut(tween(100)) },
+            popEnterTransition = { fadeIn(tween(180)) },
+            popExitTransition = { if (initialState.isTab() && targetState.isTab()) fadeOut(tween(120)) else fadeOut(tween(140)) + slideOutHorizontally(tween(220)) { it / 12 } }) {
             composable("home") {
                 HomeScreen({ nav.detail(it) }, { nav.navigate("search") }) {
                     nav.navigate("explore") { popUpTo("home"); launchSingleTop = true; restoreState = true }

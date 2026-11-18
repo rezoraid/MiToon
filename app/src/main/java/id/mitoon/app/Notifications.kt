@@ -199,11 +199,11 @@ private fun ActivityRow(n: NotifItem, onAvatar: () -> Unit, onClick: () -> Unit)
         ) {
             Box(Modifier.size(48.dp)) {
                 Avatar(n.actor.id, n.actor.username, n.actor.avatarV, 44.dp, Modifier.clickable(onClick = onAvatar), CircleShape)
-                Box(
-                    Modifier.align(Alignment.BottomEnd).size(22.dp).clip(CircleShape).background(if (like) Red else Color(0xFF3D7BFF)).border(2.dp, if (n.unread) Unread else Bg, CircleShape),
+                if (like) Box(
+                    Modifier.align(Alignment.BottomEnd).size(22.dp).clip(CircleShape).background(Red).border(2.dp, if (n.unread) Unread else Bg, CircleShape),
                     Alignment.Center
                 ) {
-                    Icon(painterResource(if (like) R.drawable.ic_thumb_up_filled else R.drawable.ic_reply), null, tint = Color.White, modifier = Modifier.size(12.dp))
+                    Icon(painterResource(R.drawable.ic_thumb_up_filled), null, tint = Color.White, modifier = Modifier.size(12.dp))
                 }
             }
             Column(Modifier.weight(1f).padding(start = 12.dp, end = 10.dp)) {

@@ -342,5 +342,5 @@ class MiToonApp : Application(), ImageLoaderFactory {
         .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.30).build() }
         .respectCacheHeaders(false) // gambar yang sudah ada di disk dipakai langsung, tanpa cek ulang ke server
         .diskCache { DiskCache.Builder().directory(cacheDir.resolve("img")).maxSizeBytes(200L * 1024 * 1024).build() }
-        .allowRgb565(true).crossfade(false).build()
+        .allowRgb565(true).crossfade(120).build()
 }

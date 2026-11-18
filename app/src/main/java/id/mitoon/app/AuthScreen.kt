@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -35,7 +36,6 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -44,7 +44,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
-import androidx.compose.foundation.layout.offset
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.CancellationException
@@ -100,32 +99,18 @@ fun AuthScreen() {
                 else -> LoginPage(busy, msg, keep, { keep = it }) { google() }
             }
         }
-        // versi kecil di pojok atas
-        Text(
-            "v${BuildConfig.VERSION_NAME}",
-            color = Color(0xFF5A5D68),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.align(Alignment.TopEnd).padding(top = 14.dp, end = 18.dp)
-        )
-        // indikator halaman di kanan: kapsul iOS (aktif memanjang)
-        Column(
-            Modifier.align(Alignment.CenterEnd).padding(end = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
+        // versi di atas, seperti layar pembuka umumnya
+        Text("v${BuildConfig.VERSION_NAME}  ·  build ${BuildConfig.VERSION_CODE}", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium,
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp))
+        Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp), horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
             repeat(pages) { i ->
                 val on = pager.currentPage == i
-                val h by animateDpAsState(if (on) 20.dp else 6.dp, tween(240), label = "dot")
-                Box(
-                    Modifier
-                        .width(5.dp)
-                        .height(h)
-                        .clip(CircleShape)
-                        .background(if (on) Color.White else Color(0xFF3A3C45))
-                )
+                val w by animateDpAsState(if (on) 22.dp else 6.dp, tween(220), label = "dot")
+                Box(Modifier.width(w).height(6.dp).clip(CircleShape).background(if (on) Color(0xFFAAA9FF) else Color(0xFF4A4C57)))
             }
         }
-        if (!last) SwipeHint(Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp)) {
+        // petunjuk "Geser ke atas" (hilang di halaman login)
+        if (!last) SwipeHint(Modifier.align(Alignment.BottomCenter).padding(bottom = 54.dp)) {
             scope.launch { pager.animateScrollToPage(pager.currentPage + 1) }
         }
     }
@@ -141,202 +126,76 @@ private fun MascotGif(res: Int, height: Dp, ratio: Float) {
 
 @Composable
 private fun WelcomePage() {
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        MascotGif(R.raw.mascot_welcome, 210.dp, 405f / 512f)
-        Spacer(Modifier.height(20.dp))
-        Text(
-            "Selamat datang",
-            color = Color.White,
-            fontSize = 34.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-0.6).sp,
-            maxLines = 1
-        )
-        Text(
-            "Platform baca komik & novel\nuntuk komunitas Indonesia.",
-            color = Muted,
-            fontSize = 16.sp,
-            lineHeight = 24.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 10.dp)
-        )
+    Column(Modifier.fillMaxSize().padding(horizontal = 28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(270.dp).clip(CircleShape).background(Brush.radialGradient(listOf(Color(0xFF34365B), Color(0xFF202130), Color.Transparent))))
+            MascotGif(R.raw.mascot_welcome, 250.dp, 405f / 512f)
+        }
+        Text("SELAMAT DATANG", color = Color(0xFFAAA9FF), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.4.sp)
+        Text("Dunia cerita,
+ada di genggaman.", color = Color.White, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.8).sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp))
+        Text("Temukan manga dan novel favoritmu, lalu nikmati setiap chapter dengan nyaman.", color = Muted, fontSize = 15.sp, lineHeight = 22.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp, start = 10.dp, end = 10.dp, bottom = 92.dp))
     }
 }
 
 @Composable
 private fun FeaturesPage() {
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 28.dp),
-        horizontalAlignment = Alignment.Start,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            "Semua dalam\nsatu aplikasi",
-            color = Color.White,
-            fontSize = 32.sp,
-            lineHeight = 38.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-0.4).sp
-        )
-        Spacer(Modifier.height(28.dp))
-        Feature(Icons.Default.Search, Color(0xFF0A84FF), "Cari & jelajahi", "Temukan komik dari berbagai sumber, lengkap dengan genre.")
-        Feature(Icons.Default.Favorite, Color(0xFFFF453A), "Pustaka pribadi", "Simpan favoritmu dan lanjutkan baca dari chapter terakhir.")
-        Feature(Icons.Default.Notifications, Color(0xFF30D158), "Komentar & notifikasi", "Ngobrol di tiap komik dan terima kabar terbaru.")
+    Column(Modifier.fillMaxSize().padding(horizontal = 24.dp), verticalArrangement = Arrangement.Center) {
+        Text("PENGALAMAN MEMBACA", color = Color(0xFFAAA9FF), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+        Text("Semua yang kamu
+butuhkan.", color = Color.White, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.8).sp, modifier = Modifier.padding(top = 10.dp, bottom = 24.dp))
+        FeatureCard(Icons.Default.Search, "Cari & jelajahi", "Temukan manga dan novel dari berbagai sumber.", Color(0xFF8B70FF))
+        FeatureCard(Icons.Default.Favorite, "Pustaka pribadi", "Simpan favorit dan lanjutkan dari chapter terakhir.", Color(0xFF398DF5))
+        FeatureCard(Icons.Default.Notifications, "Komentar & notifikasi", "Ikuti obrolan dan kabar terbaru dari komunitas.", Color(0xFFEF9A45))
+        Text("Dirancang untuk membaca lebih nyaman.", color = Muted, fontSize = 13.sp, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 20.dp, bottom = 92.dp))
     }
 }
 
 @Composable
-private fun Feature(icon: ImageVector, tint: Color, title: String, desc: String) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(bottom = 14.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF22242B))
-            .padding(horizontal = 14.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            Modifier
-                .size(42.dp)
-                .clip(RoundedCornerShape(11.dp))
-                .background(tint.copy(alpha = 0.18f)),
-            Alignment.Center
-        ) {
-            Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp))
+private fun FeatureCard(icon: ImageVector, title: String, desc: String, tint: Color) {
+    Row(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFF22232B)).border(1.dp, Color(0xFF343540), RoundedCornerShape(20.dp)).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(46.dp).clip(RoundedCornerShape(15.dp)).background(tint.copy(alpha = .18f)), Alignment.Center) { Icon(icon, null, tint = tint, modifier = Modifier.size(23.dp)) }
+        Column(Modifier.weight(1f).padding(start = 14.dp, end = 8.dp)) {
+            Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text(desc, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 3.dp))
         }
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            Text(
-                desc,
-                color = Muted,
-                fontSize = 13.sp,
-                lineHeight = 18.sp,
-                modifier = Modifier.padding(top = 2.dp)
-            )
-        }
+        Text("›", color = Color(0xFF777987), fontSize = 24.sp)
     }
 }
+
+@Composable
+private fun Feature(icon: ImageVector, title: String, desc: String) = FeatureCard(icon, title, desc, Accent)
 
 @Composable
 private fun LoginPage(busy: Boolean, msg: String?, keep: Boolean, onKeep: (Boolean) -> Unit, onGoogle: () -> Unit) {
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        MascotGif(R.raw.mascot_welcome, 140.dp, 405f / 512f)
-        Spacer(Modifier.height(16.dp))
-        Text(
-            "Mulai membaca",
-            color = Color.White,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-0.3).sp
-        )
-        Text(
-            "Masuk dengan akun Google untuk mulai\nmembaca komik favoritmu.",
-            color = Muted,
-            fontSize = 15.sp,
-            textAlign = TextAlign.Center,
-            lineHeight = 22.sp,
-            modifier = Modifier.padding(top = 8.dp)
-        )
-        Spacer(Modifier.height(28.dp))
-
-        msg?.let {
-            Text(
-                it,
-                color = Color(0xFFFF453A),
-                fontSize = 13.sp,
-                textAlign = TextAlign.Start,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 14.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0x22FF453A))
-                    .padding(12.dp)
-            )
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Box(Modifier.fillMaxWidth().height(230.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(220.dp).clip(CircleShape).background(Brush.radialGradient(listOf(Color(0xFF38385E), Color(0xFF202130), Color.Transparent))))
+            MascotGif(R.raw.mascot_welcome, 190.dp, 405f / 512f)
         }
-
-        Button(
-            onClick = onGoogle,
-            modifier = Modifier
-                .widthIn(max = 400.dp)
-                .fillMaxWidth()
-                .height(52.dp),
-            enabled = !busy,
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.White,
-                contentColor = Color(0xFF1F1F1F),
-                disabledContainerColor = Color(0xFFE8E8E8),
-                disabledContentColor = Color(0xFF1F1F1F)
-            ),
-            contentPadding = PaddingValues(horizontal = 16.dp)
-        ) {
-            if (busy) {
-                CircularProgressIndicator(Modifier.size(22.dp), color = Color(0xFF1F1F1F), strokeWidth = 2.dp)
-            } else {
-                Image(painterResource(R.drawable.ic_google), null, Modifier.size(20.dp))
-                Spacer(Modifier.width(12.dp))
-                Text("Masuk dengan Google", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        Text("SATU LANGKAH LAGI", color = Color(0xFFAAA9FF), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+        Text("Mulai membaca", color = Color.White, fontSize = 31.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 9.dp))
+        Text("Masuk untuk menyimpan koleksi dan melanjutkan cerita favoritmu di MiToon.", color = Muted, fontSize = 14.sp, textAlign = TextAlign.Center, lineHeight = 21.sp, modifier = Modifier.padding(top = 8.dp, bottom = 24.dp, start = 8.dp, end = 8.dp))
+        msg?.let { Text(it, color = Color.White, fontSize = 13.sp, textAlign = TextAlign.Start, modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp).border(1.dp, Color(0xFF555762), RoundedCornerShape(14.dp)).padding(12.dp)) }
+        Button(onGoogle, Modifier.fillMaxWidth().height(56.dp), enabled = !busy, shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF1F1F1F), disabledContainerColor = Color.White, disabledContentColor = Color(0xFF1F1F1F))) {
+            if (busy) CircularProgressIndicator(Modifier.size(22.dp), color = Color(0xFF1F1F1F), strokeWidth = 2.dp) else {
+                Image(painterResource(R.drawable.ic_google), null, Modifier.size(21.dp)); Spacer(Modifier.width(10.dp)); Text("Masuk dengan Google", fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
         }
-
-        Row(
-            Modifier
-                .padding(top = 16.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .clickable { onKeep(!keep) }
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(
-                checked = keep,
-                onCheckedChange = onKeep,
-                colors = CheckboxDefaults.colors(
-                    checkedColor = Color.White,
-                    checkmarkColor = Color.Black,
-                    uncheckedColor = Muted
-                )
-            )
-            Text("Ingat saya di perangkat ini", color = Color.White, fontSize = 14.sp)
+        Row(Modifier.padding(top = 12.dp, bottom = 26.dp).clip(RoundedCornerShape(14.dp)).clickable { onKeep(!keep) }.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(keep, { onKeep(it) }, colors = CheckboxDefaults.colors(checkedColor = Color.White, checkmarkColor = Color.Black, uncheckedColor = Muted))
+            Text("Ingat saya", color = Muted, fontSize = 13.sp)
         }
     }
 }
 
-/** Chevron naik-turun + teks; ketuk = halaman berikutnya. */
+/** Chevron yang naik-turun pelan + teks "Geser ke atas"; ketuk = ke halaman berikutnya. */
 @Composable
 private fun SwipeHint(modifier: Modifier, onClick: () -> Unit) {
     val inf = rememberInfiniteTransition(label = "hint")
-    val dy by inf.animateFloat(
-        0f, -6f,
-        infiniteRepeatable(tween(1000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "dy"
-    )
-    Column(
-        modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(Color(0x22FFFFFF))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(
-            Icons.Default.KeyboardArrowUp,
-            null,
-            tint = Color(0xFF8A8E99),
-            modifier = Modifier.size(26.dp).offset(y = dy.dp)
-        )
-        Text("Geser ke atas", color = Color(0xFF8A8E99), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+    val dy by inf.animateFloat(0f, -8f, infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "dy")
+    Column(modifier.clip(R6).clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(Icons.Default.KeyboardArrowUp, null, tint = Color(0xFF6B6F7B), modifier = Modifier.size(34.dp).offset(y = dy.dp))
+        Text("Geser ke atas", color = Color(0xFF6B6F7B), fontSize = 17.sp, fontWeight = FontWeight.Medium)
     }
 }

@@ -71,9 +71,15 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.ui.graphics.graphicsLayer
+import android.widget.Toast
 
 @Composable
 private fun Failed(onRetry: () -> Unit) = Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
@@ -130,10 +136,41 @@ private fun RetryBox(text: String, onRetry: () -> Unit) =
         Text(text, color = Muted); TextButton(onRetry) { Text("Coba lagi", color = Accent) }
     }
 
+/** Ikon ambil ulang: berputar saat memuat, redup bila jatah harian habis. */
+@Composable
+private fun RefetchIcon(busy: Boolean, left: Int, size: Dp, modifier: Modifier = Modifier) {
+    val spin = if (busy) {
+        val t = rememberInfiniteTransition(label = "refetch")
+        t.animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Restart), label = "rot").value
+    } else 0f
+    Icon(Icons.Filled.Refresh, "Ambil ulang", tint = if (left > 0 || busy) Color.White else Color(0xFF55585F),
+        modifier = modifier.size(size).graphicsLayer { rotationZ = spin })
+}
+
+private fun toast(ctx: Context, msg: String) = Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: (String) -> Unit, onChapter: (seriesId: String, chapterId: String) -> Unit) {
     var tick by remember { mutableIntStateOf(0) }
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var fresh by remember(id) { mutableStateOf<Detail?>(null) }
+    var refetching by remember(id) { mutableStateOf(false) }
+    var left by remember(id) { mutableIntStateOf(Net.refetchLeft("d:$id")) }
+    val refetch = {
+        if (!refetching) {
+            if (left <= 0) toast(ctx, "Batas ambil ulang hari ini habis (${Net.REFETCH_MAX}x per hari)")
+            else {
+                refetching = true
+                scope.launch {
+                    val r = try { runCatching { Net.refetchDetail(id) } } finally { refetching = false }
+                    left = Net.refetchLeft("d:$id")
+                    r.getOrNull()?.let { fresh = it; toast(ctx, "Diperbarui: ${it.chapters.size} chapter (sisa $left hari ini)") } ?: toast(ctx, "Gagal mengambil ulang")
+                }
+            }
+        }
+    }
     // Detail yang pernah dibuka langsung tampil dari cache memori; data terbaru tetap diambil di belakang layar.
     val res by produceState<Result<Detail>?>(Net.detailCache[id]?.let { Result.success(it) }, id, tick) {
         if (tick > 0) value = null
@@ -147,7 +184,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
     val pv = remember(id) { Net.previews[id] ?: Library.entries[id]?.toSeries() }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var newestFirst by rememberSaveable { mutableStateOf(true) }
-    val d = res?.getOrNull()
+    val d = fresh ?: res?.getOrNull()
     val failed = res != null && d == null
     val entry = Library.entries[id]
 
@@ -247,6 +284,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
                 item {
                     Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(if (d != null) "Chapters: ${d.chapters.size}" else "Chapters", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        if (d != null) Box(Modifier.size(40.dp).clip(CircleShape).clickable(onClick = refetch), Alignment.Center) { RefetchIcon(refetching, left, 22.dp) }
                         if (d != null) Text(if (newestFirst) "Terlama ⇅" else "Terbaru ⇅", color = Muted, fontSize = 14.sp,
                             modifier = Modifier.clickable { newestFirst = !newestFirst }.padding(8.dp))
                     }
@@ -290,20 +328,6 @@ private val Green = Color(0xFF30D158)
 private val speeds = listOf("Lambat" to 70, "Sedang" to 130, "Cepat" to 230)
 private val pauses = listOf("Langsung" to 0, "3 dtk" to 3, "5 dtk" to 5)
 private var resumePlay = false
-private var readers = 0
-val LocalImmersive = compositionLocalOf { false }
-
-@Composable
-fun DialogImmersive() {
-    if (!LocalImmersive.current) return
-    val view = LocalView.current
-    SideEffect {
-        val w = (view.parent as? DialogWindowProvider)?.window ?: return@SideEffect
-        val c = WindowCompat.getInsetsController(w, view)
-        c.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        c.hide(WindowInsetsCompat.Type.systemBars())
-    }
-}
 
 object ReaderPrefs {
     private var prefs: SharedPreferences? = null
@@ -315,9 +339,9 @@ object ReaderPrefs {
         val p = ctx.getSharedPreferences("reader", Context.MODE_PRIVATE).also { prefs = it }
         speed = p.getInt("s", 1).coerceIn(0, 2); pause = p.getInt("p", 1).coerceIn(0, 2); autoNext = p.getBoolean("a", true)
     }
-    fun saveSpeed(i: Int) { speed = i; prefs?.edit()?.putInt("s", i)?.apply() }
-    fun savePause(i: Int) { pause = i; prefs?.edit()?.putInt("p", i)?.apply() }
-    fun saveAutoNext(v: Boolean) { autoNext = v; prefs?.edit()?.putBoolean("a", v)?.apply() }
+    fun setSpeed(i: Int) { speed = i; prefs?.edit()?.putInt("s", i)?.apply() }
+    fun setPause(i: Int) { pause = i; prefs?.edit()?.putInt("p", i)?.apply() }
+    fun setAutoNext(v: Boolean) { autoNext = v; prefs?.edit()?.putBoolean("a", v)?.apply() }
 }
 
 @Composable
@@ -330,7 +354,12 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
         r.getOrNull()?.let { Net.storeChapter(chapterId, it) }
         if (r.isSuccess) { if (value?.getOrNull() != r.getOrNull()) value = r } else if (value == null) value = r
     }
-    val c = res?.getOrNull()
+    val ctx = LocalContext.current
+    var fresh by remember(chapterId) { mutableStateOf<Content?>(null) }
+    var refetching by remember(chapterId) { mutableStateOf(false) }
+    var reloadNonce by remember(chapterId) { mutableIntStateOf(0) }
+    var left by remember(chapterId) { mutableIntStateOf(Net.refetchLeft("c:$chapterId")) }
+    val c = fresh ?: res?.getOrNull()
     var bars by remember { mutableStateOf(false) }
     var playing by remember { mutableStateOf(resumePlay.also { resumePlay = false }) }
     var showList by remember { mutableStateOf(false) }
@@ -345,6 +374,19 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     countdown?.let { if (it != lastSec) lastSec = it }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val refetch = {
+        if (!refetching) {
+            if (left <= 0) toast(ctx, "Batas ambil ulang hari ini habis (${Net.REFETCH_MAX}x per hari)")
+            else {
+                refetching = true
+                scope.launch {
+                    val r = try { runCatching { Net.refetchChapter(chapterId) } } finally { refetching = false }
+                    left = Net.refetchLeft("c:$chapterId")
+                    r.getOrNull()?.let { fresh = it; reloadNonce++; toast(ctx, "Diperbarui: ${it.images.size} halaman (sisa $left hari ini)") } ?: toast(ctx, "Gagal mengambil ulang")
+                }
+            }
+        }
+    }
     val density = LocalDensity.current
     val onChapterNow by rememberUpdatedState(onChapter)
     val nextNow by rememberUpdatedState(c?.next)
@@ -357,8 +399,7 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
         val ctl = window?.let { WindowCompat.getInsetsController(it, view) }
         ctl?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         ctl?.hide(WindowInsetsCompat.Type.systemBars())
-        readers++
-        onDispose { readers--; view.post { if (readers == 0) ctl?.show(WindowInsetsCompat.Type.systemBars()) } }
+        onDispose { ctl?.show(WindowInsetsCompat.Type.systemBars()) }
     }
     LaunchedEffect(c) { if (c != null) Library.advance(seriesId, chapterId, c.number) }
     LaunchedEffect(chapterId, c != null) { if (c != null) { delay(8000); Xp.event("read", chapterId) } }
@@ -426,11 +467,11 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
             c == null -> Failed { tick++ }
             c.images.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Chapter belum tersedia", color = Muted) }
             else -> LazyColumn(Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { bars = !bars }, listState) {
-                items(c.images, key = { it }) { url -> Img(url, "", Modifier.fillMaxWidth().heightIn(min = 240.dp), ContentScale.FillWidth, c.imageHeaders) }
+                items(c.images, key = { it }) { url -> key(reloadNonce) { Img(url, "", Modifier.fillMaxWidth().heightIn(min = 240.dp), ContentScale.FillWidth, c.imageHeaders) } }
             }
         }
         AnimatedVisibility(bars, Modifier.align(Alignment.TopCenter), fadeIn(tween(120)), fadeOut(tween(120))) {
-            ReaderTopBar(seriesTitle, c?.number?.let { "Chapter $it" } ?: "Baca", onBack, { showList = true }, { showComments = true }, { showSettings = true })
+            ReaderTopBar(seriesTitle, c?.number?.let { "Chapter $it" } ?: "Baca", onBack, { showList = true }, { showComments = true }, { showSettings = true }, refetching, left, refetch)
         }
         if (c != null && total > 0) AnimatedVisibility(bars && countdown == null, Modifier.align(Alignment.BottomCenter), fadeIn(tween(120)), fadeOut(tween(120))) {
             BottomBar(page, total, { i -> scope.launch { listState.scrollToItem(i) } }, playing, prevNum?.let { "Ch. $it" } ?: "Sebelumnya", nextNum?.let { "Ch. $it" } ?: "Berikutnya", c.prev != null, c.next != null,
@@ -442,16 +483,14 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
         }
     }
 
-    CompositionLocalProvider(LocalImmersive provides true) {
-        if (showComments) {
-            val lib = Library.entries[seriesId]
-            val origin = detail?.let { CommentOrigin(seriesId, it.title, it.cover, it.provider, chapterId, c?.number) }
-                ?: lib?.let { CommentOrigin(seriesId, it.title, it.cover, it.provider, chapterId, c?.number) }
-            CommentsSheet("c:$chapterId", c?.number?.let { "Chapter $it" }.orEmpty(), origin) { showComments = false }
-        }
-        if (showList) ChapterSheet(detail, chapterId, onDismiss = { showList = false }) { id -> showList = false; if (id != chapterId) onChapter(id) }
-        if (showSettings) SettingsSheet { showSettings = false }
+    if (showComments) {
+        val lib = Library.entries[seriesId]
+        val origin = detail?.let { CommentOrigin(seriesId, it.title, it.cover, it.provider, chapterId, c?.number) }
+            ?: lib?.let { CommentOrigin(seriesId, it.title, it.cover, it.provider, chapterId, c?.number) }
+        CommentsSheet("c:$chapterId", c?.number?.let { "Chapter $it" }.orEmpty(), origin) { showComments = false }
     }
+    if (showList) ChapterSheet(detail, chapterId, onDismiss = { showList = false }) { id -> showList = false; if (id != chapterId) onChapter(id) }
+    if (showSettings) SettingsSheet { showSettings = false }
 }
 
 @Composable
@@ -460,7 +499,8 @@ private fun Modifier.noTap(): Modifier = clickable(interactionSource = remember 
 private fun Modifier.glass(shape: Shape = CircleShape) = clip(shape).background(Glass).border(1.dp, GlassLine, shape)
 
 @Composable
-private fun ReaderTopBar(series: String, chapter: String, onBack: () -> Unit, onTitle: () -> Unit, onComments: () -> Unit, onSettings: () -> Unit) =
+private fun ReaderTopBar(series: String, chapter: String, onBack: () -> Unit, onTitle: () -> Unit, onComments: () -> Unit, onSettings: () -> Unit,
+                         refetching: Boolean, left: Int, onRefetch: () -> Unit) =
     Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(48.dp).glass().clickable(onClick = onBack), Alignment.Center) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Kembali", tint = Color.White, modifier = Modifier.size(30.dp)) }
@@ -472,6 +512,7 @@ private fun ReaderTopBar(series: String, chapter: String, onBack: () -> Unit, on
             Icon(Icons.Default.KeyboardArrowDown, "Daftar chapter", tint = Muted, modifier = Modifier.size(22.dp))
         }
         Row(Modifier.height(48.dp).glass().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onRefetch), Alignment.Center) { RefetchIcon(refetching, left, 22.dp) }
             Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onComments), Alignment.Center) { CommentIcon(Color.White, 22.dp) }
             Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onSettings), Alignment.Center) { SlidersIcon(Color.White, 22.dp) }
         }
@@ -601,7 +642,6 @@ private fun IconTile(color: Color, icon: @Composable () -> Unit) = Box(Modifier.
 @Composable
 private fun SettingsSheet(onDismiss: () -> Unit) {
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), containerColor = SheetBg, contentColor = Color.White) {
-        DialogImmersive()
         Column(Modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(Modifier.fillMaxWidth().padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Pengaturan baca", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -612,18 +652,18 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
                     IconTile(Blue) { LineIcon(Color.White, 20.dp, floatArrayOf(0.5f, 0.2f, 0.5f, 0.8f), floatArrayOf(0.28f, 0.58f, 0.5f, 0.8f, 0.72f, 0.58f)) }
                     Text("Kecepatan auto-scroll", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 12.dp))
                 }
-                Segmented(speeds.map { it.first }, ReaderPrefs.speed, onSelect = ReaderPrefs::saveSpeed)
+                Segmented(speeds.map { it.first }, ReaderPrefs.speed, onSelect = ReaderPrefs::setSpeed)
             }
             SettingCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconTile(Green) { LineIcon(Color.White, 20.dp, floatArrayOf(0.26f, 0.2f, 0.5f, 0.44f, 0.74f, 0.2f), floatArrayOf(0.26f, 0.5f, 0.5f, 0.74f, 0.74f, 0.5f)) }
                     Text("Lanjut chapter otomatis", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 12.dp).weight(1f))
-                    Switch(ReaderPrefs.autoNext, ReaderPrefs::saveAutoNext, colors = SwitchDefaults.colors(
+                    Switch(ReaderPrefs.autoNext, ReaderPrefs::setAutoNext, colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White, checkedTrackColor = Green, checkedBorderColor = Color.Transparent,
                         uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFF45464C), uncheckedBorderColor = Color.Transparent))
                 }
                 Text("Jeda sebelum lanjut", color = Color(0xFFD7D9DF), fontSize = 15.sp, modifier = Modifier.alpha(if (ReaderPrefs.autoNext) 1f else 0.4f))
-                Segmented(pauses.map { it.first }, ReaderPrefs.pause, ReaderPrefs.autoNext, ReaderPrefs::savePause)
+                Segmented(pauses.map { it.first }, ReaderPrefs.pause, ReaderPrefs.autoNext, ReaderPrefs::setPause)
             }
             Text("Saat scroll sampai akhir, chapter berikutnya dibuka sendiri. Bisa dibatalkan sebelum hitungan habis.", color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(horizontal = 4.dp))
             Spacer(Modifier.navigationBarsPadding().height(12.dp))
@@ -635,7 +675,6 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
 @Composable
 private fun ChapterSheet(detail: Detail?, current: String, onDismiss: () -> Unit, onPick: (String) -> Unit) {
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), containerColor = SheetBg, contentColor = Color.White) {
-        DialogImmersive()
         Text("Daftar chapter", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 10.dp))
         val chapters = detail?.chapters.orEmpty()
         if (chapters.isEmpty()) Box(Modifier.fillMaxWidth().padding(vertical = 40.dp), Alignment.Center) {

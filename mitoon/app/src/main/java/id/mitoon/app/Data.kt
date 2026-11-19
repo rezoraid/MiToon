@@ -48,6 +48,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.PUT
 import retrofit2.http.GET
+import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.http.PATCH
 import retrofit2.http.Path
@@ -127,6 +128,8 @@ interface Api {
         @Query("sort") sort: String? = null, @Query("type") type: String? = null, @Query("status") status: String? = null): Env<List<Series>>
     @GET("v1/series/{id}") suspend fun detail(@Path("id") id: String): Env<Detail>
     @GET("v1/chapters/{id}") suspend fun chapter(@Path("id") id: String): Env<Content>
+    @Headers("Cache-Control: no-cache") @GET("v1/series/{id}") suspend fun detailFresh(@Path("id") id: String, @Query("refresh") refresh: Int): Env<Detail>
+    @Headers("Cache-Control: no-cache") @GET("v1/chapters/{id}") suspend fun chapterFresh(@Path("id") id: String, @Query("refresh") refresh: Int): Env<Content>
     @GET("v1/providers") suspend fun providers(): Env<List<ProviderInfo>>
     @GET("v1/announcements") suspend fun announcements(@Query("limit") limit: Int? = null): Env<List<Notice>>
     @GET("v1/notifications") suspend fun notifications(): Env<NotifPage>
@@ -201,6 +204,44 @@ object Net {
     suspend fun detail(id: String): Detail = shared("detail:$id") { api.detail(id).data }
     suspend fun chapter(id: String): Content = shared("chapter:$id") { api.chapter(id).data }
     suspend fun unread(): NotifCount = shared("unread") { api.notifUnread().data }
+
+    // ---- ambil ulang manual (ikon refresh): maks. REFETCH_MAX kali per hari per komik / per chapter, supaya tidak membebani server ----
+    const val REFETCH_MAX = 2
+    private val refetchPrefs by lazy { appCtx.getSharedPreferences("refetch", Context.MODE_PRIVATE) }
+    private fun dayKey() = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).format(java.util.Date())
+    fun refetchUsed(key: String): Int {
+        val (day, n) = (refetchPrefs.getString(key, null) ?: return 0).split('|').let { it[0] to it.getOrNull(1) }
+        return if (day == dayKey()) n?.toIntOrNull() ?: 0 else 0
+    }
+    fun refetchLeft(key: String): Int = (REFETCH_MAX - refetchUsed(key)).coerceAtLeast(0)
+    private fun markRefetch(key: String) {
+        val today = dayKey()
+        refetchPrefs.edit().apply {
+            refetchPrefs.all.forEach { (k, v) -> if ((v as? String)?.substringBefore('|') != today) remove(k) }
+            putString(key, "$today|${refetchUsed(key) + 1}")
+        }.apply()
+    }
+
+    /** Ambil ulang detail + daftar chapter langsung dari sumbernya (melewati cache). Dihitung hanya bila berhasil. Gagal = exception. */
+    suspend fun refetchDetail(id: String): Detail {
+        val d = shared("detail!:$id") { api.detailFresh(id, 1).data }
+        markRefetch("d:$id")
+        withContext(Dispatchers.Main) { storeDetail(id, d) }
+        return d
+    }
+
+    /** Ambil ulang gambar chapter dari sumbernya; gambar lama dibuang dari cache supaya yang rusak/diganti dimuat ulang. */
+    suspend fun refetchChapter(id: String): Content {
+        val c = shared("chapter!:$id") { api.chapterFresh(id, 1).data }
+        markRefetch("c:$id")
+        val old = (chapterCache[id] ?: readIn(chapterDir, id, Content.serializer()))?.images.orEmpty()
+        withContext(Dispatchers.IO) {
+            val loader = appCtx.imageLoader
+            (old + c.images).distinct().forEach { u -> loader.diskCache?.remove(u); loader.memoryCache?.remove(MemoryCache.Key(u)) }
+        }
+        withContext(Dispatchers.Main) { storeChapter(id, c) }
+        return c
+    }
 
     /** Beberapa detik pertama setelah proses mulai = hanya untuk layar yang terlihat; prefetch spekulatif menunggu. */
     private const val QUIET_MS = 2500L

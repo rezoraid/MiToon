@@ -71,6 +71,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Close
 
@@ -289,6 +290,20 @@ private val Green = Color(0xFF30D158)
 private val speeds = listOf("Lambat" to 70, "Sedang" to 130, "Cepat" to 230)
 private val pauses = listOf("Langsung" to 0, "3 dtk" to 3, "5 dtk" to 5)
 private var resumePlay = false
+private var readers = 0
+val LocalImmersive = compositionLocalOf { false }
+
+@Composable
+fun DialogImmersive() {
+    if (!LocalImmersive.current) return
+    val view = LocalView.current
+    SideEffect {
+        val w = (view.parent as? DialogWindowProvider)?.window ?: return@SideEffect
+        val c = WindowCompat.getInsetsController(w, view)
+        c.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        c.hide(WindowInsetsCompat.Type.systemBars())
+    }
+}
 
 object ReaderPrefs {
     private var prefs: SharedPreferences? = null
@@ -342,7 +357,8 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
         val ctl = window?.let { WindowCompat.getInsetsController(it, view) }
         ctl?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         ctl?.hide(WindowInsetsCompat.Type.systemBars())
-        onDispose { ctl?.show(WindowInsetsCompat.Type.systemBars()) }
+        readers++
+        onDispose { readers--; view.post { if (readers == 0) ctl?.show(WindowInsetsCompat.Type.systemBars()) } }
     }
     LaunchedEffect(c) { if (c != null) Library.advance(seriesId, chapterId, c.number) }
     LaunchedEffect(chapterId, c != null) { if (c != null) { delay(8000); Xp.event("read", chapterId) } }
@@ -426,14 +442,16 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
         }
     }
 
-    if (showComments) {
-        val lib = Library.entries[seriesId]
-        val origin = detail?.let { CommentOrigin(seriesId, it.title, it.cover, it.provider, chapterId, c?.number) }
-            ?: lib?.let { CommentOrigin(seriesId, it.title, it.cover, it.provider, chapterId, c?.number) }
-        CommentsSheet("c:$chapterId", c?.number?.let { "Chapter $it" }.orEmpty(), origin) { showComments = false }
+    CompositionLocalProvider(LocalImmersive provides true) {
+        if (showComments) {
+            val lib = Library.entries[seriesId]
+            val origin = detail?.let { CommentOrigin(seriesId, it.title, it.cover, it.provider, chapterId, c?.number) }
+                ?: lib?.let { CommentOrigin(seriesId, it.title, it.cover, it.provider, chapterId, c?.number) }
+            CommentsSheet("c:$chapterId", c?.number?.let { "Chapter $it" }.orEmpty(), origin) { showComments = false }
+        }
+        if (showList) ChapterSheet(detail, chapterId, onDismiss = { showList = false }) { id -> showList = false; if (id != chapterId) onChapter(id) }
+        if (showSettings) SettingsSheet { showSettings = false }
     }
-    if (showList) ChapterSheet(detail, chapterId, onDismiss = { showList = false }) { id -> showList = false; if (id != chapterId) onChapter(id) }
-    if (showSettings) SettingsSheet { showSettings = false }
 }
 
 @Composable
@@ -583,6 +601,7 @@ private fun IconTile(color: Color, icon: @Composable () -> Unit) = Box(Modifier.
 @Composable
 private fun SettingsSheet(onDismiss: () -> Unit) {
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), containerColor = SheetBg, contentColor = Color.White) {
+        DialogImmersive()
         Column(Modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(Modifier.fillMaxWidth().padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Pengaturan baca", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -616,6 +635,7 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
 @Composable
 private fun ChapterSheet(detail: Detail?, current: String, onDismiss: () -> Unit, onPick: (String) -> Unit) {
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), containerColor = SheetBg, contentColor = Color.White) {
+        DialogImmersive()
         Text("Daftar chapter", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 10.dp))
         val chapters = detail?.chapters.orEmpty()
         if (chapters.isEmpty()) Box(Modifier.fillMaxWidth().padding(vertical = 40.dp), Alignment.Center) {

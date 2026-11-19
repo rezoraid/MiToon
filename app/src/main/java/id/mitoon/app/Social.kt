@@ -603,6 +603,7 @@ fun CommentsSheet(target: String, title: String, origin: CommentOrigin? = null, 
 
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp), containerColor = CardBg) {
+        DialogImmersive()
         Column(Modifier.fillMaxWidth().fillMaxHeight(0.88f).imePadding()) {
             Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 10.dp)) {
                 Text("Komentar (${feed.total})", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)

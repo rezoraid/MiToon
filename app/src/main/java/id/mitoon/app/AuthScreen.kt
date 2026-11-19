@@ -44,6 +44,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import coil.compose.AsyncImage
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.shape.RoundedCornerShape
+import kotlin.math.abs
 import coil.request.ImageRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -54,11 +58,6 @@ private fun Context.findActivity(): Activity? {
     return null
 }
 
-/**
- * Layar pembuka + login (hanya Google), tiga halaman vertikal yang digeser ke atas:
- * 1) WELCOME + mascot, 2) ringkasan fitur, 3) tombol Masuk dengan Google.
- * Tombol Google selalu tampil langsung (tidak menunggu respons server).
- */
 @Composable
 fun AuthScreen() {
     val ctx = LocalContext.current
@@ -91,32 +90,32 @@ fun AuthScreen() {
     val last = pager.currentPage == pages - 1
 
     Box(Modifier.fillMaxSize().background(Bg).systemBarsPadding()) {
+        Box(Modifier.align(Alignment.TopCenter).offset(y = (-140).dp).size(460.dp).background(Brush.radialGradient(listOf(Color(0x22FFFFFF), Color.Transparent)), CircleShape))
         VerticalPager(pager, Modifier.fillMaxSize()) { p ->
-            when (p) {
-                0 -> WelcomePage()
-                1 -> FeaturesPage()
-                else -> LoginPage(busy, msg, keep, { keep = it }) { google() }
+            Box(Modifier.fillMaxSize().graphicsLayer {
+                val o = abs((pager.currentPage - p) + pager.currentPageOffsetFraction).coerceIn(0f, 1f)
+                alpha = 1f - o; scaleX = 1f - 0.06f * o; scaleY = scaleX
+            }) {
+                when (p) {
+                    0 -> WelcomePage()
+                    1 -> FeaturesPage()
+                    else -> LoginPage(busy, msg, keep, { keep = it }) { google() }
+                }
             }
         }
-        // versi di atas, seperti layar pembuka umumnya
-        Text("v${BuildConfig.VERSION_NAME}  ·  build ${BuildConfig.VERSION_CODE}", color = Muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 16.dp))
-        // indikator halaman di kanan: halaman aktif memanjang
-        Column(Modifier.align(Alignment.CenterEnd).padding(end = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("v${BuildConfig.VERSION_NAME}  ·  build ${BuildConfig.VERSION_CODE}", color = Color(0xFF8A8E9A), fontSize = 12.sp, fontWeight = FontWeight.Medium,
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp).clip(CircleShape).background(CardBg).padding(horizontal = 12.dp, vertical = 5.dp))
+        Column(Modifier.align(Alignment.CenterEnd).padding(end = 10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             repeat(pages) { i ->
                 val on = pager.currentPage == i
-                val h by animateDpAsState(if (on) 22.dp else 6.dp, tween(220), label = "dot")
-                Box(Modifier.width(6.dp).height(h).clip(CircleShape).background(if (on) Accent else Color(0xFF4A4C57)))
+                val h by animateDpAsState(if (on) 20.dp else 6.dp, tween(220), label = "dot")
+                Box(Modifier.width(5.dp).height(h).clip(CircleShape).background(if (on) Color.White else Color(0x40FFFFFF)))
             }
         }
-        // petunjuk "Geser ke atas" (hilang di halaman login)
-        if (!last) SwipeHint(Modifier.align(Alignment.BottomCenter).padding(bottom = 36.dp)) {
-            scope.launch { pager.animateScrollToPage(pager.currentPage + 1) }
-        }
+        if (!last) SwipeHint(Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp)) { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }
     }
 }
 
-/** GIF mascot (background transparan) dari res/raw; decoder GIF sudah dipasang di ImageLoader aplikasi. */
 @Composable
 private fun MascotGif(res: Int, height: Dp, ratio: Float) {
     val ctx = LocalContext.current
@@ -125,65 +124,58 @@ private fun MascotGif(res: Int, height: Dp, ratio: Float) {
 }
 
 @Composable
-private fun WelcomePage() {
-    Column(Modifier.fillMaxSize().padding(horizontal = 28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        MascotGif(R.raw.mascot_welcome, 230.dp, 405f / 512f)
-        Spacer(Modifier.height(8.dp))
-        Text("WELCOME", color = Color.White, fontSize = 58.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1.5).sp, maxLines = 1)
-        Text("Platform baca komik & novel\nuntuk komunitas Indonesia.", color = Muted, fontSize = 20.sp, lineHeight = 28.sp,
-            textAlign = TextAlign.Center, modifier = Modifier.padding(top = 14.dp))
-    }
+private fun Mascot(height: Dp) = Box(Modifier.size(height + 40.dp), Alignment.Center) {
+    Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0x1FFFFFFF), Color.Transparent)), CircleShape))
+    MascotGif(R.raw.mascot_welcome, height, 405f / 512f)
 }
 
 @Composable
-private fun FeaturesPage() {
-    Column(Modifier.fillMaxSize().padding(horizontal = 36.dp), horizontalAlignment = Alignment.Start, verticalArrangement = Arrangement.Center) {
-        Text("Semua dalam\nsatu aplikasi", color = Color.White, fontSize = 38.sp, lineHeight = 44.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp)
+private fun WelcomePage() =
+    Column(Modifier.fillMaxSize().padding(horizontal = 32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Mascot(210.dp)
+        Spacer(Modifier.height(10.dp))
+        Text("Selamat datang di", color = Muted, fontSize = 17.sp, fontWeight = FontWeight.Medium)
+        Text("MiToon", color = Color.White, fontSize = 56.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1.5).sp, maxLines = 1)
+        Text("Platform baca komik & novel untuk komunitas Indonesia.", color = Muted, fontSize = 17.sp, lineHeight = 24.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp, start = 12.dp, end = 12.dp))
+    }
+
+@Composable
+private fun FeaturesPage() =
+    Column(Modifier.fillMaxSize().padding(horizontal = 24.dp), verticalArrangement = Arrangement.Center) {
+        Text("Semua dalam\nsatu aplikasi", color = Color.White, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp, modifier = Modifier.padding(horizontal = 8.dp))
+        Spacer(Modifier.height(24.dp))
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardBg)) {
+            Feature(Icons.Default.Search, Color(0xFF0A84FF), "Cari & jelajahi", "Temukan komik dari berbagai sumber, lengkap dengan genre.")
+            Box(Modifier.padding(start = 74.dp).fillMaxWidth().height(0.5.dp).background(Line))
+            Feature(Icons.Default.Favorite, Color(0xFFFF375F), "Pustaka pribadi", "Simpan favoritmu dan lanjutkan baca dari chapter terakhir.")
+            Box(Modifier.padding(start = 74.dp).fillMaxWidth().height(0.5.dp).background(Line))
+            Feature(Icons.Default.Notifications, Color(0xFFFF9F0A), "Komentar & notifikasi", "Ngobrol di tiap komik dan terima kabar terbaru.")
+        }
+    }
+
+@Composable
+private fun Feature(icon: ImageVector, tint: Color, title: String, desc: String) =
+    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(42.dp).clip(RoundedCornerShape(11.dp)).background(tint), Alignment.Center) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
+        Column(Modifier.padding(start = 16.dp)) {
+            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            Text(desc, color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 2.dp))
+        }
+    }
+
+@Composable
+private fun LoginPage(busy: Boolean, msg: String?, keep: Boolean, onKeep: (Boolean) -> Unit, onGoogle: () -> Unit) =
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Mascot(130.dp)
+        Text("Mulai membaca", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp, modifier = Modifier.padding(top = 4.dp))
+        Text("Masuk dengan akun Google untuk mulai membaca komik favoritmu.", color = Muted, fontSize = 16.sp, textAlign = TextAlign.Center, lineHeight = 22.sp, modifier = Modifier.padding(top = 8.dp, start = 12.dp, end = 12.dp))
         Spacer(Modifier.height(28.dp))
-        Feature(Icons.Default.Search, "Cari & jelajahi", "Temukan komik dari berbagai sumber, lengkap dengan genre.")
-        Feature(Icons.Default.Favorite, "Pustaka pribadi", "Simpan favoritmu dan lanjutkan baca dari chapter terakhir.")
-        Feature(Icons.Default.Notifications, "Komentar & notifikasi", "Ngobrol di tiap komik dan terima kabar terbaru.")
-    }
-}
-
-@Composable
-private fun Feature(icon: ImageVector, title: String, desc: String) {
-    Row(Modifier.padding(bottom = 22.dp), verticalAlignment = Alignment.Top) {
-        Box(Modifier.size(44.dp).clip(R6).background(CardBg), Alignment.Center) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
-        Spacer(Modifier.width(14.dp))
-        Column {
-            Text(title, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-            Text(desc, color = Muted, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 2.dp))
-        }
-    }
-}
-
-@Composable
-private fun LoginPage(busy: Boolean, msg: String?, keep: Boolean, onKeep: (Boolean) -> Unit, onGoogle: () -> Unit) {
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 36.dp),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
-    ) {
-        MascotGif(R.raw.mascot_welcome, 150.dp, 405f / 512f)
-        Text("Mulai membaca", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
-        Text(
-            "Masuk dengan akun Google untuk mulai membaca komik favoritmu.",
-            color = Muted, fontSize = 15.sp, textAlign = TextAlign.Center, lineHeight = 22.sp,
-            modifier = Modifier.padding(top = 8.dp, start = 4.dp, end = 4.dp)
-        )
-        Spacer(Modifier.height(32.dp))
-
         msg?.let {
-            Text(it, color = Color.White, fontSize = 13.sp, textAlign = TextAlign.Start,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp).border(1.dp, Color.White, R6).padding(10.dp))
+            Text(it, color = Color.White, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.widthIn(max = 420.dp).fillMaxWidth().padding(bottom = 14.dp).clip(RoundedCornerShape(14.dp)).background(Color(0x33FF453A)).padding(14.dp))
         }
-
         Button(
-            onGoogle, Modifier.widthIn(max = 420.dp).fillMaxWidth().height(54.dp), enabled = !busy, shape = R6,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.White, contentColor = Color(0xFF1F1F1F),
-                disabledContainerColor = Color.White, disabledContentColor = Color(0xFF1F1F1F)
-            ),
+            onGoogle, Modifier.widthIn(max = 420.dp).fillMaxWidth().height(56.dp), enabled = !busy, shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF1F1F1F), disabledContainerColor = Color.White, disabledContentColor = Color(0xFF1F1F1F)),
             contentPadding = PaddingValues(horizontal = 16.dp)
         ) {
             if (busy) CircularProgressIndicator(Modifier.size(22.dp), color = Color(0xFF1F1F1F), strokeWidth = 2.dp)
@@ -193,24 +185,18 @@ private fun LoginPage(busy: Boolean, msg: String?, keep: Boolean, onKeep: (Boole
                 Text("Masuk dengan Google", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
         }
-
-        Row(
-            Modifier.padding(top = 10.dp).clip(R6).clickable { onKeep(!keep) }.padding(end = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(keep, { onKeep(it) }, colors = CheckboxDefaults.colors(checkedColor = Color.White, checkmarkColor = Color.Black, uncheckedColor = Muted))
-            Text("Ingat saya", color = Color.White, fontSize = 14.sp)
+        Row(Modifier.padding(top = 14.dp).widthIn(max = 420.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardBg).clickable { onKeep(!keep) }.padding(start = 18.dp, end = 12.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Ingat saya", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+            Switch(keep, onKeep, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Color(0xFF30D158), checkedBorderColor = Color.Transparent, uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFF45464C), uncheckedBorderColor = Color.Transparent))
         }
     }
-}
 
-/** Chevron yang naik-turun pelan + teks "Geser ke atas"; ketuk = ke halaman berikutnya. */
 @Composable
 private fun SwipeHint(modifier: Modifier, onClick: () -> Unit) {
     val inf = rememberInfiniteTransition(label = "hint")
-    val dy by inf.animateFloat(0f, -8f, infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "dy")
-    Column(modifier.clip(R6).clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(Icons.Default.KeyboardArrowUp, null, tint = Color(0xFF6B6F7B), modifier = Modifier.size(34.dp).offset(y = dy.dp))
-        Text("Geser ke atas", color = Color(0xFF6B6F7B), fontSize = 17.sp, fontWeight = FontWeight.Medium)
+    val dy by inf.animateFloat(0f, -6f, infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "dy")
+    Column(modifier.clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(Icons.Default.KeyboardArrowUp, null, tint = Color(0xFF8A8E9A), modifier = Modifier.size(28.dp).offset(y = dy.dp))
+        Text("Geser ke atas", color = Color(0xFF8A8E9A), fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }

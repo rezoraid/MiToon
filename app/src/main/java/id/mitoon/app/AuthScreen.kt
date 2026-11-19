@@ -15,7 +15,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -36,7 +35,6 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -101,17 +99,18 @@ fun AuthScreen() {
             }
         }
         // versi di atas, seperti layar pembuka umumnya
-        Text("v${BuildConfig.VERSION_NAME}  ·  build ${BuildConfig.VERSION_CODE}", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium,
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp))
-        Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp), horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("v${BuildConfig.VERSION_NAME}  ·  build ${BuildConfig.VERSION_CODE}", color = Muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 16.dp))
+        // indikator halaman di kanan: halaman aktif memanjang
+        Column(Modifier.align(Alignment.CenterEnd).padding(end = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             repeat(pages) { i ->
                 val on = pager.currentPage == i
-                val w by animateDpAsState(if (on) 22.dp else 6.dp, tween(220), label = "dot")
-                Box(Modifier.width(w).height(6.dp).clip(CircleShape).background(if (on) Color(0xFFAAA9FF) else Color(0xFF4A4C57)))
+                val h by animateDpAsState(if (on) 22.dp else 6.dp, tween(220), label = "dot")
+                Box(Modifier.width(6.dp).height(h).clip(CircleShape).background(if (on) Accent else Color(0xFF4A4C57)))
             }
         }
         // petunjuk "Geser ke atas" (hilang di halaman login)
-        if (!last) SwipeHint(Modifier.align(Alignment.BottomCenter).padding(bottom = 54.dp)) {
+        if (!last) SwipeHint(Modifier.align(Alignment.BottomCenter).padding(bottom = 36.dp)) {
             scope.launch { pager.animateScrollToPage(pager.currentPage + 1) }
         }
     }
@@ -128,62 +127,79 @@ private fun MascotGif(res: Int, height: Dp, ratio: Float) {
 @Composable
 private fun WelcomePage() {
     Column(Modifier.fillMaxSize().padding(horizontal = 28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-            Box(Modifier.size(270.dp).clip(CircleShape).background(Brush.radialGradient(listOf(Color(0xFF34365B), Color(0xFF202130), Color.Transparent))))
-            MascotGif(R.raw.mascot_welcome, 250.dp, 405f / 512f)
-        }
-        Text("SELAMAT DATANG", color = Color(0xFFAAA9FF), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.4.sp)
-        Text("Dunia cerita,\nada di genggaman.", color = Color.White, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.8).sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp))
-        Text("Temukan manga dan novel favoritmu, lalu nikmati setiap chapter dengan nyaman.", color = Muted, fontSize = 15.sp, lineHeight = 22.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp, start = 10.dp, end = 10.dp, bottom = 92.dp))
+        MascotGif(R.raw.mascot_welcome, 230.dp, 405f / 512f)
+        Spacer(Modifier.height(8.dp))
+        Text("WELCOME", color = Color.White, fontSize = 58.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1.5).sp, maxLines = 1)
+        Text("Platform baca komik & novel\nuntuk komunitas Indonesia.", color = Muted, fontSize = 20.sp, lineHeight = 28.sp,
+            textAlign = TextAlign.Center, modifier = Modifier.padding(top = 14.dp))
     }
 }
 
 @Composable
 private fun FeaturesPage() {
-    Column(Modifier.fillMaxSize().padding(horizontal = 24.dp), verticalArrangement = Arrangement.Center) {
-        Text("PENGALAMAN MEMBACA", color = Color(0xFFAAA9FF), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-        Text("Semua yang kamu\nbutuhkan.", color = Color.White, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.8).sp, modifier = Modifier.padding(top = 10.dp, bottom = 24.dp))
-        FeatureCard(Icons.Default.Search, "Cari & jelajahi", "Temukan manga dan novel dari berbagai sumber.", Color(0xFF8B70FF))
-        FeatureCard(Icons.Default.Favorite, "Pustaka pribadi", "Simpan favorit dan lanjutkan dari chapter terakhir.", Color(0xFF398DF5))
-        FeatureCard(Icons.Default.Notifications, "Komentar & notifikasi", "Ikuti obrolan dan kabar terbaru dari komunitas.", Color(0xFFEF9A45))
-        Text("Dirancang untuk membaca lebih nyaman.", color = Muted, fontSize = 13.sp, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 20.dp, bottom = 92.dp))
+    Column(Modifier.fillMaxSize().padding(horizontal = 36.dp), horizontalAlignment = Alignment.Start, verticalArrangement = Arrangement.Center) {
+        Text("Semua dalam\nsatu aplikasi", color = Color.White, fontSize = 38.sp, lineHeight = 44.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp)
+        Spacer(Modifier.height(28.dp))
+        Feature(Icons.Default.Search, "Cari & jelajahi", "Temukan komik dari berbagai sumber, lengkap dengan genre.")
+        Feature(Icons.Default.Favorite, "Pustaka pribadi", "Simpan favoritmu dan lanjutkan baca dari chapter terakhir.")
+        Feature(Icons.Default.Notifications, "Komentar & notifikasi", "Ngobrol di tiap komik dan terima kabar terbaru.")
     }
 }
 
 @Composable
-private fun FeatureCard(icon: ImageVector, title: String, desc: String, tint: Color) {
-    Row(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFF22232B)).border(1.dp, Color(0xFF343540), RoundedCornerShape(20.dp)).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(46.dp).clip(RoundedCornerShape(15.dp)).background(tint.copy(alpha = .18f)), Alignment.Center) { Icon(icon, null, tint = tint, modifier = Modifier.size(23.dp)) }
-        Column(Modifier.weight(1f).padding(start = 14.dp, end = 8.dp)) {
-            Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            Text(desc, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 3.dp))
+private fun Feature(icon: ImageVector, title: String, desc: String) {
+    Row(Modifier.padding(bottom = 22.dp), verticalAlignment = Alignment.Top) {
+        Box(Modifier.size(44.dp).clip(R6).background(CardBg), Alignment.Center) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
+        Spacer(Modifier.width(14.dp))
+        Column {
+            Text(title, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Text(desc, color = Muted, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 2.dp))
         }
-        Text("›", color = Color(0xFF777987), fontSize = 24.sp)
     }
 }
-
-@Composable
-private fun Feature(icon: ImageVector, title: String, desc: String) = FeatureCard(icon, title, desc, Accent)
 
 @Composable
 private fun LoginPage(busy: Boolean, msg: String?, keep: Boolean, onKeep: (Boolean) -> Unit, onGoogle: () -> Unit) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Box(Modifier.fillMaxWidth().height(230.dp), contentAlignment = Alignment.Center) {
-            Box(Modifier.size(220.dp).clip(CircleShape).background(Brush.radialGradient(listOf(Color(0xFF38385E), Color(0xFF202130), Color.Transparent))))
-            MascotGif(R.raw.mascot_welcome, 190.dp, 405f / 512f)
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 36.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
+    ) {
+        MascotGif(R.raw.mascot_welcome, 150.dp, 405f / 512f)
+        Text("Mulai membaca", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
+        Text(
+            "Masuk dengan akun Google untuk mulai membaca komik favoritmu.",
+            color = Muted, fontSize = 15.sp, textAlign = TextAlign.Center, lineHeight = 22.sp,
+            modifier = Modifier.padding(top = 8.dp, start = 4.dp, end = 4.dp)
+        )
+        Spacer(Modifier.height(32.dp))
+
+        msg?.let {
+            Text(it, color = Color.White, fontSize = 13.sp, textAlign = TextAlign.Start,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp).border(1.dp, Color.White, R6).padding(10.dp))
         }
-        Text("SATU LANGKAH LAGI", color = Color(0xFFAAA9FF), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-        Text("Mulai membaca", color = Color.White, fontSize = 31.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 9.dp))
-        Text("Masuk untuk menyimpan koleksi dan melanjutkan cerita favoritmu di MiToon.", color = Muted, fontSize = 14.sp, textAlign = TextAlign.Center, lineHeight = 21.sp, modifier = Modifier.padding(top = 8.dp, bottom = 24.dp, start = 8.dp, end = 8.dp))
-        msg?.let { Text(it, color = Color.White, fontSize = 13.sp, textAlign = TextAlign.Start, modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp).border(1.dp, Color(0xFF555762), RoundedCornerShape(14.dp)).padding(12.dp)) }
-        Button(onGoogle, Modifier.fillMaxWidth().height(56.dp), enabled = !busy, shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF1F1F1F), disabledContainerColor = Color.White, disabledContentColor = Color(0xFF1F1F1F))) {
-            if (busy) CircularProgressIndicator(Modifier.size(22.dp), color = Color(0xFF1F1F1F), strokeWidth = 2.dp) else {
-                Image(painterResource(R.drawable.ic_google), null, Modifier.size(21.dp)); Spacer(Modifier.width(10.dp)); Text("Masuk dengan Google", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+
+        Button(
+            onGoogle, Modifier.widthIn(max = 420.dp).fillMaxWidth().height(54.dp), enabled = !busy, shape = R6,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.White, contentColor = Color(0xFF1F1F1F),
+                disabledContainerColor = Color.White, disabledContentColor = Color(0xFF1F1F1F)
+            ),
+            contentPadding = PaddingValues(horizontal = 16.dp)
+        ) {
+            if (busy) CircularProgressIndicator(Modifier.size(22.dp), color = Color(0xFF1F1F1F), strokeWidth = 2.dp)
+            else {
+                Image(painterResource(R.drawable.ic_google), null, Modifier.size(22.dp))
+                Spacer(Modifier.width(12.dp))
+                Text("Masuk dengan Google", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
         }
-        Row(Modifier.padding(top = 12.dp, bottom = 26.dp).clip(RoundedCornerShape(14.dp)).clickable { onKeep(!keep) }.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+
+        Row(
+            Modifier.padding(top = 10.dp).clip(R6).clickable { onKeep(!keep) }.padding(end = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Checkbox(keep, { onKeep(it) }, colors = CheckboxDefaults.colors(checkedColor = Color.White, checkmarkColor = Color.Black, uncheckedColor = Muted))
-            Text("Ingat saya", color = Muted, fontSize = 13.sp)
+            Text("Ingat saya", color = Color.White, fontSize = 14.sp)
         }
     }
 }

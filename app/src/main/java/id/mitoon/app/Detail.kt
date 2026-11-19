@@ -270,10 +270,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
 private val Pill = Color(0xFF202125)
 private val speeds = listOf("Lambat" to 70, "Sedang" to 130, "Cepat" to 230) // dp per detik
 private var readSpeed by mutableIntStateOf(1)
-private var autoNextEnabled by mutableStateOf(true)
-private var autoNextDelay by mutableIntStateOf(3)
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeries: () -> Unit, onChapter: (String) -> Unit) {
     var tick by remember { mutableIntStateOf(0) }
@@ -289,7 +286,6 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     var playing by remember { mutableStateOf(false) }
     var showList by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
-    var nextCountdown by remember { mutableIntStateOf(-1) }
     var showComments by remember { mutableStateOf(CommentFocus.pending("c:$chapterId")) } // dari notifikasi komentar: sheet langsung terbuka
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -354,16 +350,7 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     val total = c?.images?.size ?: 0
     val page = (listState.firstVisibleItemIndex + 1).coerceIn(1, maxOf(total, 1))
     val atEnd = total > 0 && !listState.canScrollForward
-    LaunchedEffect(atEnd, chapterId, autoNextEnabled, autoNextDelay, c?.next) {
-        if (atEnd) {
-            bars = true
-            if (autoNextEnabled && c?.next != null) {
-                nextCountdown = autoNextDelay
-                while (nextCountdown > 0) { delay(1000); nextCountdown-- }
-                if (nextCountdown == 0) { nextCountdown = -1; onChapter(c.next) }
-            } else nextCountdown = -1
-        } else nextCountdown = -1
-    }
+    LaunchedEffect(atEnd) { if (atEnd) bars = true }
 
     Box(Modifier.fillMaxSize()) {
         when {
@@ -377,26 +364,10 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
         AnimatedVisibility(bars, Modifier.align(Alignment.TopCenter), fadeIn(tween(90)), fadeOut(tween(90))) {
             ReaderTopBar(c?.number?.let { "Chapter $it" } ?: "Baca", seriesTitle, onBack, onComments = { showComments = true }, onSettings = { showSettings = true }) { showList = true }
         }
-        if (c != null && total > 0) AnimatedVisibility(bars, Modifier.align(Alignment.BottomCenter), fadeIn(tween(140)), fadeOut(tween(140))) {
+        if (c != null && total > 0) AnimatedVisibility(bars, Modifier.align(Alignment.BottomCenter), fadeIn(tween(90)), fadeOut(tween(90))) {
             BottomBar(page, total, { i -> scope.launch { listState.scrollToItem(i) } }, playing, c.prev != null, c.next != null,
                 onPrev = { c.prev?.let(onChapter) }, onNext = { c.next?.let(onChapter) },
                 onPlay = { playing = !playing; if (playing) bars = false })
-        }
-        if (nextCountdown >= 0 && c?.next != null) {
-            Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 112.dp).padding(horizontal = 18.dp)
-                .fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Color(0xF21D1E25))
-                .border(1.dp, Color(0x334F5260), RoundedCornerShape(24.dp)).padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(42.dp).clip(CircleShape).background(Color(0xFF343541)), Alignment.Center) {
-                    Text(if (nextCountdown > 0) "$nextCountdown" else "✓", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 19.sp)
-                }
-                Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                    Text("Chapter ${c.number} selesai", color = Muted, fontSize = 11.sp)
-                    Text("Lanjut ke chapter berikutnya", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                }
-                TextButton(onClick = { nextCountdown = -1 }) { Text("Batal", color = Color.White) }
-                Button(onClick = { nextCountdown = -1; onChapter(c.next) }, shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF17181D))) { Text("Lanjut", fontWeight = FontWeight.Bold) }
-            }
         }
     }
 
@@ -407,54 +378,19 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
         CommentsSheet("c:$chapterId", c?.number?.let { "Chapter $it" }.orEmpty(), origin) { showComments = false }
     }
     if (showList) ChapterSheet(detail, chapterId, onDismiss = { showList = false }) { id -> showList = false; if (id != chapterId) onChapter(id) }
-    if (showSettings) ModalBottomSheet(
+    if (showSettings) AlertDialog(
         onDismissRequest = { showSettings = false },
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Color(0xFF1D1E24), contentColor = Color.White,
-        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
-        dragHandle = { Box(Modifier.padding(top = 10.dp, bottom = 8.dp).size(width = 38.dp, height = 5.dp).clip(CircleShape).background(Color(0xFF555762))) }
-    ) {
-        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Pengaturan baca", Modifier.weight(1f), color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                IconButton(onClick = { showSettings = false }) { Text("×", color = Muted, fontSize = 28.sp) }
+        confirmButton = { TextButton({ showSettings = false }) { Text("Selesai", color = Accent) } },
+        title = { Text("Pengaturan baca", fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Text("Kecepatan auto-scroll", color = Muted, fontSize = 13.sp)
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { speeds.forEachIndexed { i, (name, _) -> Chip(name, readSpeed == i) { readSpeed = i } } }
             }
-            Spacer(Modifier.height(12.dp))
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color(0xFF282930)).padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF1685F8)), Alignment.Center) { Text("↓", color = Color.White, fontSize = 20.sp) }
-                    Text("Kecepatan auto-scroll", Modifier.padding(start = 12.dp), color = Color.White, fontWeight = FontWeight.SemiBold)
-                }
-                Row(Modifier.padding(top = 14.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFF191A20)).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    speeds.forEachIndexed { i, (name, _) ->
-                        Box(Modifier.weight(1f).clip(RoundedCornerShape(9.dp)).background(if (readSpeed == i) Color.White else Color.Transparent)
-                            .clickable { readSpeed = i }.padding(vertical = 10.dp), Alignment.Center) {
-                            Text(name, color = if (readSpeed == i) Color(0xFF17181D) else Color(0xFFB7B8C1), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color(0xFF282930)).padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF28BD68)), Alignment.Center) { Text("⌄", color = Color.White, fontSize = 22.sp) }
-                    Text("Lanjut chapter otomatis", Modifier.weight(1f).padding(start = 12.dp), color = Color.White, fontWeight = FontWeight.SemiBold)
-                    Switch(checked = autoNextEnabled, onCheckedChange = { autoNextEnabled = it }, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Color(0xFF2BC66D)))
-                }
-                if (autoNextEnabled) {
-                    Text("Jeda sebelum lanjut", Modifier.padding(top = 12.dp, bottom = 8.dp), color = Muted, fontSize = 13.sp)
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFF191A20)).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf(0, 3, 5).forEach { sec ->
-                            Box(Modifier.weight(1f).clip(RoundedCornerShape(9.dp)).background(if (autoNextDelay == sec) Color.White else Color.Transparent).clickable { autoNextDelay = sec }.padding(vertical = 10.dp), Alignment.Center) {
-                                Text(if (sec == 0) "Langsung" else "$sec dtk", color = if (autoNextDelay == sec) Color(0xFF17181D) else Color(0xFFB7B8C1), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-                    }
-                }
-            }
-            Text("Saat scroll sampai akhir, chapter berikutnya akan dibuka otomatis. Kamu bisa membatalkannya sebelum hitungan habis.", Modifier.padding(start = 14.dp, end = 14.dp, top = 10.dp), color = Color(0xFF92939D), fontSize = 12.sp, lineHeight = 18.sp)
-        }
-    }
+        },
+        shape = R6, containerColor = CardBg, titleContentColor = Color.White, textContentColor = Color.White
+    )
 }
 
 @Composable

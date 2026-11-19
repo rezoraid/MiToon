@@ -339,9 +339,9 @@ object ReaderPrefs {
         val p = ctx.getSharedPreferences("reader", Context.MODE_PRIVATE).also { prefs = it }
         speed = p.getInt("s", 1).coerceIn(0, 2); pause = p.getInt("p", 1).coerceIn(0, 2); autoNext = p.getBoolean("a", true)
     }
-    fun setSpeed(i: Int) { speed = i; prefs?.edit()?.putInt("s", i)?.apply() }
-    fun setPause(i: Int) { pause = i; prefs?.edit()?.putInt("p", i)?.apply() }
-    fun setAutoNext(v: Boolean) { autoNext = v; prefs?.edit()?.putBoolean("a", v)?.apply() }
+    @JvmName("applySpeed") fun setSpeed(i: Int) { speed = i; prefs?.edit()?.putInt("s", i)?.apply() }
+    @JvmName("applyPause") fun setPause(i: Int) { pause = i; prefs?.edit()?.putInt("p", i)?.apply() }
+    @JvmName("applyAutoNext") fun setAutoNext(v: Boolean) { autoNext = v; prefs?.edit()?.putBoolean("a", v)?.apply() }
 }
 
 @Composable

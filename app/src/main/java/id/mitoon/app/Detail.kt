@@ -300,9 +300,9 @@ object ReaderPrefs {
         val p = ctx.getSharedPreferences("reader", Context.MODE_PRIVATE).also { prefs = it }
         speed = p.getInt("s", 1).coerceIn(0, 2); pause = p.getInt("p", 1).coerceIn(0, 2); autoNext = p.getBoolean("a", true)
     }
-    fun setSpeed(i: Int) { speed = i; prefs?.edit()?.putInt("s", i)?.apply() }
-    fun setPause(i: Int) { pause = i; prefs?.edit()?.putInt("p", i)?.apply() }
-    fun setAutoNext(v: Boolean) { autoNext = v; prefs?.edit()?.putBoolean("a", v)?.apply() }
+    fun saveSpeed(i: Int) { speed = i; prefs?.edit()?.putInt("s", i)?.apply() }
+    fun savePause(i: Int) { pause = i; prefs?.edit()?.putInt("p", i)?.apply() }
+    fun saveAutoNext(v: Boolean) { autoNext = v; prefs?.edit()?.putBoolean("a", v)?.apply() }
 }
 
 @Composable
@@ -593,18 +593,18 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
                     IconTile(Blue) { LineIcon(Color.White, 20.dp, floatArrayOf(0.5f, 0.2f, 0.5f, 0.8f), floatArrayOf(0.28f, 0.58f, 0.5f, 0.8f, 0.72f, 0.58f)) }
                     Text("Kecepatan auto-scroll", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 12.dp))
                 }
-                Segmented(speeds.map { it.first }, ReaderPrefs.speed, onSelect = ReaderPrefs::setSpeed)
+                Segmented(speeds.map { it.first }, ReaderPrefs.speed, onSelect = ReaderPrefs::saveSpeed)
             }
             SettingCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconTile(Green) { LineIcon(Color.White, 20.dp, floatArrayOf(0.26f, 0.2f, 0.5f, 0.44f, 0.74f, 0.2f), floatArrayOf(0.26f, 0.5f, 0.5f, 0.74f, 0.74f, 0.5f)) }
                     Text("Lanjut chapter otomatis", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 12.dp).weight(1f))
-                    Switch(ReaderPrefs.autoNext, ReaderPrefs::setAutoNext, colors = SwitchDefaults.colors(
+                    Switch(ReaderPrefs.autoNext, ReaderPrefs::saveAutoNext, colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White, checkedTrackColor = Green, checkedBorderColor = Color.Transparent,
                         uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFF45464C), uncheckedBorderColor = Color.Transparent))
                 }
                 Text("Jeda sebelum lanjut", color = Color(0xFFD7D9DF), fontSize = 15.sp, modifier = Modifier.alpha(if (ReaderPrefs.autoNext) 1f else 0.4f))
-                Segmented(pauses.map { it.first }, ReaderPrefs.pause, ReaderPrefs.autoNext, ReaderPrefs::setPause)
+                Segmented(pauses.map { it.first }, ReaderPrefs.pause, ReaderPrefs.autoNext, ReaderPrefs::savePause)
             }
             Text("Saat scroll sampai akhir, chapter berikutnya dibuka sendiri. Bisa dibatalkan sebelum hitungan habis.", color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(horizontal = 4.dp))
             Spacer(Modifier.navigationBarsPadding().height(12.dp))

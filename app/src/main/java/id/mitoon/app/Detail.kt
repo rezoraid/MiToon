@@ -646,7 +646,7 @@ private fun PageSlider(page: Int, total: Int, onSeek: (Int) -> Unit, modifier: M
 }
 
 @Composable
-private fun Segmented(options: List<String>, selected: Int, enabled: Boolean = true, onSelect: (Int) -> Unit) =
+private fun SettingSegmented(options: List<String>, selected: Int, enabled: Boolean = true, onSelect: (Int) -> Unit) =
     Row(Modifier.fillMaxWidth().alpha(if (enabled) 1f else 0.4f).clip(RoundedCornerShape(12.dp)).background(SheetBg).padding(3.dp)) {
         options.forEachIndexed { i, t ->
             val on = i == selected
@@ -678,14 +678,14 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
                     IconTile(Blue) { LineIcon(Color.White, 20.dp, floatArrayOf(0.5f, 0.2f, 0.5f, 0.8f), floatArrayOf(0.28f, 0.58f, 0.5f, 0.8f, 0.72f, 0.58f)) }
                     Text("Kecepatan auto-scroll", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 12.dp))
                 }
-                Segmented(speeds.map { it.first }, ReaderPrefs.speed, onSelect = ReaderPrefs::setSpeed)
+                SettingSegmented(speeds.map { it.first }, ReaderPrefs.speed, onSelect = ReaderPrefs::setSpeed)
             }
             SettingCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconTile(Color(0xFFB5651D)) { Text("HD", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold) }
                     Text("Kualitas gambar", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 12.dp))
                 }
-                Segmented(listOf("Tinggi", "Rendah (hemat data)"), ReaderPrefs.quality, onSelect = ReaderPrefs::setQuality)
+                SettingSegmented(listOf("Tinggi", "Rendah (hemat data)"), ReaderPrefs.quality, onSelect = ReaderPrefs::setQuality)
                 Text("Rendah memperkecil gambar chapter (±70% lebih hemat kuota). Berlaku untuk halaman yang dimuat berikutnya.", color = Muted, fontSize = 13.sp, lineHeight = 18.sp)
             }
             SettingCard {
@@ -697,7 +697,7 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
                         uncheckedThumbColor = Color.White, uncheckedTrackColor = CardLine, uncheckedBorderColor = Color.Transparent))
                 }
                 Text("Jeda sebelum lanjut", color = Color(0xFFD7D9DF), fontSize = 15.sp, modifier = Modifier.alpha(if (ReaderPrefs.autoNext) 1f else 0.4f))
-                Segmented(pauses.map { it.first }, ReaderPrefs.pause, ReaderPrefs.autoNext, ReaderPrefs::setPause)
+                SettingSegmented(pauses.map { it.first }, ReaderPrefs.pause, ReaderPrefs.autoNext, ReaderPrefs::setPause)
             }
             Text("Saat scroll sampai akhir, chapter berikutnya dibuka sendiri. Bisa dibatalkan sebelum hitungan habis.", color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(horizontal = 4.dp))
             Spacer(Modifier.height(24.dp))

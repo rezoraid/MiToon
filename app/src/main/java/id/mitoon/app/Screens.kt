@@ -259,7 +259,7 @@ fun LibraryScreen(onOpen: (String) -> Unit, onContinue: (LibEntry) -> Unit, onSe
                 items(list, key = { it.id }) { e ->
                     Row(Modifier.fillMaxWidth().clip(R6).background(CardBg).border(1.dp, Line, R6).clickable { onContinue(e) }.padding(8.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Img(e.cover, e.provider, Modifier.width(56.dp).aspectRatio(0.5f).clip(RoundedCornerShape(2.dp)))
+                        Img(e.cover, e.provider, Modifier.width(56.dp).aspectRatio(0.5f).clip(RoundedCornerShape(2.dp)), maxW = 240)
                         Column(Modifier.weight(1f)) {
                             Text(e.title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             Text("Chapter ${e.lastChapterNumber.orEmpty()}", color = Accent, fontSize = 12.sp)

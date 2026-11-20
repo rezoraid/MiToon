@@ -43,9 +43,7 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
         SubTopBar("Akun", onBack)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             // ---- kartu profil
-            Box(Modifier.fillMaxWidth().clip(R16).border(1.dp, CardLine, R16).background(CardBg).clickable(onClick = onEdit)) {
-              ProfileBanner(user.id, user.bannerV)
-              Column(Modifier.fillMaxWidth().padding(16.dp)) {
+            Column(Modifier.fillMaxWidth().clip(R16).border(1.dp, CardLine, R16).background(CardBg).clickable(onClick = onEdit).padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Avatar(user.id, user.name, user.avatarV, 72.dp, shape = androidx.compose.foundation.shape.CircleShape)
                     Column(Modifier.weight(1f).padding(start = 16.dp)) {
@@ -64,7 +62,6 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
                 }
                 if (user.bio.isNotBlank()) Text(user.bio, color = Color(0xFFD7D9DE), fontSize = 13.sp, lineHeight = 19.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 12.dp))
                 XpBar(user, Modifier.padding(top = 14.dp))
-              }
             }
 
             Spacer(Modifier.height(14.dp))
@@ -76,6 +73,8 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
                 MenuRow(Icons.AutoMirrored.Filled.List, "Riwayat Aktivitas", onHistory)
                 MenuDivider()
                 MenuRow(Icons.Filled.Settings, "Pengaturan Akun", onAccount)
+                MenuDivider()
+                LanguageRow()
                 if (user.isOwner) { MenuDivider(); MenuRow(Icons.Filled.Build, "Panel Admin", onAdmin) }
             }
             Spacer(Modifier.height(14.dp))
@@ -163,5 +162,38 @@ fun AccountSettingsScreen(onBack: () -> Unit) {
             },
             dismissButton = { TextButton({ confirm = false }, enabled = !busy) { Text("Batal", color = Muted) } }
         )
+    }
+}
+
+@Composable
+private fun LanguageRow() {
+    var open by remember { mutableStateOf(false) }
+    val current = Lang.options.firstOrNull { it.code == Lang.choice }?.label ?: tr("Ikuti bahasa perangkat")
+    Row(Modifier.fillMaxWidth().clickable { open = true }.padding(vertical = 16.dp, horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(22.dp), Alignment.Center) { Text("文A", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+        Column(Modifier.weight(1f).padding(start = 16.dp)) {
+            Text("Bahasa", color = Color.White, fontSize = 16.sp)
+            Text(current, color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Muted, modifier = Modifier.size(22.dp))
+    }
+    if (open) AlertDialog(
+        onDismissRequest = { open = false },
+        title = { Text("Pilih bahasa") },
+        text = {
+            Column {
+                LangChoice("Ikuti bahasa perangkat", Lang.choice.isEmpty()) { Lang.set(""); open = false }
+                Lang.options.forEach { o -> LangChoice(o.label, Lang.choice == o.code) { Lang.set(o.code); open = false } }
+            }
+        },
+        confirmButton = { TextButton({ open = false }) { Text("Tutup") } }
+    )
+}
+
+@Composable
+private fun LangChoice(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        RadioButton(selected, onClick)
+        Text(label, fontSize = 15.sp, modifier = Modifier.padding(start = 8.dp))
     }
 }

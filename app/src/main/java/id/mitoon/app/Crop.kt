@@ -41,7 +41,7 @@ import kotlin.math.max
 
 
 /** Decode foto galeri (ukuran dikecilkan ≤ 2048 px, orientasi EXIF dikoreksi). */
-private suspend fun loadBannerSource(ctx: Context, uri: Uri): Bitmap = withContext(Dispatchers.IO) {
+private suspend fun loadCropSource(ctx: Context, uri: Uri): Bitmap = withContext(Dispatchers.IO) {
     val cr = ctx.contentResolver
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
@@ -75,11 +75,6 @@ private suspend fun renderCrop(src: Bitmap, scale: Float, ox: Float, oy: Float, 
     bytes
 }
 
-/** Editor background profil: bingkai 2:1 -> JPEG 1080x540. */
-@Composable
-fun BannerCropDialog(uri: Uri, onCancel: () -> Unit, onDone: (ByteArray) -> Unit) =
-    ImageCropDialog(uri, "Atur background profil", 2f, 1080, 540, false, 650 * 1024, onCancel, onDone)
-
 /** Editor foto profil: bingkai bulat (hasil persegi 384 px, ditampilkan bulat di app). */
 @Composable
 fun AvatarCropDialog(uri: Uri, onCancel: () -> Unit, onDone: (ByteArray) -> Unit) =
@@ -100,7 +95,7 @@ private fun ImageCropDialog(uri: Uri, title: String, aspect: Float, outW: Int, o
     var frame by remember { mutableStateOf(IntSize.Zero) }
     var saving by remember { mutableStateOf(false) }
 
-    LaunchedEffect(uri) { runCatching { loadBannerSource(ctx, uri) }.onSuccess { src = it }.onFailure { loadErr = true } }
+    LaunchedEffect(uri) { runCatching { loadCropSource(ctx, uri) }.onSuccess { src = it }.onFailure { loadErr = true } }
 
     fun baseScale(b: Bitmap) = max(frame.width / b.width.toFloat(), frame.height / b.height.toFloat())
     fun clamp(b: Bitmap, z: Float, o: Offset): Offset {
@@ -172,12 +167,4 @@ private fun ImageCropDialog(uri: Uri, title: String, aspect: Float, outW: Int, o
             }
         }
     }
-}
-
-/** Background profil: gambar pengguna menutupi area, dengan lapisan gelap tipis agar teks tetap terbaca. Tanpa gambar = tidak menggambar apa-apa. */
-@Composable
-fun BoxScope.ProfileBanner(userId: Long, version: Int, scrim: Float = 0.45f) {
-    val url = Auth.bannerUrl(userId, version) ?: return
-    Img(url, "", Modifier.matchParentSize())
-    Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = scrim)))
 }

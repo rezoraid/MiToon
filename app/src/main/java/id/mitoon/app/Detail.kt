@@ -75,13 +75,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.ui.graphics.graphicsLayer
-import android.widget.Toast
 import android.os.Build
 import android.view.View
 import android.view.WindowInsetsController
@@ -141,15 +139,29 @@ private fun RetryBox(text: String, onRetry: () -> Unit) =
         Text(text, color = Muted); TextButton(onRetry) { Text("Coba lagi", color = Accent) }
     }
 
-/** Ikon ambil ulang: berputar saat memuat, redup bila jatah harian habis. */
+/** Ikon ambil ulang: panah melingkar bergaris tipis (selaras ikon komentar & pengaturan); berputar saat memuat, redup bila jatah harian habis. */
 @Composable
 private fun RefetchIcon(busy: Boolean, left: Int, size: Dp, modifier: Modifier = Modifier) {
     val spin = if (busy) {
         val t = rememberInfiniteTransition(label = "refetch")
         t.animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Restart), label = "rot").value
     } else 0f
-    Icon(Icons.Filled.Refresh, "Ambil ulang", tint = if (left > 0 || busy) Color.White else Color(0xFF55585F),
-        modifier = modifier.size(size).graphicsLayer { rotationZ = spin })
+    val tint = if (left > 0 || busy) Color.White else Color(0xFF55585F)
+    androidx.compose.foundation.Canvas(modifier.size(size).graphicsLayer { rotationZ = spin }) {
+        val u = this.size.width / 24f
+        val c = androidx.compose.ui.geometry.Offset(12f * u, 12f * u)
+        val r = 7.2f * u
+        val w = 1.9.dp.toPx()
+        val st = androidx.compose.ui.graphics.drawscope.Stroke(w, cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
+        drawArc(tint, -40f, 280f, false, androidx.compose.ui.geometry.Offset(c.x - r, c.y - r), androidx.compose.ui.geometry.Size(2 * r, 2 * r), style = st)
+        val a = Math.toRadians(240.0)
+        val tip = androidx.compose.ui.geometry.Offset(c.x + r * kotlin.math.cos(a).toFloat(), c.y + r * kotlin.math.sin(a).toFloat())
+        val back = kotlin.math.atan2(-kotlin.math.cos(a), kotlin.math.sin(a))
+        for (d in doubleArrayOf(38.0, -38.0)) {
+            val ang = back + Math.toRadians(d)
+            drawLine(tint, tip, androidx.compose.ui.geometry.Offset(tip.x + kotlin.math.cos(ang).toFloat() * 4.8f * u, tip.y + kotlin.math.sin(ang).toFloat() * 4.8f * u), w, androidx.compose.ui.graphics.StrokeCap.Round)
+        }
+    }
 }
 
 /** Jumlah ReaderScreen yang sedang aktif; selama > 0 semua dialog/sheet ikut menyembunyikan bilah sistem. */
@@ -184,7 +196,6 @@ fun KeepBarsHidden() {
     }
 }
 
-private fun toast(ctx: Context, msg: String) = Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
 
 @Composable
 private fun RefetchConfirm(what: String, left: Int, onConfirm: () -> Unit, onDismiss: () -> Unit) = AlertDialog(
@@ -252,7 +263,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
             // Kepala: cover kecil (2:3) di kiri, judul + info ringkas di kanan -> muat di layar HP tanpa scroll panjang.
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Img(cover, provider, Modifier.width(140.dp).aspectRatio(2f / 3f).clip(R6))
+                    Img(cover, provider, Modifier.width(140.dp).aspectRatio(2f / 3f).clip(R6), maxW = 480)
                     Column(Modifier.weight(1f)) {
                         Text(title, color = Color.White, fontSize = 20.sp, lineHeight = 25.sp, fontWeight = FontWeight.Bold, maxLines = 4, overflow = TextOverflow.Ellipsis)
                         rating?.takeIf { it > 0 }?.let { r ->
@@ -534,7 +545,7 @@ private fun Modifier.glass(shape: Shape = CircleShape) = clip(shape).background(
 @Composable
 private fun ReaderTopBar(series: String, chapter: String, onBack: () -> Unit, onTitle: () -> Unit, onComments: () -> Unit, onSettings: () -> Unit,
                          refetching: Boolean, left: Int, onRefetch: () -> Unit) =
-    Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).padding(horizontal = 12.dp, vertical = 10.dp),
+    Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).padding(start = 12.dp, end = 12.dp, top = 2.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(48.dp).glass().clickable(onClick = onBack), Alignment.Center) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Kembali", tint = Color.White, modifier = Modifier.size(30.dp)) }
         Row(Modifier.weight(1f).height(48.dp).glass().clickable(onClick = onTitle).padding(start = 18.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {

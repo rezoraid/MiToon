@@ -148,8 +148,6 @@ interface Api {
     @PATCH("v1/auth/me") suspend fun updateProfile(@Body b: ProfileReq): Env<AuthUser>
     @PUT("v1/auth/me/avatar") suspend fun putAvatar(@Body jpeg: RequestBody): Env<AuthUser>
     @DELETE("v1/auth/me/avatar") suspend fun deleteAvatar(): Env<AuthUser>
-    @PUT("v1/auth/me/banner") suspend fun putBanner(@Body jpeg: RequestBody): Env<AuthUser>
-    @DELETE("v1/auth/me/banner") suspend fun deleteBanner(): Env<AuthUser>
     @GET("v1/comments") suspend fun comments(@Query("target") target: String, @Query("limit") limit: Int = 20, @Query("before") before: Long? = null): Env<CommentPage>
     @GET("v1/comments/{id}/replies") suspend fun replies(@Path("id") id: Long, @Query("after") after: Long? = null, @Query("limit") limit: Int = 20): Env<CommentPage>
     @POST("v1/comments") suspend fun addComment(@Body b: CommentReq): CommentRes
@@ -158,6 +156,7 @@ interface Api {
     @DELETE("v1/auth/me") suspend fun deleteAccount(@Query("confirm") confirm: String): Env<Ok>
     @GET("v1/users/{id}") suspend fun user(@Path("id") id: Long): Env<PublicUser>
     @GET("v1/users/{id}/reading") suspend fun userReading(@Path("id") id: Long, @Query("limit") limit: Int = 30, @Query("before") before: Long? = null): Env<ReadPage>
+    @POST("v1/library/sync") suspend fun librarySync(@Body b: LibSyncReq): Env<LibSyncRes>
     @PUT("v1/reading") suspend fun reportRead(@Body b: ReadReq): Env<Ok>
     @GET("v1/users/{id}/comments") suspend fun userComments(@Path("id") id: Long, @Query("limit") limit: Int = 20, @Query("before") before: Long? = null): Env<MyCommentPage>
     @GET("v1/comments/mine") suspend fun myComments(@Query("limit") limit: Int = 20, @Query("before") before: Long? = null): Env<MyCommentPage>
@@ -213,6 +212,20 @@ object Net {
     suspend fun detail(id: String): Detail = shared("detail:$id") { api.detail(id).data }
     suspend fun chapter(id: String): Content = shared("chapter:$id") { api.chapter(id).data }
     suspend fun unread(): NotifCount = shared("unread") { api.notifUnread().data }
+
+    // ---- cover: diperkecil & dikompres (WebP) lewat layanan resize gambar supaya unduhan jauh lebih ringan.
+    // Bila host sumber gagal lewat layanan itu (mis. butuh referer), host dicatat dan berikutnya langsung diunduh apa adanya.
+    private const val COVER_PROXY = "https://wsrv.nl/"
+    private val thumbBlocked = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private fun hostOf(url: String) = runCatching { java.net.URI(url.trim()).host.orEmpty() }.getOrDefault("")
+    fun thumb(url: String, width: Int): String? {
+        val u = url.trim()
+        if (width <= 0 || !(u.startsWith("http://") || u.startsWith("https://")) || u.startsWith(COVER_PROXY) || u.endsWith(".gif", true)) return null
+        val host = hostOf(u)
+        if (host.isBlank() || host in thumbBlocked || u.startsWith(BuildConfig.API_BASE_URL)) return null
+        return "$COVER_PROXY?url=${java.net.URLEncoder.encode(u, "UTF-8")}&w=$width&we=1&output=webp&q=72"
+    }
+    fun thumbFailed(url: String) { hostOf(url).takeIf { it.isNotBlank() }?.let { thumbBlocked.add(it) } }
 
     // ---- ambil ulang manual (ikon refresh): maks. REFETCH_MAX kali per hari per komik / per chapter, supaya tidak membebani server ----
     const val REFETCH_MAX = 2

@@ -1,6 +1,5 @@
 package id.mitoon.app
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -156,7 +155,7 @@ private fun ActivityList(page: NotifPage?, err: String?, onRetry: () -> Unit, on
                 opening = true
                 scope.launch {
                     val o = runCatching { CommentHistory.resolve(n.target) }.getOrNull()
-                    if (o == null) Toast.makeText(ctx, "Komentar tidak bisa dibuka (seri mungkin sudah dihapus)", Toast.LENGTH_SHORT).show()
+                    if (o == null) toast(ctx, "Komentar tidak bisa dibuka (seri mungkin sudah dihapus)")
                     else {
                         // Titip komentar yang dituju; seri/chapter yang terbuka akan menggulir ke sana dan menyorotnya.
                         if (n.commentId > 0) CommentFocus.set(n.target, n.commentId, n.parentId)
@@ -221,7 +220,7 @@ private fun ActivityRow(n: NotifItem, onAvatar: () -> Unit, onClick: () -> Unit)
                     Text(listOfNotNull(agoText(n.at), where).joinToString("  ·  "), color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            if (o != null) Img(o.cover, o.provider, Modifier.width(38.dp).height(54.dp).clip(R6))
+            if (o != null) Img(o.cover, o.provider, Modifier.width(38.dp).height(54.dp).clip(R6), maxW = 200)
         }
         HorizontalDivider(color = Line, modifier = Modifier.padding(start = 76.dp))
     }

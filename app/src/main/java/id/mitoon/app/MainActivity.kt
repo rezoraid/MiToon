@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         )
         requestHighRefreshRate()
+        Lang.init(this)
         setContent { MiToonTheme { App() } }
     }
 

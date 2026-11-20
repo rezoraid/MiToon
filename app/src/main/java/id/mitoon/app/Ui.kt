@@ -100,7 +100,7 @@ fun MiToonTheme(content: @Composable () -> Unit) = MaterialTheme(
 )
 
 @Composable
-fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale = ContentScale.Crop, extra: Map<String, String>? = null, retries: Int = 4, onFail: (() -> Unit)? = null) {
+fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale = ContentScale.Crop, extra: Map<String, String>? = null, retries: Int = 4, onFail: (() -> Unit)? = null, maxW: Int = 0) {
     val ctx = LocalContext.current
     // Gagal muat (mis. header referer belum siap saat app baru dibuka, atau koneksi goyang) -> coba lagi sampai 2x
     // dengan header yang dibaca ulang saat itu juga (supaya tidak memakai header lama).
@@ -108,14 +108,19 @@ fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale =
     var failed by remember(url) { mutableStateOf(false) }
     // Jaringan lambat -> request timeout lalu kotak tetap kosong. Coba lagi dengan jeda bertahap (1,5 dtk, 3 dtk, ...) sampai 4x.
     LaunchedEffect(failed) { if (failed) { if (attempt < retries) { delay(1500L * (attempt + 1)); attempt++; failed = false } else onFail?.invoke() } }
-    val h = extra ?: Net.hdr[provider].orEmpty()
+    // maxW > 0 = cover: coba versi kecil/terkompres dulu; gagal -> unduh gambar asli.
+    val small = remember(url, maxW) { if (maxW > 0) Net.thumb(url, maxW) else null }
+    var direct by remember(url) { mutableStateOf(false) }
+    val viaThumb = small != null && !direct
+    val src = if (viaThumb) small!! else url
+    val h = if (viaThumb) emptyMap() else extra ?: Net.hdr[provider].orEmpty()
     // Kunci memori eksplisit: gambar yang sudah tampil di kartu langsung dipakai sebagai placeholder di detail (tanpa kotak kosong).
-    val req = remember(url, h, attempt) {
-        ImageRequest.Builder(ctx).data(url.trim()).memoryCacheKey(url).placeholderMemoryCacheKey(url)
+    val req = remember(src, h, attempt) {
+        ImageRequest.Builder(ctx).data(src.trim()).memoryCacheKey(url).placeholderMemoryCacheKey(url)
             .apply { h.forEach { (k, v) -> addHeader(k, v) } }.build()
     }
     AsyncImage(model = req, contentDescription = null, modifier = modifier.background(CardBg), contentScale = scale,
-        onError = { if (url.isNotBlank()) failed = true })
+        onError = { if (viaThumb) { Net.thumbFailed(url); direct = true } else if (url.isNotBlank()) failed = true })
 }
 
 /** Mascot loading (GIF animasi, background transparan): menggantikan spinner polos di layar yang menunggu lama. */
@@ -142,7 +147,7 @@ fun SeriesCard(s: Series, up: Boolean, sub: String? = null, onClick: () -> Unit)
         LaunchedEffect(s.id, url.isBlank(), bad) {
             if (url.isBlank() || bad) Net.fixCover(s.id, force = bad, bad = url.takeIf { bad && it.isNotBlank() })
         }
-        Img(url, s.provider, Modifier.fillMaxSize(), retries = 1, onFail = { bad = true; Net.dropCoverFix(s.id, url) })
+        Img(url, s.provider, Modifier.fillMaxSize(), retries = 1, onFail = { bad = true; Net.dropCoverFix(s.id, url) }, maxW = 420)
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.38f)
             .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xF2000000)))))
         s.rating?.takeIf { it > 0 }?.let {
@@ -239,7 +244,7 @@ fun Spotlight(items: List<Series>, onOpen: (Series) -> Unit) {
         HorizontalPager(pager, Modifier.fillMaxSize(), key = { items[it].id }) { i ->
             val s = items[i]
             Box(Modifier.fillMaxSize().clickable { onOpen(s) }) {
-                Img(s.cover, s.provider, Modifier.fillMaxSize())
+                Img(s.cover, s.provider, Modifier.fillMaxSize(), maxW = 800)
                 Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.5f)
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xF2000000)))))
                 Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {

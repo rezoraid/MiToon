@@ -133,7 +133,7 @@ fun HistoryCommentRow(m: MyComment, onOpen: (CommentOrigin) -> Unit) {
     }
     val o = origin
     Row(Modifier.fillMaxWidth().clickable(enabled = o != null) { o?.let(onOpen) }.padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (o != null) Img(o.cover, o.provider, Modifier.width(44.dp).height(60.dp).clip(R6))
+        if (o != null) Img(o.cover, o.provider, Modifier.width(44.dp).height(60.dp).clip(R6), maxW = 200)
         else Box(Modifier.width(44.dp).height(60.dp).clip(R6).background(CardBg))
         Column(Modifier.weight(1f)) {
             Text(o?.title?.ifBlank { "Seri" } ?: "Memuat…", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -186,7 +186,7 @@ private fun ReadList(onOpen: (LibEntry) -> Unit) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp)) {
         items(items, key = { it.id }) { e ->
             Row(Modifier.fillMaxWidth().clickable { onOpen(e) }.padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Img(e.cover, e.provider, Modifier.width(44.dp).height(60.dp).clip(R6))
+                Img(e.cover, e.provider, Modifier.width(44.dp).height(60.dp).clip(R6), maxW = 200)
                 Column(Modifier.weight(1f)) {
                     Text(e.title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(e.lastChapterNumber?.let { "Terakhir: Chapter $it" } ?: "Pernah dibuka", color = Color(0xFFD7D9DE), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))

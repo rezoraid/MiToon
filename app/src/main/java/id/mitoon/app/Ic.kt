@@ -42,7 +42,11 @@ object Ic {
     val List = icon("List", true) { line("M9 7h11M9 12h11M9 17h11", 2.4f); line("M4.6 7v.05M4.6 12v.05M4.6 17v.05", 3.2f) }
     val ThumbUp = icon("ThumbUp") { line("M14 9.2V5.4a2.9 2.9 0 0 0-2.9-2.9L7.2 11.3v10.2h10.6a2 2 0 0 0 2-1.7l1.3-8.5a2 2 0 0 0-2-2.3z", 2.2f); line("M7.2 21.5H4.3a2 2 0 0 1-2-2v-6.2a2 2 0 0 1 2-2h2.9", 2.2f) }
     val Reply = icon("Reply") { both("M10.6 4.3L3.7 10.5a1.1 1.1 0 0 0 0 1.6l6.9 6.2a1 1 0 0 0 1.7-.8V15c4.3 0 6.9 1.5 8.2 4.7.1.3.6.3.6-.1 0-5.6-3.2-9.5-8.8-9.8V5.1a1 1 0 0 0-1.7-.8z", 1.2f) }
-    val Filter = icon("Filter") { line("M4 7h16M7 12h10M10 17h4", 2.5f) }
     val ThumbUpOn = icon("ThumbUpOn") { both("M14 9.2V5.4a2.9 2.9 0 0 0-2.9-2.9L7.2 11.3v10.2h10.6a2 2 0 0 0 2-1.7l1.3-8.5a2 2 0 0 0-2-2.3z", 2.0f); both("M7.2 21.5H4.3a2 2 0 0 1-2-2v-6.2a2 2 0 0 1 2-2h2.9", 2.0f) }
     val StarOn = icon("StarOn") { both("M12 3.4l2.6 5.4 5.9.8-4.3 4.1 1.1 5.9L12 16.8 6.7 19.6l1.1-5.9-4.3-4.1 5.9-.8z", 1.8f) }
+    val Download = icon("Download") { line("M12 3.6v11.2", 2.4f); line("M7.4 10.6L12 15.2l4.6-4.6", 2.4f); line("M4.6 19.6h14.8", 2.4f) }
+    val DownloadOn = icon("DownloadOn") { line("M12 3.4v11.6", 3.0f); line("M7.2 10.4L12 15.2l4.8-4.8", 3.0f); line("M4.4 19.8h15.2", 3.2f) }
+    val Check = icon("Check") { line("M5 12.8L10 17.6L19 7", 2.8f) }
+    val Trophy = icon("Trophy") { line("M7.6 3.8h8.8v5.4a4.4 4.4 0 0 1-8.8 0z", 2.2f); line("M7.6 5.8H4.5v1.3a3.5 3.5 0 0 0 3.3 3.5", 2.0f); line("M16.4 5.8h3.1v1.3a3.5 3.5 0 0 1-3.3 3.5", 2.0f); line("M12 13.6v3.6", 2.2f); line("M8.2 20.2h7.6", 2.6f) }
+    val TrophyOn = icon("TrophyOn") { both("M7.6 3.8h8.8v5.4a4.4 4.4 0 0 1-8.8 0z", 1.6f); line("M7.6 5.8H4.5v1.3a3.5 3.5 0 0 0 3.3 3.5", 2.0f); line("M16.4 5.8h3.1v1.3a3.5 3.5 0 0 1-3.3 3.5", 2.0f); line("M12 13.6v3.6", 2.4f); line("M8.2 20.2h7.6", 2.8f) }
 }

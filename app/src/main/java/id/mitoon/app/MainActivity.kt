@@ -2,20 +2,6 @@ package id.mitoon.app
 
 import android.net.Uri
 import android.os.Bundle
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.size
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -66,7 +52,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private val tabRoutes = setOf("home", "explore", "library")
+private val tabRoutes = setOf("home", "explore", "library", "downloads", "ranking")
 private fun NavBackStackEntry.isTab() = destination.route in tabRoutes
 private fun NavBackStackEntry.isReader() = destination.route?.startsWith("reader") == true
 
@@ -95,24 +81,11 @@ private fun AppContent() {
 }
 
 @Composable
-private fun TabBar(tabs: List<Tab>, route: String?, onSelect: (Tab) -> Unit) = Column(Modifier.background(Color(0xFF0B0B0C))) {
-    HorizontalDivider(color = Line, thickness = 0.5.dp)
-    Row(Modifier.fillMaxWidth().navigationBarsPadding().height(54.dp), verticalAlignment = Alignment.CenterVertically) {
-        tabs.forEach { t ->
-            val on = route == t.route; val c = if (on) Accent else Muted
-            Column(Modifier.weight(1f).fillMaxHeight().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelect(t) }, Arrangement.Center, Alignment.CenterHorizontally) {
-                Icon(if (on) t.on else t.icon, t.label, tint = c, modifier = Modifier.size(26.dp))
-                Text(t.label, color = c, fontSize = 10.sp, fontWeight = FontWeight.Medium)
-            }
-        }
-    }
-}
-
-@Composable
 private fun AppScaffold() {
     val nav = rememberNavController()
     LvClock.Run()
-    val tabs = listOf(Tab("home", "Home", Ic.Home, Ic.HomeOn), Tab("explore", "Explore", Ic.Search), Tab("library", "Library", Ic.Heart, Ic.HeartOn))
+    val tabs = listOf(Tab("home", "Home", Ic.Home, Ic.HomeOn), Tab("explore", "Explore", Ic.Search), Tab("library", "Library", Ic.Heart, Ic.HeartOn),
+        Tab("downloads", "Download", Ic.Download, Ic.DownloadOn), Tab("ranking", "Ranking", Ic.Trophy, Ic.TrophyOn))
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
     // Pil merah notifikasi (lonceng di header): cek tiap menit selama login, dan setiap kali pindah layar (kecuali saat sedang membuka halaman Notifikasi).
     val uid = Auth.user?.id
@@ -127,7 +100,15 @@ private fun AppScaffold() {
     val openNotif: () -> Unit = { nav.navigate("notifications") { launchSingleTop = true } }
     CompositionLocalProvider(LocalOpenUser provides openUser, LocalOpenNotif provides openNotif) {
     Scaffold(containerColor = Bg, bottomBar = {
-        if (tabs.any { it.route == route }) TabBar(tabs, route) { t -> nav.navigate(t.route) { popUpTo("home"); launchSingleTop = true; restoreState = true } }
+        if (tabs.any { it.route == route }) NavigationBar(containerColor = CardBg) {
+            tabs.forEach { t ->
+                NavigationBarItem(route == t.route, {
+                    nav.navigate(t.route) { popUpTo("home"); launchSingleTop = true; restoreState = true }
+                }, { Icon(if (route == t.route) t.on else t.icon, t.label) }, label = { Text(t.label, fontSize = 11.sp, maxLines = 1, softWrap = false) },
+                    colors = NavigationBarItemDefaults.colors(selectedIconColor = Accent, selectedTextColor = Accent,
+                        indicatorColor = Color.Transparent, unselectedIconColor = Muted, unselectedTextColor = Muted))
+            }
+        }
     }) { pad ->
         // Transisi singkat (<250 ms) dan ringan: pindah tab = fade; buka layar = fade + geser tipis; kembali = layar atas menyingkir.
         NavHost(nav, "home", Modifier.padding(pad).consumeWindowInsets(pad),
@@ -144,6 +125,10 @@ private fun AppScaffold() {
             composable("library") {
                 LibraryScreen({ nav.detail(it) }, { e -> e.lastChapterId?.let { nav.reader(e.id, it) } ?: nav.detail(e.id) }, { nav.navigate("search") })
             }
+            composable("downloads") {
+                DownloadsScreen({ nav.navigate("search") }, { sid, cid -> nav.reader(sid, cid) }, { nav.detail(it) })
+            }
+            composable("ranking") { LeaderboardScreen { nav.navigate("search") } }
             composable("notifications") {
                 NotificationsScreen(nav::popBackStack) { o -> if (o.chapterId != null) nav.reader(o.seriesId, o.chapterId) else nav.detail(o.seriesId) }
             }

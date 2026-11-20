@@ -93,9 +93,9 @@ private fun relTime(iso: String?): String? {
 
 @Composable
 private fun ActionButton(text: String, filled: Boolean, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) =
-    Box(modifier.alpha(if (enabled) 1f else 0.45f).height(46.dp).clip(RoundedCornerShape(12.dp)).background(if (filled) Accent else Fill).clickable(enabled = enabled, onClick = onClick),
+    Box(modifier.alpha(if (enabled) 1f else 0.45f).height(40.dp).clip(R6).then(if (filled) Modifier.background(Accent) else Modifier.border(1.5.dp, Accent, R6)).clickable(enabled = enabled, onClick = onClick),
         Alignment.Center) {
-        Text(text, color = if (filled) OnAccent else Accent, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        Text(text, color = if (filled) OnAccent else Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
 
 @Composable
@@ -105,7 +105,18 @@ private fun Info(label: String, content: @Composable () -> Unit) =
     }
 
 @Composable
-private fun DetailTabs(tab: Int, onTab: (Int) -> Unit) = Segmented(listOf("Chapter", "Komentar"), tab, onTab, Modifier.padding(top = 20.dp))
+private fun DetailTabs(tab: Int, onTab: (Int) -> Unit) = Column(Modifier.padding(top = 20.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+        listOf("Chapter", "Komentar").forEachIndexed { i, t ->
+            Column(Modifier.width(IntrinsicSize.Max).clickable { onTab(i) }) {
+                Text(t, fontSize = 16.sp, color = if (i == tab) Color.White else Muted, fontWeight = if (i == tab) FontWeight.Bold else FontWeight.Normal,
+                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 2.dp))
+                Box(Modifier.height(3.dp).fillMaxWidth().background(if (i == tab) Accent else Color.Transparent))
+            }
+        }
+    }
+    HorizontalDivider(color = Line, thickness = 1.dp)
+}
 
 // ------------------------------------------------------------------ DETAIL KOMIK (mengikuti layout Siikomik)
 @Composable
@@ -221,6 +232,8 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
     val saved = entry?.bookmarked == true
     val useResume = resumeId != null && (d == null || resume != null)
     fun open(c: Chap) { d?.let { Library.open(it, c) }; onChapter(id, c.id) }
+    var dlSheet by remember { mutableStateOf(false) }
+    if (dlSheet && d != null) DownloadSheet(d, resumeId) { dlSheet = false }
     // Chapter yang kemungkinan dibuka ("Lanjutkan" / "Baca awal") disiapkan lebih dulu supaya terbuka instan.
     LaunchedEffect(d) { if (d != null) (resumeId ?: first?.id)?.let { Net.prefetchChapter(it) } }
     // Komentar seri disiapkan diam-diam sesaat setelah halaman tampil (1 request kecil, tidak berebut dengan cover/chapter),
@@ -264,17 +277,17 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
             // Detail (sinopsis) tepat di bawah cover, di atas genre. Ringkas 4 baris; ketuk untuk membuka penuh.
             if (d == null && !failed) item("synopsis-skel") {
                 Column(Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.fillMaxWidth().height(12.dp).background(Fill, R6))
-                    Box(Modifier.fillMaxWidth().height(12.dp).background(Fill, R6))
-                    Box(Modifier.fillMaxWidth(0.6f).height(12.dp).background(Fill, R6))
+                    Box(Modifier.fillMaxWidth().height(12.dp).background(Color(0xFF24262C), R6))
+                    Box(Modifier.fillMaxWidth().height(12.dp).background(Color(0xFF24262C), R6))
+                    Box(Modifier.fillMaxWidth(0.6f).height(12.dp).background(Color(0xFF24262C), R6))
                 }
             } else if (d != null && d.synopsis.isNotBlank()) item("synopsis") {
                 Column(Modifier.padding(top = 14.dp).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { if (synopsisLong || synopsisOpen) synopsisOpen = !synopsisOpen }) {
                     Text(d.synopsis, color = Color(0xFFD0D3DA), fontSize = 14.sp, lineHeight = 21.sp,
                         maxLines = if (synopsisOpen) Int.MAX_VALUE else 4, overflow = TextOverflow.Ellipsis,
                         onTextLayout = { if (!synopsisOpen) synopsisLong = it.hasVisualOverflow })
-                    if (synopsisLong || synopsisOpen) Text(if (synopsisOpen) "Tutup" else "Selengkapnya", color = Accent, fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
+                    if (synopsisLong || synopsisOpen) Text(if (synopsisOpen) "Tutup" else "Selengkapnya", color = Color.White, fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
                 }
             }
             if (genres.isNotEmpty()) item {
@@ -301,8 +314,12 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
             if (tab == 0) {
                 item {
                     Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (d != null) "Chapters: ${d.chapters.size}" else "Chapters", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        if (d != null) Text(if (newestFirst) "Terlama ⇅" else "Terbaru ⇅", color = Accent, fontSize = 15.sp,
+                        Text(if (d != null) "Chapters: ${d.chapters.size}" else "Chapters", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        if (d != null && d.chapters.isNotEmpty()) Row(Modifier.clip(R6).clickable { dlSheet = true }.padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Ic.Download, null, tint = Muted, modifier = Modifier.size(16.dp))
+                            Text("Unduh", color = Muted, fontSize = 14.sp, modifier = Modifier.padding(start = 5.dp))
+                        }
+                        if (d != null) Text(if (newestFirst) "Terlama ⇅" else "Terbaru ⇅", color = Muted, fontSize = 14.sp,
                             modifier = Modifier.clickable { newestFirst = !newestFirst }.padding(8.dp))
                     }
                 }
@@ -313,12 +330,15 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
                     else -> {
                         items(chapters, key = { it.id }) { c ->
                             val read = entry?.read?.contains(c.id) == true
-                            Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(R6).background(CardBg)
-                                .clickable { open(c) }.padding(horizontal = 16.dp, vertical = 14.dp)) {
-                                Text("Chapter ${c.number}", color = if (read) Muted else Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                                if (c.title.isNotBlank() && !c.title.equals("Chapter ${c.number}", true))
-                                    Text(c.title, color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
-                                relTime(c.date)?.let { Text(it, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp)) }
+                            Row(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(R6).background(CardBg).border(1.dp, Line, R6)
+                                .clickable { open(c) }.padding(start = 16.dp, top = 6.dp, bottom = 6.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+                                    Text("Chapter ${c.number}", color = if (read) Muted else Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                                    if (c.title.isNotBlank() && !c.title.equals("Chapter ${c.number}", true))
+                                        Text(c.title, color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+                                    relTime(c.date)?.let { Text(it, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp)) }
+                                }
+                                DownloadAction(id, title, cover, provider, c)
                             }
                         }
                     }
@@ -337,9 +357,9 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
 
 private val Glass = Color(0xE61C1D22)
 private val GlassLine = Color(0x1AFFFFFF)
-private val SheetBg = CardBg
-private val SheetCard = Fill
-private val SheetChip = Color(0xFF3A3A3C)
+private val SheetBg = Color(0xFF1C1D21)
+private val SheetCard = Color(0xFF26272C)
+private val SheetChip = Color(0xFF34353B)
 private val Blue = Color(0xFF0A84FF)
 private val Green = Color(0xFF30D158)
 private val speeds = listOf("Lambat" to 70, "Sedang" to 130, "Cepat" to 230)
@@ -367,7 +387,10 @@ object ReaderPrefs {
 fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeries: () -> Unit, onChapter: (String) -> Unit) {
     ReaderPrefs.init(LocalContext.current.applicationContext)
     var tick by remember { mutableIntStateOf(0) }
-    val res by produceState<Result<Content>?>(Net.cachedChapter(chapterId)?.let { Result.success(it) }, chapterId, tick) {
+    // Chapter yang sudah diunduh dibaca dari file lokal (tanpa internet); selain itu dari server seperti biasa.
+    val local = remember(chapterId) { Downloads.content(chapterId) }
+    val res by produceState<Result<Content>?>((local ?: Net.cachedChapter(chapterId))?.let { Result.success(it) }, chapterId, tick) {
+        if (local != null) return@produceState
         if (tick > 0) value = null
         val r = runCatching { Net.chapter(chapterId) }
         r.getOrNull()?.let { Net.storeChapter(chapterId, it) }
@@ -435,11 +458,13 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     val firstVisible = listState.firstVisibleItemIndex
     LaunchedEffect(c) {
         val cc = c ?: return@LaunchedEffect
+        if (cc.images.firstOrNull()?.startsWith("file:") == true) return@LaunchedEffect // gambar lokal tidak perlu diunduh dulu
         val to = minOf(10, cc.images.size)
         if (to > 0) { Net.preloadImages(cc.images.subList(0, to), cc.imageHeaders); preloaded.intValue = to }
     }
     LaunchedEffect(c, firstVisible) {
         val cc = c ?: return@LaunchedEffect
+        if (cc.images.firstOrNull()?.startsWith("file:") == true) return@LaunchedEffect
         val from = maxOf(preloaded.intValue, firstVisible + 2)
         val to = minOf(firstVisible + 10, cc.images.size)
         if (from < to) { Net.preloadImages(cc.images.subList(from, to), cc.imageHeaders); preloaded.intValue = to }
@@ -646,7 +671,7 @@ private fun PageSlider(page: Int, total: Int, onSeek: (Int) -> Unit, modifier: M
 }
 
 @Composable
-private fun SettingSegmented(options: List<String>, selected: Int, enabled: Boolean = true, onSelect: (Int) -> Unit) =
+private fun Segmented(options: List<String>, selected: Int, enabled: Boolean = true, onSelect: (Int) -> Unit) =
     Row(Modifier.fillMaxWidth().alpha(if (enabled) 1f else 0.4f).clip(RoundedCornerShape(12.dp)).background(SheetBg).padding(3.dp)) {
         options.forEachIndexed { i, t ->
             val on = i == selected
@@ -678,14 +703,14 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
                     IconTile(Blue) { LineIcon(Color.White, 20.dp, floatArrayOf(0.5f, 0.2f, 0.5f, 0.8f), floatArrayOf(0.28f, 0.58f, 0.5f, 0.8f, 0.72f, 0.58f)) }
                     Text("Kecepatan auto-scroll", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 12.dp))
                 }
-                SettingSegmented(speeds.map { it.first }, ReaderPrefs.speed, onSelect = ReaderPrefs::setSpeed)
+                Segmented(speeds.map { it.first }, ReaderPrefs.speed, onSelect = ReaderPrefs::setSpeed)
             }
             SettingCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconTile(Color(0xFFB5651D)) { Text("HD", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold) }
                     Text("Kualitas gambar", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 12.dp))
                 }
-                SettingSegmented(listOf("Tinggi", "Rendah (hemat data)"), ReaderPrefs.quality, onSelect = ReaderPrefs::setQuality)
+                Segmented(listOf("Tinggi", "Rendah (hemat data)"), ReaderPrefs.quality, onSelect = ReaderPrefs::setQuality)
                 Text("Rendah memperkecil gambar chapter (±70% lebih hemat kuota). Berlaku untuk halaman yang dimuat berikutnya.", color = Muted, fontSize = 13.sp, lineHeight = 18.sp)
             }
             SettingCard {
@@ -694,10 +719,10 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
                     Text("Lanjut chapter otomatis", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 12.dp).weight(1f))
                     Switch(ReaderPrefs.autoNext, ReaderPrefs::setAutoNext, colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White, checkedTrackColor = Green, checkedBorderColor = Color.Transparent,
-                        uncheckedThumbColor = Color.White, uncheckedTrackColor = CardLine, uncheckedBorderColor = Color.Transparent))
+                        uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFF45464C), uncheckedBorderColor = Color.Transparent))
                 }
                 Text("Jeda sebelum lanjut", color = Color(0xFFD7D9DF), fontSize = 15.sp, modifier = Modifier.alpha(if (ReaderPrefs.autoNext) 1f else 0.4f))
-                SettingSegmented(pauses.map { it.first }, ReaderPrefs.pause, ReaderPrefs.autoNext, ReaderPrefs::setPause)
+                Segmented(pauses.map { it.first }, ReaderPrefs.pause, ReaderPrefs.autoNext, ReaderPrefs::setPause)
             }
             Text("Saat scroll sampai akhir, chapter berikutnya dibuka sendiri. Bisa dibatalkan sebelum hitungan habis.", color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(horizontal = 4.dp))
             Spacer(Modifier.height(24.dp))

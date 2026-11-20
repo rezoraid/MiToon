@@ -153,6 +153,7 @@ interface Api {
     @POST("v1/comments") suspend fun addComment(@Body b: CommentReq): CommentRes
     @PUT("v1/comments/{id}/vote") suspend fun voteComment(@Path("id") id: Long, @Body b: VoteReq): Env<VoteRes>
     @POST("v1/xp/event") suspend fun xpEvent(@Body b: XpReq): Env<XpRes>
+    @GET("v1/xp/leaderboard") suspend fun leaderboard(@Query("limit") limit: Int = 50): Env<RankBoard>
     @DELETE("v1/auth/me") suspend fun deleteAccount(@Query("confirm") confirm: String): Env<Ok>
     @GET("v1/users/{id}") suspend fun user(@Path("id") id: Long): Env<PublicUser>
     @GET("v1/users/{id}/reading") suspend fun userReading(@Path("id") id: Long, @Query("limit") limit: Int = 30, @Query("before") before: Long? = null): Env<ReadPage>
@@ -336,6 +337,7 @@ object Net {
 
     /** Ambil chapter + 8 gambar pertamanya lebih dulu (dipanggil untuk chapter berikutnya / chapter yang kemungkinan dibuka). */
     fun prefetchChapter(id: String) {
+        if (Downloads.has(id)) return // sudah ada di perangkat
         if (chapterCache.containsKey(id)) {
             chapterCache[id]?.let { preloadImages(it.images.take(8), it.imageHeaders) }
             return
@@ -522,6 +524,7 @@ class MiToonApp : Application(), ImageLoaderFactory {
         super.onCreate()
         Net.init(this)
         Library.init(this)
+        Downloads.init(this)
         Auth.init(this)
         CommentHistory.init(this)
         // Urutan penting: header gambar dulu (kecil, sekaligus membuka koneksi pertama), lalu data layar utama.

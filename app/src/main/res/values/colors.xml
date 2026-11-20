@@ -3,5 +3,5 @@
     <!-- Warna latar logo (diambil dari gambar logo) -->
     <color name="ic_launcher_background">#202125</color>
     <!-- Warna dasar aplikasi (sama dengan Bg di Ui.kt) -->
-    <color name="app_bg">#000000</color>
+    <color name="app_bg">#17181C</color>
 </resources>

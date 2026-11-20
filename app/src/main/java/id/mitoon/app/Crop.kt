@@ -146,7 +146,7 @@ private fun ImageCropDialog(uri: Uri, title: String, aspect: Float, outW: Int, o
             Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Zoom", color = Muted, fontSize = 13.sp)
                 Slider(zoom, { z -> zoom = z; src?.let { off = clamp(it, z, off) } }, Modifier.weight(1f).padding(horizontal = 12.dp), valueRange = 1f..6f,
-                    enabled = src != null && !saving, colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White, inactiveTrackColor = Line))
+                    enabled = src != null && !saving, colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White, inactiveTrackColor = Color(0xFF3A3C45)))
                 Text(String.format("%.1fx", zoom), color = Color.White, fontSize = 13.sp, modifier = Modifier.widthIn(min = 36.dp))
             }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

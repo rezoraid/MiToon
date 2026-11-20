@@ -1,13 +1,6 @@
 package id.mitoon.app
 
 import androidx.compose.foundation.*
-import androidx.compose.foundation.interaction.InteractionSource
-import androidx.compose.foundation.interaction.PressInteraction
-import androidx.compose.ui.graphics.drawscope.ContentDrawScope
-import androidx.compose.ui.node.DelegatableNode
-import androidx.compose.ui.node.DrawModifierNode
-import androidx.compose.ui.node.invalidateDraw
-import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.*
@@ -41,18 +34,15 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.delay
 
-val Bg = Color(0xFF000000)
-val CardBg = Color(0xFF1C1C1E)
-val Fill = Color(0xFF2C2C2E)
-val Line = Color(0xFF38383A)
-val CardLine = Color(0xFF48484A)
-val Accent = Color(0xFF0A84FF)
-val OnAccent = Color.White
-val Star = Color(0xFFFFD60A)
-val Muted = Color(0xFF8E8E93)
-val IosRed = Color(0xFFFF453A)
-val IosGreen = Color(0xFF30D158)
-val R6 = RoundedCornerShape(12.dp)
+val Bg = Color(0xFF17181C)
+val CardBg = Color(0xFF1E1F25)
+val Line = Color(0xFF2C2E36)
+val CardLine = Color(0xFF3A3C44)
+val Accent = Color.White          // aksen = putih (tema hitam-putih)
+val OnAccent = Color.Black        // teks/ikon di atas permukaan Accent
+val Star = Color.White
+val Muted = Color(0xFF9EA2AD)
+val R6 = RoundedCornerShape(3.dp) // nama lama; semua tombol/chip/kartu memakai sudut kecil agar tampil kotak
 /** Diisi saat genre di halaman detail ditekan; ExploreScreen membacanya sekali lalu mengosongkannya. */
 object ExploreRequest { var genre by mutableStateOf<String?>(null) }
 fun genreSlug(name: String) = name.lowercase().replace(Regex("[^\\p{L}\\p{N}]+"), "-").trim('-')
@@ -64,67 +54,43 @@ val LocalOpenNotif = staticCompositionLocalOf<() -> Unit> { {} }
 @Composable
 fun GenreBox(name: String, onClick: () -> Unit) =
     Text(name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1,
-        modifier = Modifier.clip(CircleShape).background(CardBg).clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp))
+        modifier = Modifier.clip(RoundedCornerShape(2.dp)).background(CardBg).border(1.dp, Color(0xFF4A4C53), RoundedCornerShape(2.dp))
+            .clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 7.dp))
 
 private const val COVER_RATIO = 0.5f // rasio kartu mengikuti Siikomik (1:2)
 private val Dim = Color(0x99000000)
 
-val AppFont = FontFamily(
-    Font(R.font.inter_regular, FontWeight.Normal),
-    Font(R.font.inter_medium, FontWeight.Medium),
-    Font(R.font.inter_semibold, FontWeight.SemiBold),
-    Font(R.font.inter_bold, FontWeight.Bold),
-    Font(R.font.inter_extrabold, FontWeight.ExtraBold)
+/** Urbanist (TTF statis per weight, dibuat dari font variable yang diberikan; berfungsi di semua API >= 24). */
+val Urbanist = FontFamily(
+    Font(R.font.urbanist_regular, FontWeight.Normal),
+    Font(R.font.urbanist_medium, FontWeight.Medium),
+    Font(R.font.urbanist_semibold, FontWeight.SemiBold),
+    Font(R.font.urbanist_bold, FontWeight.Bold),
+    Font(R.font.urbanist_extrabold, FontWeight.ExtraBold)
 )
 
+/** Semua gaya teks Material memakai Urbanist, sehingga Text/Button/TextField/NavigationBar ikut otomatis. */
 private val AppTypography = with(Typography()) {
     copy(
-        displayLarge = displayLarge.copy(fontFamily = AppFont), displayMedium = displayMedium.copy(fontFamily = AppFont),
-        displaySmall = displaySmall.copy(fontFamily = AppFont),
-        headlineLarge = headlineLarge.copy(fontFamily = AppFont), headlineMedium = headlineMedium.copy(fontFamily = AppFont),
-        headlineSmall = headlineSmall.copy(fontFamily = AppFont),
-        titleLarge = titleLarge.copy(fontFamily = AppFont), titleMedium = titleMedium.copy(fontFamily = AppFont),
-        titleSmall = titleSmall.copy(fontFamily = AppFont),
-        bodyLarge = bodyLarge.copy(fontFamily = AppFont), bodyMedium = bodyMedium.copy(fontFamily = AppFont),
-        bodySmall = bodySmall.copy(fontFamily = AppFont),
-        labelLarge = labelLarge.copy(fontFamily = AppFont), labelMedium = labelMedium.copy(fontFamily = AppFont),
-        labelSmall = labelSmall.copy(fontFamily = AppFont)
+        displayLarge = displayLarge.copy(fontFamily = Urbanist), displayMedium = displayMedium.copy(fontFamily = Urbanist),
+        displaySmall = displaySmall.copy(fontFamily = Urbanist),
+        headlineLarge = headlineLarge.copy(fontFamily = Urbanist), headlineMedium = headlineMedium.copy(fontFamily = Urbanist),
+        headlineSmall = headlineSmall.copy(fontFamily = Urbanist),
+        titleLarge = titleLarge.copy(fontFamily = Urbanist), titleMedium = titleMedium.copy(fontFamily = Urbanist),
+        titleSmall = titleSmall.copy(fontFamily = Urbanist),
+        bodyLarge = bodyLarge.copy(fontFamily = Urbanist), bodyMedium = bodyMedium.copy(fontFamily = Urbanist),
+        bodySmall = bodySmall.copy(fontFamily = Urbanist),
+        labelLarge = labelLarge.copy(fontFamily = Urbanist), labelMedium = labelMedium.copy(fontFamily = Urbanist),
+        labelSmall = labelSmall.copy(fontFamily = Urbanist)
     )
 }
 
 @Composable
 fun MiToonTheme(content: @Composable () -> Unit) = MaterialTheme(
-    colorScheme = darkColorScheme(primary = Accent, onPrimary = OnAccent, background = Bg, surface = Bg, onBackground = Color.White, onSurface = Color.White,
-        surfaceContainer = CardBg, surfaceContainerHigh = Fill, surfaceContainerHighest = Fill, surfaceVariant = Fill, outline = Line, outlineVariant = Line),
+    colorScheme = darkColorScheme(primary = Accent, onPrimary = OnAccent, background = Bg, surface = Bg, onBackground = Color.White, onSurface = Color.White),
     typography = AppTypography,
-    shapes = Shapes(extraSmall = RoundedCornerShape(8.dp), small = RoundedCornerShape(10.dp), medium = RoundedCornerShape(12.dp), large = RoundedCornerShape(14.dp), extraLarge = RoundedCornerShape(14.dp))
-) { CompositionLocalProvider(LocalIndication provides IosPress, content = content) }
-
-private object IosPress : IndicationNodeFactory {
-    override fun create(interactionSource: InteractionSource): DelegatableNode = PressNode(interactionSource)
-    override fun hashCode() = -1
-    override fun equals(other: Any?) = other === this
-    private class PressNode(val src: InteractionSource) : Modifier.Node(), DrawModifierNode {
-        var down = false
-        override fun onAttach() { coroutineScope.launch { src.interactions.collect { val n = it is PressInteraction.Press || (down && it !is PressInteraction.Release && it !is PressInteraction.Cancel); if (n != down) { down = n; invalidateDraw() } } } }
-        override fun ContentDrawScope.draw() { drawContent(); if (down) drawRect(Color(0x26FFFFFF)) }
-    }
-}
-
-@Composable
-fun IosSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier: Modifier = Modifier, enabled: Boolean = true) =
-    Switch(checked, onCheckedChange, modifier, enabled = enabled, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = IosGreen, checkedBorderColor = Color.Transparent,
-        uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFF39393D), uncheckedBorderColor = Color.Transparent))
-
-@Composable
-fun Segmented(items: List<String>, sel: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) =
-    Row(modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(CardBg).padding(2.dp)) {
-        items.forEachIndexed { i, t ->
-            Box(Modifier.weight(1f).height(32.dp).clip(RoundedCornerShape(8.dp)).then(if (i == sel) Modifier.background(Color(0xFF636366)) else Modifier).clickable { onSelect(i) }, Alignment.Center) {
-                Text(t, color = Color.White, fontSize = 13.sp, fontWeight = if (i == sel) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1)
-            }
-        }
-    }
+    content = content
+)
 
 @Composable
 fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale = ContentScale.Crop, extra: Map<String, String>? = null, retries: Int = 4, onFail: (() -> Unit)? = null, maxW: Int = 0, q: Int = 72) {
@@ -178,14 +144,14 @@ fun SeriesCard(s: Series, up: Boolean, sub: String? = null, onClick: () -> Unit)
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.38f)
             .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xF2000000)))))
         s.rating?.takeIf { it > 0 }?.let {
-            Row(Modifier.align(Alignment.TopStart).padding(6.dp).background(Dim, CircleShape).padding(horizontal = 7.dp, vertical = 2.dp),
+            Row(Modifier.align(Alignment.TopStart).padding(5.dp).background(Dim, RoundedCornerShape(2.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Icon(Ic.StarOn, null, tint = Star, modifier = Modifier.size(12.dp)); Spacer(Modifier.width(3.dp))
                 Text("%.1f".format(it), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
         if (up) Text("UP", color = OnAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).background(Accent, CircleShape).padding(horizontal = 7.dp, vertical = 2.dp))
+            modifier = Modifier.align(Alignment.TopEnd).padding(5.dp).background(Accent, RoundedCornerShape(2.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 6.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(s.title, color = Color.White, fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
                 maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -200,43 +166,44 @@ fun LazyGridScope.full(content: @Composable () -> Unit) = item(span = { GridItem
 fun SectionTitle(text: String, onMore: (() -> Unit)? = null) =
     Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 12.dp).then(if (onMore != null) Modifier.clickable(onClick = onMore) else Modifier),
         verticalAlignment = Alignment.CenterVertically) {
-        Text(text, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-        if (onMore != null) { Text("Lihat Semua", color = Accent, fontSize = 15.sp); Icon(Ic.Right, null, tint = Accent, modifier = Modifier.padding(start = 2.dp).size(14.dp)) }
+        Text(text, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        if (onMore != null) Icon(Ic.Right, null, tint = Color.White)
     }
 
 @Composable
 fun Header(onSearch: () -> Unit, onBack: (() -> Unit)? = null) = Column {
-    Row(Modifier.fillMaxWidth().background(Bg).height(52.dp).padding(start = if (onBack == null) 14.dp else 4.dp, end = 4.dp),
+    Row(Modifier.fillMaxWidth().background(CardBg).height(54.dp).padding(start = if (onBack == null) 14.dp else 4.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically) {
         if (onBack != null) IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) }
-        Image(painterResource(R.drawable.logo), "MiToon", Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)))
+        Image(painterResource(R.drawable.logo), "MiToon", Modifier.size(34.dp).clip(R6))
         Spacer(Modifier.width(8.dp))
         Text(buildAnnotatedString {
             withStyle(SpanStyle(color = Color.White)) { append("Mi") }
             withStyle(SpanStyle(color = Muted)) { append("Toon") }
-        }, fontSize = 24.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp, modifier = Modifier.weight(1f))
-        IconButton(onSearch) { Icon(Ic.Search, "Cari", tint = Accent, modifier = Modifier.size(24.dp)) }
+        }, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+        IconButton(onSearch) { Icon(Ic.Search, "Cari", tint = Muted, modifier = Modifier.size(26.dp)) }
         val openNotif = LocalOpenNotif.current
         IconButton(openNotif) {
             val n = NotifState.unread
             if (n > 0) BadgedBox({
-                Badge(containerColor = IosRed, contentColor = Color.White) { Text(if (n > 99) "99+" else "$n") }
-            }) { Icon(Ic.Bell, "Notifikasi", tint = Accent, modifier = Modifier.size(24.dp)) }
-            else Icon(Ic.Bell, "Notifikasi", tint = Accent, modifier = Modifier.size(24.dp))
+                Badge(containerColor = Color(0xFFE5484D), contentColor = Color.White) { Text(if (n > 99) "99+" else "$n") }
+            }) { Icon(Ic.Bell, "Notifikasi", tint = Muted, modifier = Modifier.size(26.dp)) }
+            else Icon(Ic.Bell, "Notifikasi", tint = Muted, modifier = Modifier.size(26.dp))
         }
         IconButton({ Auth.menuOpen = true }) {
             val u = Auth.user
             if (u != null && u.avatarV > 0) Avatar(u.id, u.username, u.avatarV, 30.dp)
-            else Icon(Ic.Person, "Akun", tint = Accent, modifier = Modifier.size(24.dp))
+            else Icon(Ic.Person, "Akun", tint = Muted, modifier = Modifier.size(26.dp))
         }
     }
+    HorizontalDivider(color = Line, thickness = 1.dp)
 }
 
 @Composable
 fun Chip(text: String, on: Boolean, onClick: () -> Unit) =
-    Text(text, fontSize = 14.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, color = if (on) OnAccent else Color(0xFFEBEBF5), maxLines = 1,
-        modifier = Modifier.clip(CircleShape).background(if (on) Accent else CardBg)
-            .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp))
+    Text(text, fontSize = 14.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, color = if (on) OnAccent else Muted, maxLines = 1,
+        modifier = Modifier.clip(R6).then(if (on) Modifier.background(Accent) else Modifier.border(1.dp, Color(0xFF3A3C45), R6))
+            .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp))
 
 @Composable
 fun Pills(items: List<Pair<String, String>>, selected: String, onSelect: (String) -> Unit) =
@@ -251,10 +218,13 @@ fun CategoryTabs(genres: List<Genre>, selected: String?, onSelect: (String?) -> 
         items(genres, key = { it.slug }) { g -> Chip(g.name, selected == g.slug) { onSelect(g.slug) } }
     }
 
+private val tones = listOf(Triple(Color(0xFF3A3C45), Color.White, Color(0xFF1E1F25)), Triple(Color(0xFF4A4D57), Color(0xFFD0D3DA), Color(0xFF17181C)))
+
 @Composable
 private fun GenreTag(name: String) {
-    Text(name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1,
-        modifier = Modifier.background(Color(0x40FFFFFF), CircleShape).padding(horizontal = 10.dp, vertical = 4.dp))
+    val (border, fg, bg) = tones[kotlin.math.abs(name.hashCode()) % tones.size]
+    Text("● $name", color = fg, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+        modifier = Modifier.background(bg, RoundedCornerShape(2.dp)).border(1.dp, border, RoundedCornerShape(2.dp)).padding(horizontal = 10.dp, vertical = 4.dp))
 }
 
 @Composable
@@ -263,7 +233,7 @@ fun Spotlight(items: List<Series>, onOpen: (Series) -> Unit) {
     LaunchedEffect(items.size) {
         while (items.size > 1) { delay(5000); pager.animateScrollToPage((pager.currentPage + 1) % items.size) }
     }
-    Box(Modifier.fillMaxWidth().aspectRatio(1.25f).clip(RoundedCornerShape(16.dp))) { // sorotan Home: sedikit lebih pendek dari persegi
+    Box(Modifier.fillMaxWidth().aspectRatio(1.25f).clip(R6)) { // sorotan Home: sedikit lebih pendek dari persegi
         HorizontalPager(pager, Modifier.fillMaxSize(), key = { items[it].id }) { i ->
             val s = items[i]
             Box(Modifier.fillMaxSize().clickable { onOpen(s) }) {
@@ -272,15 +242,15 @@ fun Spotlight(items: List<Series>, onOpen: (Series) -> Unit) {
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xF2000000)))))
                 Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
                     Text("Hot", color = OnAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.background(Accent, CircleShape).padding(horizontal = 10.dp, vertical = 4.dp))
-                    Text(s.title, color = Color.White, fontSize = 24.sp, lineHeight = 29.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp, maxLines = 2,
+                        modifier = Modifier.background(Accent, R6).padding(horizontal = 10.dp, vertical = 4.dp))
+                    Text(s.title, color = Color.White, fontSize = 22.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, maxLines = 2,
                         overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp, bottom = 10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { s.genres.take(3).forEach { GenreTag(it) } }
                 }
             }
         }
-        Text("${pager.currentPage + 1} / ${items.size}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).background(Dim, CircleShape).padding(horizontal = 10.dp, vertical = 4.dp))
+        Text("${pager.currentPage + 1} | ${items.size}", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).background(Dim, RoundedCornerShape(2.dp)).padding(horizontal = 10.dp, vertical = 4.dp))
     }
 }
 

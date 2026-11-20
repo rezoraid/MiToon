@@ -91,7 +91,7 @@ val LocalOpenUser = androidx.compose.runtime.staticCompositionLocalOf<(Long) -> 
 @Composable
 fun Avatar(userId: Long, username: String, version: Int, size: Dp, modifier: Modifier = Modifier, shape: androidx.compose.ui.graphics.Shape = androidx.compose.foundation.shape.CircleShape) {
     val url = Auth.avatarUrl(userId, version)
-    Box(modifier.size(size).clip(shape).background(Fill), Alignment.Center) {
+    Box(modifier.size(size).clip(shape).background(Color(0xFF2A2C32)), Alignment.Center) {
         if (url != null) Img(url, "", Modifier.fillMaxSize())
         else Text(username.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.42f).sp)
     }
@@ -449,7 +449,7 @@ private fun ReplyToggle(c: Comment, t: ReplyThread?, feed: CommentFeed) {
     val expanded = t != null && t.expanded
     val count = maxOf(c.replyCount, t?.items?.size ?: 0)
     Row(Modifier.padding(start = 42.dp).clip(R6).clickable { feed.toggleReplies(c) }.padding(horizontal = 8.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(22.dp).height(1.dp).background(CardLine))
+        Box(Modifier.width(22.dp).height(1.dp).background(Color(0xFF4A4C53)))
         Text(if (expanded) "  Sembunyikan balasan" else "  Lihat $count balasan", color = Color(0xFFD7D9DE), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
     }
 }
@@ -462,11 +462,11 @@ private fun CommentSkeleton() {
     Column(Modifier.graphicsLayer { alpha = a }) {
         repeat(5) { i ->
             Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.size(38.dp).clip(CircleShape).background(Fill))
+                Box(Modifier.size(38.dp).clip(CircleShape).background(Color(0xFF2A2C32)))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.width(if (i % 2 == 0) 110.dp else 80.dp).height(12.dp).clip(R6).background(Fill))
-                    Box(Modifier.fillMaxWidth(if (i % 3 == 0) 0.9f else 0.7f).height(12.dp).clip(R6).background(Fill))
-                    if (i % 2 == 0) Box(Modifier.fillMaxWidth(0.5f).height(12.dp).clip(R6).background(Fill))
+                    Box(Modifier.width(if (i % 2 == 0) 110.dp else 80.dp).height(12.dp).clip(R6).background(Color(0xFF2A2C32)))
+                    Box(Modifier.fillMaxWidth(if (i % 3 == 0) 0.9f else 0.7f).height(12.dp).clip(R6).background(Color(0xFF24262C)))
+                    if (i % 2 == 0) Box(Modifier.fillMaxWidth(0.5f).height(12.dp).clip(R6).background(Color(0xFF24262C)))
                 }
             }
         }
@@ -481,7 +481,7 @@ fun CommentComposer(feed: CommentFeed, modifier: Modifier = Modifier) {
     val reply = feed.replyingTo
     LaunchedEffect(reply?.id) { if (reply != null) runCatching { focus.requestFocus() } }
     Column(modifier) {
-        if (reply != null) Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(R6).background(Fill).padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (reply != null) Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(R6).background(Color(0xFF24262C)).padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(painterResource(R.drawable.ic_reply), null, tint = Muted, modifier = Modifier.size(14.dp))
             Text("  Membalas ${reply.user.name}", color = Color.White, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             IconButton({ feed.cancelReply() }, Modifier.size(36.dp)) { Icon(Ic.Close, "Batal membalas", tint = Muted, modifier = Modifier.size(16.dp)) }
@@ -493,7 +493,7 @@ fun CommentComposer(feed: CommentFeed, modifier: Modifier = Modifier) {
             OutlinedTextField(text, { if (it.length <= 1000) text = it }, Modifier.weight(1f).focusRequester(focus), maxLines = 4, shape = R6,
                 placeholder = { Text(if (reply != null) "Tulis balasan…" else "Tulis komentar…", color = Muted) },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.White, unfocusedBorderColor = CardLine,
+                    focusedBorderColor = Color.White, unfocusedBorderColor = Color(0xFF4A4C53),
                     focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Color.White,
                     focusedContainerColor = Bg, unfocusedContainerColor = Bg))
             Button({ feed.send(text) { text = "" } }, Modifier.height(56.dp), enabled = text.isNotBlank() && !feed.posting, shape = R6,
@@ -599,7 +599,7 @@ fun CommentsSheet(target: String, title: String, origin: CommentOrigin? = null, 
     ScrollToFocusedComment(feed, listState)
 
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp), containerColor = CardBg, contentWindowInsets = { WindowInsets(0) }) {
+        shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp), containerColor = CardBg, contentWindowInsets = { WindowInsets(0) }) {
         KeepBarsHidden()
         Column(Modifier.fillMaxWidth().fillMaxHeight(0.88f).imePadding()) {
             Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 10.dp)) {

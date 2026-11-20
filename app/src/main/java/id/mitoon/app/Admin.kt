@@ -29,7 +29,7 @@ fun AdminScreen(onBack: () -> Unit) {
     val tabs = listOf("Ringkasan", "Komik", "User", "Komentar", "Informasi")
     Column(Modifier.fillMaxSize().background(Bg)) {
         Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Accent) }
+            IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) }
             Text("Panel Admin", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
         }
         HorizontalDivider(color = Line)
@@ -65,7 +65,7 @@ private fun AdminStatsTab() {
     LaunchedEffect(Unit) { load() }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         if (loading) CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally), color = Accent)
-        else if (err != null) Text(err!!, color = IosRed)
+        else if (err != null) Text(err!!, color = Color(0xFFFF6B6B))
         else stats?.let { s ->
             Text("Kontrol penuh database & konten", color = Muted, fontSize = 13.sp)
             Spacer(Modifier.height(12.dp))
@@ -136,7 +136,7 @@ private fun AdminSeriesTab() {
             IconButton({ load(1) }) { Icon(Ic.Search, null, tint = Accent) }
         }
         if (loading) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Accent) }
-        else if (err != null) Text(err!!, color = IosRed, modifier = Modifier.padding(16.dp))
+        else if (err != null) Text(err!!, color = Color(0xFFFF6B6B), modifier = Modifier.padding(16.dp))
         else {
             val items = data?.items.orEmpty()
             Text("Total: ${data?.total ?: 0}", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp))
@@ -223,16 +223,16 @@ fun AdminSeriesEditScreen(id: Long, onBack: () -> Unit) {
     }
     Column(Modifier.fillMaxSize().background(Bg)) {
         Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onBack) { Icon(Ic.Left, null, tint = Accent) }
+            IconButton(onBack) { Icon(Ic.Left, null, tint = Color.White) }
             Text("Edit Komik", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             TextButton({ save() }, enabled = !saving) { Text(if (saving) "…" else "Simpan", color = Accent, fontWeight = FontWeight.Bold) }
         }
         HorizontalDivider(color = Line)
         if (loading) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Accent) }
-        else if (err != null) Text(err!!, color = IosRed, modifier = Modifier.padding(16.dp))
+        else if (err != null) Text(err!!, color = Color(0xFFFF6B6B), modifier = Modifier.padding(16.dp))
         else {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (msg != null) Text(msg!!, color = if (msg == "Tersimpan") IosGreen else IosRed)
+                if (msg != null) Text(msg!!, color = if (msg == "Tersimpan") Color(0xFF6BCB77) else Color(0xFFFF6B6B))
                 Text("ID: ${s?.unifiedId} · DB #${s?.id}", color = Muted, fontSize = 12.sp)
                 Field("Judul", title) { title = it }
                 Field("Sinopsis", synopsis, single = false) { synopsis = it }
@@ -251,9 +251,9 @@ fun AdminSeriesEditScreen(id: Long, onBack: () -> Unit) {
                 if ((s?.chapters?.size ?: 0) > 30) Text("… dan ${(s?.chapters?.size ?: 0) - 30} lainnya", color = Muted, fontSize = 11.sp)
                 Spacer(Modifier.height(16.dp))
                 TextButton({ delete() }) {
-                    Icon(Ic.Trash, null, tint = IosRed)
+                    Icon(Ic.Trash, null, tint = Color(0xFFFF6B6B))
                     Spacer(Modifier.width(6.dp))
-                    Text("Hapus seri dari DB", color = IosRed)
+                    Text("Hapus seri dari DB", color = Color(0xFFFF6B6B))
                 }
             }
         }
@@ -280,7 +280,7 @@ private fun Field(label: String, value: String, single: Boolean = true, supporti
 }
 
 private val UserFilters = listOf("" to "Semua", "banned" to "Diblokir", "muted" to "Dibisukan", "verified" to "Verified", "premium" to "Premium", "avatar" to "Berfoto")
-private val RedText = IosRed
+private val RedText = Color(0xFFFF6B6B)
 private val AmberText = Color(0xFFFFB86B)
 
 /** Dialog konfirmasi aksi berbahaya. */
@@ -394,7 +394,7 @@ private fun AdminCommentsTab() {
             )
             IconButton({ load(1) }) { Icon(Ic.Search, null, tint = Accent) }
         }
-        info?.let { Text(it, color = if (infoBad) RedText else IosGreen, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
+        info?.let { Text(it, color = if (infoBad) RedText else Color(0xFF6BCB77), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
         err?.let { Text(it, color = RedText, modifier = Modifier.padding(16.dp)) }
         Text("Total: $total komentar", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp))
         LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
@@ -502,7 +502,7 @@ private fun AdminUsersTab() {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             UserFilters.forEach { (key, label) -> AdminChip(label, filter == key) { filter = key } }
         }
-        info?.let { Text(it, color = if (infoBad) RedText else IosGreen, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
+        info?.let { Text(it, color = if (infoBad) RedText else Color(0xFF6BCB77), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
         if (loading) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Accent) }
         else if (err != null) Text(err!!, color = RedText, modifier = Modifier.padding(16.dp))
         else {
@@ -530,13 +530,13 @@ private fun AdminUsersTab() {
                             Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
                                 Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text("Centang verified", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                                    IosSwitch(u.verified, { v -> act(if (v) "Verified diberikan" else "Verified dicabut") { Net.api.adminModerateUser(u.id, AdminUserPatch(verified = v)).data } },
-                                        enabled = !busy && !u.isOwner)
+                                    Switch(u.verified, { v -> act(if (v) "Verified diberikan" else "Verified dicabut") { Net.api.adminModerateUser(u.id, AdminUserPatch(verified = v)).data } },
+                                        enabled = !busy && !u.isOwner, colors = SwitchDefaults.colors(checkedTrackColor = Accent))
                                 }
                                 Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text("Premium Member", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                                    IosSwitch(u.premium, { v -> act(if (v) "Premium diberikan" else "Premium dicabut") { Net.api.adminModerateUser(u.id, AdminUserPatch(premium = v)).data } },
-                                        enabled = !busy)
+                                    Switch(u.premium, { v -> act(if (v) "Premium diberikan" else "Premium dicabut") { Net.api.adminModerateUser(u.id, AdminUserPatch(premium = v)).data } },
+                                        enabled = !busy, colors = SwitchDefaults.colors(checkedTrackColor = Accent))
                                 }
                                 ActionRow("Lihat profil") { openUser(u.id) }
                                 if (u.hasAvatar) ActionRow("Hapus foto profil") { dialog = UserDialog.Photo(u) }
@@ -545,7 +545,7 @@ private fun AdminUsersTab() {
                                 if (!u.isOwner) {
                                     if (mutedNow) ActionRow("Buka bisu", AmberText) { act("@${u.username} boleh berkomentar lagi") { Net.api.adminModerateUser(u.id, AdminUserPatch(muted = false)).data } }
                                     else ActionRow("Bisukan (tidak bisa komentar)", AmberText) { dialog = UserDialog.Mute(u) }
-                                    if (u.banned) ActionRow("Buka blokir", IosGreen) { act("Blokir @${u.username} dibuka") { Net.api.adminModerateUser(u.id, AdminUserPatch(banned = false)).data } }
+                                    if (u.banned) ActionRow("Buka blokir", Color(0xFF6BCB77)) { act("Blokir @${u.username} dibuka") { Net.api.adminModerateUser(u.id, AdminUserPatch(banned = false)).data } }
                                     else ActionRow("Blokir akun", RedText) { dialog = UserDialog.Ban(u) }
                                     if (u.commentCount > 0) ActionRow("Hapus semua komentar", RedText) { dialog = UserDialog.Comments(u) }
                                     ActionRow("Hapus akun permanen", RedText) { dialog = UserDialog.Delete(u) }

@@ -98,7 +98,7 @@ fun AuthScreen() {
                 }
             }
         }
-        Text("v${BuildConfig.VERSION_NAME}  ·  build ${BuildConfig.VERSION_CODE}", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Medium,
+        Text("v${BuildConfig.VERSION_NAME}  ·  build ${BuildConfig.VERSION_CODE}", color = Color(0xFF8A8E9A), fontSize = 12.sp, fontWeight = FontWeight.Medium,
             modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp).clip(CircleShape).background(CardBg).padding(horizontal = 12.dp, vertical = 5.dp))
         Column(Modifier.align(Alignment.CenterEnd).padding(end = 10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             repeat(pages) { i ->
@@ -182,7 +182,7 @@ private fun LoginPage(busy: Boolean, msg: String?, keep: Boolean, onKeep: (Boole
         }
         Row(Modifier.padding(top = 14.dp).widthIn(max = 420.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardBg).clickable { onKeep(!keep) }.padding(start = 18.dp, end = 12.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Ingat saya", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-            Switch(keep, onKeep, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Color(0xFF30D158), checkedBorderColor = Color.Transparent, uncheckedThumbColor = Color.White, uncheckedTrackColor = CardLine, uncheckedBorderColor = Color.Transparent))
+            Switch(keep, onKeep, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Color(0xFF30D158), checkedBorderColor = Color.Transparent, uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFF45464C), uncheckedBorderColor = Color.Transparent))
         }
     }
 
@@ -191,7 +191,7 @@ private fun SwipeHint(modifier: Modifier, onClick: () -> Unit) {
     val inf = rememberInfiniteTransition(label = "hint")
     val dy by inf.animateFloat(0f, -6f, infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "dy")
     Column(modifier.clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(Ic.Up, null, tint = Muted, modifier = Modifier.size(28.dp).offset(y = dy.dp))
-        Text("Geser ke atas", color = Muted, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        Icon(Ic.Up, null, tint = Color(0xFF8A8E9A), modifier = Modifier.size(28.dp).offset(y = dy.dp))
+        Text("Geser ke atas", color = Color(0xFF8A8E9A), fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }

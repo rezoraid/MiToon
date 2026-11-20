@@ -63,8 +63,8 @@ object NotifState {
     }
 }
 
-private val Red = IosRed
-private val Unread = Color(0xFF16202E)
+private val Red = Color(0xFFE5484D)
+private val Unread = Color(0xFF20222A)
 internal val Soft = Color(0xFFD7D9DE)
 
 @Composable
@@ -243,7 +243,7 @@ private fun InfoList(notices: List<Notice>?, seenAt: Long) {
     open?.let { n ->
         val uri = LocalUriHandler.current
         ModalBottomSheet({ open = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp), containerColor = CardBg) {
+            shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp), containerColor = CardBg) {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
                 Text(plainText(n.title), color = Color.White, fontSize = 19.sp, lineHeight = 25.sp, fontWeight = FontWeight.ExtraBold)
                 if (n.createdAt > 0) Text(dateText(n.createdAt), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
@@ -263,7 +263,7 @@ fun NoticeRow(n: Notice, unread: Boolean, onClick: (() -> Unit)? = null) {
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.Top
     ) {
-        Box(Modifier.size(44.dp).clip(CircleShape).background(Fill), Alignment.Center) {
+        Box(Modifier.size(44.dp).clip(CircleShape).background(Color(0xFF2A2C32)), Alignment.Center) {
             Icon(Ic.Info, null, tint = Color.White, modifier = Modifier.size(22.dp))
         }
         Column(Modifier.weight(1f).padding(start = 12.dp)) {

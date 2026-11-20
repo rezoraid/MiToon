@@ -324,4 +324,63 @@ Kualitas gambar||Image quality||Kualiti imej||Calidad de imagen||画質
 Tinggi||High||Tinggi||Alta||高
 Rendah (hemat data)||Low (saves data)||Rendah (jimat data)||Baja (ahorra datos)||低（データ節約）
 Rendah memperkecil gambar chapter (±70% lebih hemat kuota). Berlaku untuk halaman yang dimuat berikutnya.||Low shrinks chapter images (about 70% less data). Applies to pages loaded from now on.||Rendah mengecilkan imej bab (±70% jimat data). Terpakai untuk halaman yang dimuat seterusnya.||Baja reduce las imágenes del capítulo (≈70% menos datos). Se aplica a las páginas que se carguen a partir de ahora.||低画質は章の画像を縮小します（データ量約70%減）。以降に読み込むページから適用されます。
-Lihat Semua||See All||Lihat Semua||Ver todo||すべて見る
+Download||Download||Muat turun||Descargas||ダウンロード
+Ranking||Ranking||Kedudukan||Ranking||ランキング
+Unduh||Download||Muat turun||Descargar||ダウンロード
+Unduh chapter||Download chapters||Muat turun bab||Descargar capítulos||チャプターをダウンロード
+Tersimpan di perangkat dan bisa dibaca tanpa internet.||Saved on your device and readable without internet.||Disimpan pada peranti dan boleh dibaca tanpa internet.||Se guarda en tu dispositivo y se puede leer sin internet.||端末に保存され、インターネットなしで読めます。
+5 chapter berikutnya||Next 5 chapters||5 bab seterusnya||Próximos 5 capítulos||次の5話
+10 chapter berikutnya||Next 10 chapters||10 bab seterusnya||Próximos 10 capítulos||次の10話
+Semua chapter||All chapters||Semua bab||Todos los capítulos||すべてのチャプター
+Semua sudah diunduh||All already downloaded||Semua sudah dimuat turun||Todo ya descargado||すべてダウンロード済み
+{} chapter belum diunduh||{} chapters not downloaded yet||{} bab belum dimuat turun||{} capítulos sin descargar||未ダウンロード {}話
+Setelah Chapter {} (terakhir dibaca)||After Chapter {} (last read)||Selepas Bab {} (terakhir dibaca)||Después del capítulo {} (último leído)||第{}話の次（最後に読んだ話）
+Mulai dari chapter pertama||Start from the first chapter||Mula dari bab pertama||Desde el primer capítulo||最初のチャプターから
+Unduhan berjalan satu chapter demi satu selama aplikasi terbuka.||Downloads run one chapter at a time while the app is open.||Muat turun berjalan satu bab demi satu bab semasa aplikasi dibuka.||Las descargas se hacen de un capítulo a la vez mientras la app está abierta.||ダウンロードはアプリを開いている間、1話ずつ進みます。
+{} chapter masuk antrean unduhan||{} chapters added to the download queue||{} bab masuk giliran muat turun||{} capítulos añadidos a la cola de descargas||{}話をダウンロード待ちに追加しました
+Chapter {} masuk antrean unduhan||Chapter {} added to the download queue||Bab {} masuk giliran muat turun||Capítulo {} añadido a la cola de descargas||第{}話をダウンロード待ちに追加しました
+Semua chapter itu sudah diunduh||Those chapters are already downloaded||Bab itu sudah dimuat turun||Esos capítulos ya están descargados||それらのチャプターはダウンロード済みです
+Hapus unduhan?||Delete download?||Padam muat turun?||¿Eliminar descarga?||ダウンロードを削除しますか？
+Chapter {} dihapus dari perangkat. Kamu tetap bisa membacanya online.||Chapter {} will be removed from this device. You can still read it online.||Bab {} dipadam daripada peranti. Anda masih boleh membacanya dalam talian.||El capítulo {} se eliminará del dispositivo. Aún puedes leerlo en línea.||第{}話を端末から削除します。オンラインでは引き続き読めます。
+Chapter {} dihapus dari perangkat.||Chapter {} will be removed from this device.||Bab {} dipadam daripada peranti.||El capítulo {} se eliminará del dispositivo.||第{}話を端末から削除します。
+Belum ada chapter yang diunduh||No chapters downloaded yet||Belum ada bab dimuat turun||Aún no hay capítulos descargados||ダウンロード済みのチャプターはありません
+Buka halaman komik, lalu ketuk ikon unduh di samping chapter, atau pakai tombol Unduh untuk beberapa chapter sekaligus.||Open a comic page, then tap the download icon next to a chapter, or use the Download button for several chapters at once.||Buka halaman komik, kemudian ketik ikon muat turun di sebelah bab, atau guna butang Muat turun untuk beberapa bab sekaligus.||Abre la página de un cómic y toca el icono de descarga junto a un capítulo, o usa el botón Descargar para varios capítulos a la vez.||作品ページを開き、チャプター横のダウンロードアイコンをタップするか、「ダウンロード」ボタンで複数話をまとめて保存できます。
+{} chapter · {}||{} chapters · {}||{} bab · {}||{} capítulos · {}||{}話 · {}
+{} halaman · {}||{} pages · {}||{} halaman · {}||{} páginas · {}||{}ページ · {}
+Hapus semua unduhan?||Delete all downloads?||Padam semua muat turun?||¿Eliminar todas las descargas?||すべてのダウンロードを削除しますか？
+{} chapter ({}) dihapus dari perangkat. Antrean ikut dibatalkan.||{} chapters ({}) will be removed from this device. The queue is cancelled too.||{} bab ({}) dipadam daripada peranti. Giliran turut dibatalkan.||Se eliminarán {} capítulos ({}) del dispositivo. La cola también se cancela.||{}話（{}）を端末から削除します。待機中のダウンロードも中止されます。
+Hapus semua||Delete all||Padam semua||Eliminar todo||すべて削除
+Hapus unduhan komik ini?||Delete downloads for this comic?||Padam muat turun komik ini?||¿Eliminar las descargas de este cómic?||この作品のダウンロードを削除しますか？
+{} chapter "{}" dihapus dari perangkat.||{} chapters of "{}" will be removed from this device.||{} bab "{}" dipadam daripada peranti.||Se eliminarán {} capítulos de "{}" del dispositivo.||{}話分（「{}」）を端末から削除します。
+Antrean ({})||Queue ({})||Giliran ({})||Cola ({})||待機中 ({})
+Batalkan semua||Cancel all||Batalkan semua||Cancelar todo||すべて中止
+Bersihkan||Clear||Kosongkan||Limpiar||クリア
+Tanpa judul||Untitled||Tanpa tajuk||Sin título||無題
+Buka halaman komik||Open comic page||Buka halaman komik||Abrir página del cómic||作品ページを開く
+Menunggu antrean||Waiting in queue||Menunggu giliran||En espera||待機中
+Menyiapkan…||Preparing…||Menyediakan…||Preparando…||準備中…
+{} / {} halaman||{} / {} pages||{} / {} halaman||{} / {} páginas||{} / {} ページ
+Gagal mengunduh||Download failed||Gagal memuat turun||Error al descargar||ダウンロードに失敗しました
+Server menolak (kode {})||Server refused (code {})||Pelayan menolak (kod {})||El servidor rechazó la solicitud (código {})||サーバーに拒否されました（コード {}）
+Gambar tidak valid||Invalid image||Imej tidak sah||Imagen no válida||画像が無効です
+Respons kosong||Empty response||Respons kosong||Respuesta vacía||応答が空です
+File kosong||Empty file||Fail kosong||Archivo vacío||ファイルが空です
+Gagal menyimpan chapter||Could not save the chapter||Gagal menyimpan bab||No se pudo guardar el capítulo||チャプターを保存できませんでした
+Penyimpanan penuh||Storage full||Storan penuh||Almacenamiento lleno||ストレージがいっぱいです
+Gagal memuat peringkat||Could not load the leaderboard||Gagal memuat kedudukan||No se pudo cargar el ranking||ランキングを読み込めませんでした
+Memuat peringkat…||Loading leaderboard…||Memuatkan kedudukan…||Cargando ranking…||ランキングを読み込み中…
+Peringkat XP Mingguan||Weekly XP Leaderboard||Kedudukan XP Mingguan||Ranking semanal de XP||週間XPランキング
+Reset dalam {}||Resets in {}||Set semula dalam {}||Se reinicia en {}||{}後にリセット
+Segera direset||Resetting soon||Akan disetel semula||Se reinicia pronto||まもなくリセット
+{} menit||{} min||{} minit||{} min||{}分
+XP dari membaca chapter, berkomentar, dan membuka aplikasi tiap hari. Papan di-reset setiap Senin 00.00 WIB.||XP comes from reading chapters, commenting, and opening the app daily. The board resets every Monday 00:00 WIB.||XP datang daripada membaca bab, berkomen, dan membuka aplikasi setiap hari. Papan disetel semula setiap Isnin 00.00 WIB.||El XP se obtiene leyendo capítulos, comentando y abriendo la app cada día. El ranking se reinicia cada lunes a las 00:00 WIB.||XPはチャプターを読む、コメントする、毎日アプリを開くことで貯まります。ランキングは毎週月曜0:00（WIB）にリセットされます。
+Belum ada yang mengumpulkan XP minggu ini. Jadilah yang pertama.||Nobody has earned XP this week yet. Be the first.||Belum ada yang mengumpul XP minggu ini. Jadilah yang pertama.||Nadie ha ganado XP esta semana. Sé el primero.||今週はまだ誰もXPを獲得していません。最初の一人になりましょう。
+Peringkatmu||Your rank||Kedudukan anda||Tu posición||あなたの順位
+Belum masuk papan minggu ini||Not on the board this week||Belum masuk papan minggu ini||Aún no estás en el ranking de esta semana||今週はまだランクインしていません
+Baca satu chapter atau tulis komentar untuk mulai mengumpulkan XP.||Read a chapter or write a comment to start earning XP.||Baca satu bab atau tulis komen untuk mula mengumpul XP.||Lee un capítulo o escribe un comentario para empezar a ganar XP.||チャプターを読むかコメントを書いてXPを貯め始めましょう。
+dari {} pembaca||of {} readers||daripada {} pembaca||de {} lectores||全{}人中
+Selisih {} XP ke peringkat {}||{} XP behind rank {}||Beza {} XP ke kedudukan {}||A {} XP del puesto {}||あと{} XP（{}位まで）
+Kamu memimpin minggu ini||You are leading this week||Anda mendahului minggu ini||Lideras esta semana||今週はあなたが首位です
+XP minggu ini||XP this week||XP minggu ini||XP de esta semana||今週のXP
+Menampilkan {} teratas dari {} pembaca||Showing top {} of {} readers||Memaparkan {} teratas daripada {} pembaca||Mostrando los {} primeros de {} lectores||上位{}人を表示（全{}人）
+{} (kamu)||{} (you)||{} (anda)||{} (tú)||{}（あなた）

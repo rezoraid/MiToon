@@ -187,10 +187,15 @@ fun ExploreScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit) {
 }
 
 // ------------------------------------------------------------------ SEARCH
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SearchScreen(onBack: () -> Unit, onOpen: (Series) -> Unit) {
     var q by rememberSaveable { mutableStateOf("") }
     var sent by rememberSaveable { mutableStateOf("") }
+    var genre by rememberSaveable { mutableStateOf<String?>(null) }
+    var all by remember { mutableStateOf(Net.genresSnap()) }
+    LaunchedEffect(Unit) { runCatching { Net.genres() }.onSuccess { all = it } }
+    val basics = remember(all, genre) { basicGenres(all.sortedByDescending { it.count }, genre) }
     val kb = LocalSoftwareKeyboardController.current
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -198,12 +203,26 @@ fun SearchScreen(onBack: () -> Unit, onOpen: (Series) -> Unit) {
             OutlinedTextField(q, { q = it }, Modifier.weight(1f).padding(end = 12.dp), singleLine = true,
                 placeholder = { Text("Cari komik / novel", color = Muted) },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { sent = q.trim(); kb?.hide() }),
+                keyboardActions = KeyboardActions(onSearch = { sent = q.trim(); if (sent.isNotBlank()) genre = null; kb?.hide() }),
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Accent, unfocusedBorderColor = CardBg, cursorColor = Accent))
         }
-        if (sent.isNotBlank()) {
-            val vm = keyedVm("search-$sent") { PagedVm { p -> Net.api.search(sent, p).data } }
-            SeriesGrid(vm, onOpen, modifier = Modifier.weight(1f))
+        val g = genre
+        when {
+            sent.isNotBlank() -> {
+                val vm = keyedVm("search-$sent") { PagedVm { p -> Net.api.search(sent, p).data } }
+                SeriesGrid(vm, onOpen, modifier = Modifier.weight(1f))
+            }
+            g != null -> {
+                val vm = keyedVm("search-genre-$g") { PagedVm { p -> Net.api.byGenre(g, p).data } }
+                Pills(basics.map { it.slug to it.name }, g) { genre = if (it == g) null else it }
+                SeriesGrid(vm, onOpen, modifier = Modifier.weight(1f))
+            }
+            basics.isNotEmpty() -> Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text("Genre", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 10.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    basics.forEach { Chip(it.name, false) { genre = it.slug; kb?.hide() } }
+                }
+            }
         }
     }
 }

@@ -98,6 +98,11 @@ import java.security.MessageDigest
 )
 @Serializable data class AdminChapterPatch(val title: String? = null, val numberText: String? = null, val number: Double? = null)
 @Serializable data class AdminUsersPage(val total: Int = 0, val items: List<AdminUser> = emptyList(), val page: Int = 1, val limit: Int = 30, val hasMore: Boolean = false)
+@Serializable data class AdminComment(
+    val id: Long = 0, val target: String = "", val body: String = "", val parentId: Long? = null, val createdAt: Long = 0,
+    val userId: Long = 0, val username: String = "", val displayName: String = "", val avatarV: Int = 0
+)
+@Serializable data class AdminCommentsPage(val total: Int = 0, val items: List<AdminComment> = emptyList(), val page: Int = 1, val limit: Int = 30, val hasMore: Boolean = false)
 @Serializable data class AdminUser(
     val id: Long = 0, val username: String = "", val email: String? = null, val displayName: String = "", val bio: String = "",
     val xp: Int = 0, val verified: Boolean = false, val avatarV: Int = 0, val hasAvatar: Boolean = false, val commentCount: Int = 0,
@@ -143,6 +148,8 @@ interface Api {
     @PATCH("v1/auth/me") suspend fun updateProfile(@Body b: ProfileReq): Env<AuthUser>
     @PUT("v1/auth/me/avatar") suspend fun putAvatar(@Body jpeg: RequestBody): Env<AuthUser>
     @DELETE("v1/auth/me/avatar") suspend fun deleteAvatar(): Env<AuthUser>
+    @PUT("v1/auth/me/banner") suspend fun putBanner(@Body jpeg: RequestBody): Env<AuthUser>
+    @DELETE("v1/auth/me/banner") suspend fun deleteBanner(): Env<AuthUser>
     @GET("v1/comments") suspend fun comments(@Query("target") target: String, @Query("limit") limit: Int = 20, @Query("before") before: Long? = null): Env<CommentPage>
     @GET("v1/comments/{id}/replies") suspend fun replies(@Path("id") id: Long, @Query("after") after: Long? = null, @Query("limit") limit: Int = 20): Env<CommentPage>
     @POST("v1/comments") suspend fun addComment(@Body b: CommentReq): CommentRes
@@ -168,6 +175,8 @@ interface Api {
     @DELETE("v1/admin/users/{id}/avatar") suspend fun adminClearUserAvatar(@Path("id") id: Long): Env<AdminUser>
     @DELETE("v1/admin/users/{id}/comments") suspend fun adminDeleteUserComments(@Path("id") id: Long): Env<AdminDeletedCount>
     @DELETE("v1/admin/users/{id}") suspend fun adminDeleteUser(@Path("id") id: Long): Env<Ok>
+    @GET("v1/admin/comments") suspend fun adminComments(@Query("q") q: String? = null, @Query("page") page: Int = 1, @Query("limit") limit: Int = 30): Env<AdminCommentsPage>
+    @DELETE("v1/admin/comments/{id}") suspend fun adminDeleteComment(@Path("id") id: Long): Env<Ok>
     @GET("v1/admin/announcements") suspend fun adminAnnouncements(): Env<List<Notice>>
     @POST("v1/admin/announcements") suspend fun adminCreateAnnouncement(@Body b: AdminAnnounceReq): Env<Notice>
     @DELETE("v1/admin/announcements/{id}") suspend fun adminDeleteAnnouncement(@Path("id") id: Long): Env<Ok>

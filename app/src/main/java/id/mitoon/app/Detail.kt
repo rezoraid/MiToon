@@ -80,6 +80,9 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.ui.graphics.graphicsLayer
 import android.widget.Toast
+import android.os.Build
+import android.view.View
+import android.view.WindowInsetsController
 
 @Composable
 private fun Failed(onRetry: () -> Unit) = Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
@@ -147,30 +150,53 @@ private fun RefetchIcon(busy: Boolean, left: Int, size: Dp, modifier: Modifier =
         modifier = modifier.size(size).graphicsLayer { rotationZ = spin })
 }
 
+/** Jumlah ReaderScreen yang sedang aktif; selama > 0 semua dialog/sheet ikut menyembunyikan bilah sistem. */
+object Immersive { var readers = 0 }
+
+/** Dipanggil di dalam sheet/dialog: jendelanya sendiri ikut menyembunyikan status & navigation bar, supaya tidak muncul pita warna & layar tidak bergeser. */
+@Composable
+fun KeepBarsHidden() {
+    val v = LocalView.current
+    DisposableEffect(v) {
+        fun hide() {
+            if (Immersive.readers <= 0) return
+            val root = v.rootView
+            if (Build.VERSION.SDK_INT >= 30) {
+                root.windowInsetsController?.let {
+                    it.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    it.hide(android.view.WindowInsets.Type.systemBars())
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                root.systemUiVisibility = View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            }
+        }
+        val l = object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(x: View) = hide()
+            override fun onViewDetachedFromWindow(x: View) {}
+        }
+        v.addOnAttachStateChangeListener(l)
+        if (v.isAttachedToWindow) hide()
+        onDispose { v.removeOnAttachStateChangeListener(l) }
+    }
+}
+
 private fun toast(ctx: Context, msg: String) = Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
+
+@Composable
+private fun RefetchConfirm(what: String, left: Int, onConfirm: () -> Unit, onDismiss: () -> Unit) = AlertDialog(
+    onDismissRequest = onDismiss, containerColor = CardBg, titleContentColor = Color.White, textContentColor = Muted,
+    title = { KeepBarsHidden(); Text("Ambil ulang $what?") },
+    text = { Text("Data diambil lagi dari sumber dan bisa memakan waktu. Batas ${Net.REFETCH_MAX}x per hari, sisa $left kali hari ini. Jangan dipakai berulang tanpa perlu.") },
+    confirmButton = { TextButton(onConfirm) { Text("Ambil ulang", color = Color.White, fontWeight = FontWeight.Bold) } },
+    dismissButton = { TextButton(onDismiss) { Text("Batal", color = Muted) } }
+)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: (String) -> Unit, onChapter: (seriesId: String, chapterId: String) -> Unit) {
     var tick by remember { mutableIntStateOf(0) }
-    val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var fresh by remember(id) { mutableStateOf<Detail?>(null) }
-    var refetching by remember(id) { mutableStateOf(false) }
-    var left by remember(id) { mutableIntStateOf(Net.refetchLeft("d:$id")) }
-    val refetch = {
-        if (!refetching) {
-            if (left <= 0) toast(ctx, "Batas ambil ulang hari ini habis (${Net.REFETCH_MAX}x per hari)")
-            else {
-                refetching = true
-                scope.launch {
-                    val r = try { runCatching { Net.refetchDetail(id) } } finally { refetching = false }
-                    left = Net.refetchLeft("d:$id")
-                    r.getOrNull()?.let { fresh = it; toast(ctx, "Diperbarui: ${it.chapters.size} chapter (sisa $left hari ini)") } ?: toast(ctx, "Gagal mengambil ulang")
-                }
-            }
-        }
-    }
     // Detail yang pernah dibuka langsung tampil dari cache memori; data terbaru tetap diambil di belakang layar.
     val res by produceState<Result<Detail>?>(Net.detailCache[id]?.let { Result.success(it) }, id, tick) {
         if (tick > 0) value = null
@@ -184,7 +210,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
     val pv = remember(id) { Net.previews[id] ?: Library.entries[id]?.toSeries() }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var newestFirst by rememberSaveable { mutableStateOf(true) }
-    val d = fresh ?: res?.getOrNull()
+    val d = res?.getOrNull()
     val failed = res != null && d == null
     val entry = Library.entries[id]
 
@@ -284,7 +310,6 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
                 item {
                     Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(if (d != null) "Chapters: ${d.chapters.size}" else "Chapters", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        if (d != null) Box(Modifier.size(40.dp).clip(CircleShape).clickable(onClick = refetch), Alignment.Center) { RefetchIcon(refetching, left, 22.dp) }
                         if (d != null) Text(if (newestFirst) "Terlama ⇅" else "Terbaru ⇅", color = Muted, fontSize = 14.sp,
                             modifier = Modifier.clickable { newestFirst = !newestFirst }.padding(8.dp))
                     }
@@ -374,19 +399,21 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     countdown?.let { if (it != lastSec) lastSec = it }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    val refetch = {
-        if (!refetching) {
-            if (left <= 0) toast(ctx, "Batas ambil ulang hari ini habis (${Net.REFETCH_MAX}x per hari)")
-            else {
-                refetching = true
-                scope.launch {
-                    val r = try { runCatching { Net.refetchChapter(chapterId) } } finally { refetching = false }
-                    left = Net.refetchLeft("c:$chapterId")
-                    r.getOrNull()?.let { fresh = it; reloadNonce++; toast(ctx, "Diperbarui: ${it.images.size} halaman (sisa $left hari ini)") } ?: toast(ctx, "Gagal mengambil ulang")
-                }
-            }
+    var confirm by remember(chapterId) { mutableStateOf(false) }
+    val doRefetch: () -> Unit = {
+        refetching = true
+        scope.launch {
+            val r = try { runCatching { Net.refetchChapter(chapterId) } } finally { refetching = false }
+            left = Net.refetchLeft("c:$chapterId")
+            r.getOrNull()?.let { fresh = it; reloadNonce++; toast(ctx, "Diperbarui: ${it.images.size} halaman (sisa $left hari ini)") } ?: toast(ctx, "Gagal mengambil ulang")
         }
     }
+    val refetch = {
+        if (!refetching) {
+            if (left <= 0) toast(ctx, "Batas ambil ulang hari ini habis (${Net.REFETCH_MAX}x per hari)") else confirm = true
+        }
+    }
+    if (confirm) RefetchConfirm("chapter", left, { confirm = false; doRefetch() }, { confirm = false })
     val density = LocalDensity.current
     val onChapterNow by rememberUpdatedState(onChapter)
     val nextNow by rememberUpdatedState(c?.next)
@@ -398,8 +425,12 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
         val window = (ctx as? Activity)?.window
         val ctl = window?.let { WindowCompat.getInsetsController(it, view) }
         ctl?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        Immersive.readers++
         ctl?.hide(WindowInsetsCompat.Type.systemBars())
-        onDispose { ctl?.show(WindowInsetsCompat.Type.systemBars()) }
+        onDispose {
+            Immersive.readers--
+            view.post { if (Immersive.readers <= 0) ctl?.show(WindowInsetsCompat.Type.systemBars()) }
+        }
     }
     LaunchedEffect(c) { if (c != null) Library.advance(seriesId, chapterId, c.number) }
     LaunchedEffect(chapterId, c != null) { if (c != null) { delay(8000); Xp.event("read", chapterId) } }
@@ -501,7 +532,7 @@ private fun Modifier.glass(shape: Shape = CircleShape) = clip(shape).background(
 @Composable
 private fun ReaderTopBar(series: String, chapter: String, onBack: () -> Unit, onTitle: () -> Unit, onComments: () -> Unit, onSettings: () -> Unit,
                          refetching: Boolean, left: Int, onRefetch: () -> Unit) =
-    Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).padding(horizontal = 12.dp, vertical = 10.dp),
+    Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(48.dp).glass().clickable(onClick = onBack), Alignment.Center) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Kembali", tint = Color.White, modifier = Modifier.size(30.dp)) }
         Row(Modifier.weight(1f).height(48.dp).glass().clickable(onClick = onTitle).padding(start = 18.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -548,7 +579,7 @@ private fun BottomBar(
     onPrev: () -> Unit, onNext: () -> Unit, onPlay: () -> Unit
 ) {
     val shape = RoundedCornerShape(30.dp)
-    Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)).padding(start = 12.dp, end = 12.dp, bottom = 12.dp).glass(shape).noTap().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)) {
+    Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)).padding(start = 12.dp, end = 12.dp, bottom = 12.dp).glass(shape).noTap().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(buildAnnotatedString {
                 withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) { append("$page") }
@@ -576,7 +607,7 @@ private fun BottomBar(
 @Composable
 private fun NextCard(current: String, nextNum: String?, seconds: Int, progress: Float, onCancel: () -> Unit, onNow: () -> Unit) {
     val shape = RoundedCornerShape(30.dp)
-    Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)).padding(start = 12.dp, end = 12.dp, bottom = 12.dp).glass(shape).noTap().padding(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)).padding(start = 12.dp, end = 12.dp, bottom = 12.dp).glass(shape).noTap().padding(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(52.dp), Alignment.Center) {
                 Canvas(Modifier.fillMaxSize()) {
@@ -642,6 +673,7 @@ private fun IconTile(color: Color, icon: @Composable () -> Unit) = Box(Modifier.
 @Composable
 private fun SettingsSheet(onDismiss: () -> Unit) {
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), containerColor = SheetBg, contentColor = Color.White) {
+        KeepBarsHidden()
         Column(Modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(Modifier.fillMaxWidth().padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Pengaturan baca", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -666,7 +698,7 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
                 Segmented(pauses.map { it.first }, ReaderPrefs.pause, ReaderPrefs.autoNext, ReaderPrefs::setPause)
             }
             Text("Saat scroll sampai akhir, chapter berikutnya dibuka sendiri. Bisa dibatalkan sebelum hitungan habis.", color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(horizontal = 4.dp))
-            Spacer(Modifier.navigationBarsPadding().height(12.dp))
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
@@ -675,6 +707,7 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
 @Composable
 private fun ChapterSheet(detail: Detail?, current: String, onDismiss: () -> Unit, onPick: (String) -> Unit) {
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), containerColor = SheetBg, contentColor = Color.White) {
+        KeepBarsHidden()
         Text("Daftar chapter", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 10.dp))
         val chapters = detail?.chapters.orEmpty()
         if (chapters.isEmpty()) Box(Modifier.fillMaxWidth().padding(vertical = 40.dp), Alignment.Center) {

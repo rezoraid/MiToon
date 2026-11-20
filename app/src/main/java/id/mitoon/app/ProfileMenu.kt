@@ -43,7 +43,9 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
         SubTopBar("Akun", onBack)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             // ---- kartu profil
-            Column(Modifier.fillMaxWidth().clip(R16).border(1.dp, CardLine, R16).background(CardBg).clickable(onClick = onEdit).padding(16.dp)) {
+            Box(Modifier.fillMaxWidth().clip(R16).border(1.dp, CardLine, R16).background(CardBg).clickable(onClick = onEdit)) {
+              ProfileBanner(user.id, user.bannerV)
+              Column(Modifier.fillMaxWidth().padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Avatar(user.id, user.name, user.avatarV, 72.dp, shape = androidx.compose.foundation.shape.CircleShape)
                     Column(Modifier.weight(1f).padding(start = 16.dp)) {
@@ -62,6 +64,7 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
                 }
                 if (user.bio.isNotBlank()) Text(user.bio, color = Color(0xFFD7D9DE), fontSize = 13.sp, lineHeight = 19.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 12.dp))
                 XpBar(user, Modifier.padding(top = 14.dp))
+              }
             }
 
             Spacer(Modifier.height(14.dp))

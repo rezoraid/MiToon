@@ -19,7 +19,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import retrofit2.HttpException
 
 @Serializable data class AuthUser(
-    val id: Long = 0, val username: String = "", val avatarV: Int = 0,
+    val id: Long = 0, val username: String = "", val avatarV: Int = 0, val bannerV: Int = 0,
     /** Nama tampilan bebas; kosong = pakai username. */
     val displayName: String = "",
     /** Bio singkat (maks. 150 karakter, 3 baris); kosong = belum diisi. */
@@ -63,7 +63,7 @@ object Auth {
         prefs = ctx.getSharedPreferences("auth", Context.MODE_PRIVATE)
         token = prefs.getString("t", null)
         user = if (token != null) AuthUser(
-            id = prefs.getLong("i", 0), username = prefs.getString("u", "").orEmpty(), avatarV = prefs.getInt("v", 0),
+            id = prefs.getLong("i", 0), username = prefs.getString("u", "").orEmpty(), avatarV = prefs.getInt("v", 0), bannerV = prefs.getInt("bv", 0),
             displayName = prefs.getString("n", "").orEmpty(), bio = prefs.getString("b", "").orEmpty(), xp = prefs.getInt("xp", 0),
             level = prefs.getInt("lv", 1).coerceAtLeast(1), levelXp = prefs.getInt("lx", 0), levelNeed = prefs.getInt("ln", 40), verified = prefs.getBoolean("vf", false), isOwner = prefs.getBoolean("io", false), premium = prefs.getBoolean("pm", false), verifiedHidden = prefs.getBoolean("vh", false)
         ) else null
@@ -75,7 +75,7 @@ object Auth {
         user = r.user
         usernameUnlockAt = unlockAt(r.user)
         prefs.edit().clear().apply {
-            if (remember) { putString("t", r.token); putString("u", r.user.username); putLong("i", r.user.id); putInt("v", r.user.avatarV); putString("n", r.user.displayName); putString("b", r.user.bio); putLong("x", usernameUnlockAt); putXp(r.user) }
+            if (remember) { putString("t", r.token); putString("u", r.user.username); putLong("i", r.user.id); putInt("v", r.user.avatarV); putInt("bv", r.user.bannerV); putString("n", r.user.displayName); putString("b", r.user.bio); putLong("x", usernameUnlockAt); putXp(r.user) }
         }.apply()
         pendingEntrance = true
         Xp.event("daily")
@@ -88,7 +88,7 @@ object Auth {
         if (old != null && old.id == u.id && roleFor(u.level).minLevel > roleFor(old.level).minLevel) roleUnlocked = roleFor(u.level)
         user = u
         usernameUnlockAt = unlockAt(u)
-        if (prefs.contains("t")) prefs.edit().putString("u", u.username).putLong("i", u.id).putInt("v", u.avatarV).putString("n", u.displayName).putString("b", u.bio).putLong("x", usernameUnlockAt).also { it.putXp(u) }.apply()
+        if (prefs.contains("t")) prefs.edit().putString("u", u.username).putLong("i", u.id).putInt("v", u.avatarV).putInt("bv", u.bannerV).putString("n", u.displayName).putString("b", u.bio).putLong("x", usernameUnlockAt).also { it.putXp(u) }.apply()
     }
 
     private fun SharedPreferences.Editor.putXp(u: AuthUser) { putInt("xp", u.xp); putInt("lv", u.level); putInt("lx", u.levelXp); putInt("ln", u.levelNeed); putBoolean("vf", u.verified); putBoolean("io", u.isOwner); putBoolean("pm", u.premium); putBoolean("vh", u.verifiedHidden) }
@@ -103,6 +103,10 @@ object Auth {
     /** URL foto profil (null = belum punya). Parameter v = versi, supaya cache gambar ikut berganti saat foto diubah. */
     fun avatarUrl(userId: Long, version: Int): String? =
         if (version > 0 && userId > 0) "${BuildConfig.API_BASE_URL}v1/users/$userId/avatar?v=$version" else null
+
+    /** URL background profil (null = belum punya). */
+    fun bannerUrl(userId: Long, version: Int): String? =
+        if (version > 0 && userId > 0) "${BuildConfig.API_BASE_URL}v1/users/$userId/banner?v=$version" else null
 
     /** Saat aplikasi dibuka: token ditolak server (401) -> keluar. Gagal jaringan = tetap masuk (tetap bisa baca offline). */
     suspend fun validate() {

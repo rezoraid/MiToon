@@ -25,7 +25,7 @@ import java.util.Locale
 
 /** Profil pengguna lain (`GET v1/users/:id`): tanpa email atau data akun. */
 @Serializable data class PublicUser(
-    val id: Long = 0, val username: String = "", val displayName: String = "", val bio: String = "", val avatarV: Int = 0,
+    val id: Long = 0, val username: String = "", val displayName: String = "", val bio: String = "", val avatarV: Int = 0, val bannerV: Int = 0,
     val xp: Int = 0, val level: Int = 1, val joinedAt: Long = 0, val commentCount: Int = 0,
     val verified: Boolean = false, val isOwner: Boolean = false, val premium: Boolean = false
 ) { val name: String get() = displayName.ifBlank { username } }
@@ -66,6 +66,8 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
             u == null -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(Modifier.size(26.dp), Color.White, strokeWidth = 2.dp) }
             else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp)) {
                 item("head") {
+                  Box(Modifier.fillMaxWidth().padding(top = 12.dp).clip(R6)) {
+                    ProfileBanner(u.id, u.bannerV, 0.5f)
                     Column(Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Avatar(u.id, u.name, u.avatarV, 104.dp, shape = CircleShape)
                         Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -90,6 +92,7 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
                             }
                         }
                     }
+                  }
                     HorizontalDivider(color = Line)
                     Text("Sedang dibaca", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))
                 }

@@ -7,6 +7,8 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -55,6 +57,7 @@ class MainActivity : ComponentActivity() {
 
 private val tabRoutes = setOf("home", "explore", "library")
 private fun NavBackStackEntry.isTab() = destination.route in tabRoutes
+private fun NavBackStackEntry.isReader() = destination.route?.startsWith("reader") == true
 
 private fun NavHostController.detail(id: String) = navigate("series/${Uri.encode(id)}")
 private fun NavHostController.detail(s: Series) { Net.previews[s.id] = s; detail(s.id) }
@@ -111,8 +114,8 @@ private fun AppScaffold() {
     }) { pad ->
         // Transisi singkat (<250 ms) dan ringan: pindah tab = fade; buka layar = fade + geser tipis; kembali = layar atas menyingkir.
         NavHost(nav, "home", Modifier.padding(pad).consumeWindowInsets(pad),
-            enterTransition = { if (initialState.isTab() && targetState.isTab()) fadeIn(tween(160)) else fadeIn(tween(200, 30)) + slideInHorizontally(tween(240)) { it / 12 } },
-            exitTransition = { fadeOut(tween(100)) },
+            enterTransition = { if (initialState.isReader() && targetState.isReader()) EnterTransition.None else if (initialState.isTab() && targetState.isTab()) fadeIn(tween(160)) else fadeIn(tween(200, 30)) + slideInHorizontally(tween(240)) { it / 12 } },
+            exitTransition = { if (initialState.isReader() && targetState.isReader()) ExitTransition.None else fadeOut(tween(100)) },
             popEnterTransition = { fadeIn(tween(180)) },
             popExitTransition = { if (initialState.isTab() && targetState.isTab()) fadeOut(tween(120)) else fadeOut(tween(140)) + slideOutHorizontally(tween(220)) { it / 12 } }) {
             composable("home") {

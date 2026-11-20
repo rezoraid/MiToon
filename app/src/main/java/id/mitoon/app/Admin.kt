@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun AdminScreen(onBack: () -> Unit) {
     var tab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Ringkasan", "Komik", "User", "Informasi")
+    val tabs = listOf("Ringkasan", "Komik", "User", "Komentar", "Informasi")
     Column(Modifier.fillMaxSize().background(Bg)) {
         Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
@@ -47,7 +47,8 @@ fun AdminScreen(onBack: () -> Unit) {
             0 -> AdminStatsTab()
             1 -> AdminSeriesTab()
             2 -> AdminUsersTab()
-            3 -> AdminAnnounceTab()
+            3 -> AdminCommentsTab()
+            4 -> AdminAnnounceTab()
         }
     }
 }
@@ -344,6 +345,86 @@ private sealed interface UserDialog {
     data class Photo(val u: AdminUser) : UserDialog
     data class Comments(val u: AdminUser) : UserDialog
     data class Delete(val u: AdminUser) : UserDialog
+}
+
+private fun commentTargetLabel(t: String): String = when {
+    t.startsWith("c:") -> "Chapter · ${t.removePrefix("c:").substringAfterLast(':').take(24)}"
+    t.startsWith("s:") -> "Komik · ${t.removePrefix("s:").substringAfterLast(':').take(24)}"
+    else -> t.take(32)
+}
+
+/** Semua komentar dari semua pengguna (terbaru dulu), dengan pencarian dan hapus per komentar. */
+@Composable
+private fun AdminCommentsTab() {
+    val openUser = LocalOpenUser.current
+    var q by remember { mutableStateOf("") }
+    var items by remember { mutableStateOf<List<AdminComment>>(emptyList()) }
+    var total by remember { mutableIntStateOf(0) }
+    var page by remember { mutableIntStateOf(1) }
+    var hasMore by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(false) }
+    var err by remember { mutableStateOf<String?>(null) }
+    var info by remember { mutableStateOf<String?>(null) }
+    var infoBad by remember { mutableStateOf(false) }
+    var delete by remember { mutableStateOf<AdminComment?>(null) }
+    val scope = rememberCoroutineScope()
+    fun load(p: Int = 1) {
+        loading = true; err = null
+        scope.launch {
+            runCatching { Net.api.adminComments(q = q.trim().ifBlank { null }, page = p).data }
+                .onSuccess { r -> items = if (p == 1) r.items else items + r.items; total = r.total; hasMore = r.hasMore; page = p }
+                .onFailure { err = it.friendly() }
+            loading = false
+        }
+    }
+    LaunchedEffect(Unit) { load() }
+
+    delete?.let { c ->
+        AdminConfirm("Hapus komentar?", "Komentar @${c.username} dihapus permanen" + if (c.parentId == null) " beserta balasannya." else ".", "Hapus", {
+            delete = null
+            scope.launch {
+                runCatching { Net.api.adminDeleteComment(c.id) }
+                    .onSuccess { load(1); info = "Komentar dihapus"; infoBad = false }
+                    .onFailure { info = it.friendly(); infoBad = true }
+            }
+        }, { delete = null })
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                q, { q = it }, modifier = Modifier.weight(1f),
+                placeholder = { Text("Cari isi komentar / username…", color = Muted) }, singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Accent, unfocusedBorderColor = CardLine, focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+            )
+            IconButton({ load(1) }) { Icon(Icons.Filled.Search, null, tint = Accent) }
+        }
+        info?.let { Text(it, color = if (infoBad) RedText else Color(0xFF6BCB77), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
+        err?.let { Text(it, color = RedText, modifier = Modifier.padding(16.dp)) }
+        Text("Total: $total komentar", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp))
+        LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
+            items(items, key = { it.id }) { c ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 5.dp).clip(R6).border(1.dp, CardLine, R6).background(CardBg).padding(12.dp), verticalAlignment = Alignment.Top) {
+                    Avatar(c.userId, c.username, c.avatarV, 38.dp, Modifier.clickable { openUser(c.userId) })
+                    Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                        Text(c.displayName.ifBlank { c.username } + "  @${c.username}", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        Text(c.body, color = Color(0xFFD7D8DD), fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp))
+                        Text((if (c.parentId != null) "Balasan · " else "") + commentTargetLabel(c.target) + " · " + agoText(c.createdAt), color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
+                    }
+                    IconButton({ delete = c }, Modifier.size(36.dp)) { Icon(Icons.Filled.Delete, "Hapus", tint = RedText) }
+                }
+            }
+            item("more") {
+                Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), Alignment.Center) {
+                    when {
+                        loading -> CircularProgressIndicator(Modifier.size(24.dp), color = Accent, strokeWidth = 2.dp)
+                        hasMore -> TextButton({ load(page + 1) }) { Text("Muat lagi", color = Accent) }
+                        items.isEmpty() && err == null -> Text("Belum ada komentar.", color = Muted, fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

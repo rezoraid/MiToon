@@ -83,17 +83,36 @@ fun ProfileEditScreen(onBack: () -> Unit) {
 
     LaunchedEffect(notice) { if (notice?.first == true) { delay(3000); notice = null } }
 
-    fun upload(uri: Uri) {
+    fun upload(bytes: ByteArray) {
         busy = true; notice = null
         scope.launch {
             try {
-                val bytes = prepareAvatar(ctx, uri)
                 Auth.update(Net.api.putAvatar(bytes.toRequestBody("image/jpeg".toMediaType())).data)
                 notice = true to "Foto profil diperbarui"
             } catch (e: CancellationException) { throw e } catch (e: Exception) { notice = false to e.friendly() } finally { busy = false }
         }
     }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) upload(uri) }
+    var avatarUri by remember { mutableStateOf<Uri?>(null) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) avatarUri = uri }
+    var cropUri by remember { mutableStateOf<Uri?>(null) }
+    val bannerPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) cropUri = uri }
+
+    fun uploadBanner(bytes: ByteArray) {
+        busy = true; notice = null
+        scope.launch {
+            try {
+                Auth.update(Net.api.putBanner(bytes.toRequestBody("image/jpeg".toMediaType())).data)
+                notice = true to "Background profil diperbarui"
+            } catch (e: CancellationException) { throw e } catch (e: Exception) { notice = false to e.friendly() } finally { busy = false }
+        }
+    }
+    fun removeBanner() {
+        busy = true; notice = null
+        scope.launch {
+            try { Auth.update(Net.api.deleteBanner().data); notice = true to "Background profil dihapus" }
+            catch (e: CancellationException) { throw e } catch (e: Exception) { notice = false to e.friendly() } finally { busy = false }
+        }
+    }
 
     fun removePhoto() {
         busy = true; notice = null
@@ -154,8 +173,21 @@ fun ProfileEditScreen(onBack: () -> Unit) {
                         modifier = Modifier.fillMaxWidth().padding(top = 20.dp).border(1.dp, if (ok) Outline else Color.White, R6).padding(10.dp))
                 }
 
+                // ---- background profil
+                Spacer(Modifier.height(24.dp))
+                Text("Background profil", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.fillMaxWidth())
+                Box(Modifier.padding(top = 10.dp).fillMaxWidth().aspectRatio(2f).clip(R6).background(CardBg).border(1.dp, Line, R6).clickable(enabled = !busy) { bannerPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, Alignment.Center) {
+                    if (user.bannerV > 0) ProfileBanner(user.id, user.bannerV, 0f)
+                    else Text("Belum ada background. Ketuk untuk memilih foto.", color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(16.dp))
+                    if (busy) Box(Modifier.fillMaxSize().background(Color(0x99000000)), Alignment.Center) { CircularProgressIndicator(Modifier.size(26.dp), color = Color.White, strokeWidth = 3.dp) }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    TextButton({ bannerPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !busy) { Text(if (user.bannerV > 0) "Ganti background" else "Pilih dari galeri", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp) }
+                    if (user.bannerV > 0) TextButton({ removeBanner() }, enabled = !busy) { Text("Hapus", color = Muted, fontSize = 14.sp) }
+                }
+
                 // ---- info akun
-                Spacer(Modifier.height(28.dp))
+                Spacer(Modifier.height(16.dp))
                 HorizontalDivider(color = Line)
                 InfoRow("Nama", user.name, null, false, onClick = { dialogErr = null; editName = true })
                 HorizontalDivider(color = Line)
@@ -184,6 +216,9 @@ fun ProfileEditScreen(onBack: () -> Unit) {
             }
         }
     }
+
+    avatarUri?.let { u -> AvatarCropDialog(u, { avatarUri = null }) { bytes -> avatarUri = null; upload(bytes) } }
+    cropUri?.let { u -> BannerCropDialog(u, { cropUri = null }) { bytes -> cropUri = null; uploadBanner(bytes) } }
 
     // ---------------------------------------------------------------- dialog foto
     if (photoMenu) AlertDialog(

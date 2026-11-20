@@ -31,7 +31,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
 
 private val UsernameChars = Regex("^[A-Za-z0-9_.]{3,20}$")
-private val Outline = Color(0xFF4A4C53)
+private val Outline = CardLine
 
 /** "6 hari 4 jam", "5 jam 12 menit", "12 menit 30 detik", "40 detik". */
 private fun cooldownText(ms: Long): String {
@@ -117,7 +117,7 @@ fun ProfileEditScreen(onBack: () -> Unit) {
 
     Column(Modifier.fillMaxSize().background(Bg)) { // inset sudah diberikan Scaffold; jangan dobel
         Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) }
+            IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Accent) }
             Text("Pengaturan Profil", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
         }
         HorizontalDivider(color = Line)
@@ -166,13 +166,13 @@ fun ProfileEditScreen(onBack: () -> Unit) {
                             Text("Tampilkan centang verified", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                             Text("Matikan untuk menyembunyikan centang di profil dan komentarmu.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
                         }
-                        Switch(!user.verifiedHidden, { show ->
+                        IosSwitch(!user.verifiedHidden, { show ->
                             busy = true; notice = null
                             scope.launch {
                                 try { Auth.update(Net.api.updateProfile(ProfileReq(verifiedHidden = !show)).data); notice = true to (if (show) "Centang verified ditampilkan" else "Centang verified disembunyikan") }
                                 catch (e: CancellationException) { throw e } catch (e: Exception) { notice = false to e.friendly() } finally { busy = false }
                             }
-                        }, enabled = !busy, colors = SwitchDefaults.colors(checkedTrackColor = Accent))
+                        }, enabled = !busy)
                     }
                     HorizontalDivider(color = Line)
                 }

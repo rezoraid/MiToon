@@ -34,10 +34,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun TopBar(title: String, onBack: (() -> Unit)?, action: @Composable () -> Unit = {}) =
-    Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (onBack != null) IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) } else Spacer(Modifier.width(16.dp))
-        Text(title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        action()
+    Box(Modifier.fillMaxWidth().height(48.dp)) {
+        if (onBack != null) IconButton(onBack, Modifier.align(Alignment.CenterStart)) { Icon(Ic.Left, "Kembali", tint = Accent) }
+        Text(title, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.Center).padding(horizontal = 56.dp))
+        Row(Modifier.align(Alignment.CenterEnd)) { action() }
     }
 
 // ------------------------------------------------------------------ HOME
@@ -111,11 +111,11 @@ private fun FilterSheet(genres: List<Genre>, g: String?, sort: String, type: Str
         if (dg != null) { add("manhwa" to "Manhwa"); add("manhua" to "Manhua") }
         add("comic" to "Komik"); add("novel" to "Novel")
     }
-    ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp), containerColor = CardBg, contentColor = Color.White) {
+    ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp), containerColor = CardBg, contentColor = Color.White) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Filter", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                TextButton({ dg = null; ds = "latest"; dt = null }) { Text("Reset", color = Muted) }
+                Text("Filter", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                TextButton({ dg = null; ds = "latest"; dt = null }) { Text("Reset", color = Accent, fontSize = 16.sp) }
             }
             FilterSection("Urutkan") {
                 Chip("Terbaru", ds == "latest") { ds = "latest" }
@@ -126,9 +126,9 @@ private fun FilterSheet(genres: List<Genre>, g: String?, sort: String, type: Str
                 Chip("Semua", dg == null) { dg = null }
                 basicGenres(genres, dg).forEach { gn -> Chip(gn.name, dg == gn.slug) { dg = gn.slug } }
             }
-            Button({ onApply(dg, ds, dt.takeIf { formatOn && (dg != null || (dt != "manhwa" && dt != "manhua")) }) }, Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 16.dp).height(46.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = OnAccent), shape = R6) {
-                Text("Terapkan", fontWeight = FontWeight.Bold)
+            Button({ onApply(dg, ds, dt.takeIf { formatOn && (dg != null || (dt != "manhwa" && dt != "manhua")) }) }, Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 16.dp).height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = OnAccent), shape = RoundedCornerShape(14.dp)) {
+                Text("Terapkan", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -161,14 +161,13 @@ fun ExploreScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit) {
         SeriesGrid(vm, onOpen, modifier = Modifier.weight(1f)) {
             full {
                 Row(Modifier.padding(top = 12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Row(Modifier.weight(1f).height(46.dp).clip(R6).background(CardBg).border(1.dp, Line, R6).clickable(onClick = onSearch).padding(horizontal = 12.dp),
+                    Row(Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(10.dp)).background(CardBg).clickable(onClick = onSearch).padding(horizontal = 10.dp),
                         verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Ic.Search, null, tint = Muted); Spacer(Modifier.width(8.dp)); Text("Cari komik / novel", color = Muted, fontSize = 14.sp)
+                        Icon(Ic.Search, null, tint = Muted, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Cari komik / novel", color = Muted, fontSize = 17.sp)
                     }
                     val on = active.isNotEmpty()
-                    Box(Modifier.size(46.dp).clip(R6).background(CardBg).border(1.dp, if (on) Accent else Line, R6).clickable { sheet = true }, Alignment.Center) {
-                        FilterIcon(if (on) Accent else Muted)
-                        if (on) Box(Modifier.align(Alignment.TopEnd).padding(7.dp).size(7.dp).background(Accent))
+                    Box(Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(if (on) Accent else CardBg).clickable { sheet = true }, Alignment.Center) {
+                        Icon(Ic.Filter, "Filter", tint = if (on) Color.White else Accent, modifier = Modifier.size(22.dp))
                     }
                 }
             }
@@ -196,12 +195,12 @@ fun SearchScreen(onBack: () -> Unit, onOpen: (Series) -> Unit) {
     val kb = LocalSoftwareKeyboardController.current
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) }
+            IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Accent) }
             OutlinedTextField(q, { q = it }, Modifier.weight(1f).padding(end = 12.dp), singleLine = true,
                 placeholder = { Text("Cari komik / novel", color = Muted) },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { sent = q.trim(); if (sent.isNotBlank()) genre = null; kb?.hide() }),
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Accent, unfocusedBorderColor = CardBg, cursorColor = Accent))
+                shape = RoundedCornerShape(12.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent, focusedContainerColor = CardBg, unfocusedContainerColor = CardBg, cursorColor = Accent))
         }
         val g = genre
         when {
@@ -239,9 +238,7 @@ fun LibraryScreen(onOpen: (String) -> Unit, onContinue: (LibEntry) -> Unit, onSe
     val all = Library.entries.values
     Column(Modifier.fillMaxSize()) {
         Header(onSearch)
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Chip("Bookmark", tab == 0) { tab = 0 }; Chip("Riwayat", tab == 1) { tab = 1 }
-        }
+        Segmented(listOf("Bookmark", "Riwayat"), tab, { tab = it }, Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
         if (tab == 0) {
             val list = all.filter { it.bookmarked }.sortedByDescending { it.readAt }
             if (list.isEmpty()) Empty("Belum ada bookmark. Buka detail komik lalu tekan Bookmark.")
@@ -254,15 +251,15 @@ fun LibraryScreen(onOpen: (String) -> Unit, onContinue: (LibEntry) -> Unit, onSe
             if (list.isEmpty()) Empty("Belum ada riwayat baca.")
             else LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(list, key = { it.id }) { e ->
-                    Row(Modifier.fillMaxWidth().clip(R6).background(CardBg).border(1.dp, Line, R6).clickable { onContinue(e) }.padding(8.dp),
+                    Row(Modifier.fillMaxWidth().clip(R6).background(CardBg).clickable { onContinue(e) }.padding(10.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Img(e.cover, e.provider, Modifier.width(56.dp).aspectRatio(0.5f).clip(RoundedCornerShape(2.dp)), maxW = 240)
+                        Img(e.cover, e.provider, Modifier.width(56.dp).aspectRatio(0.5f).clip(RoundedCornerShape(8.dp)), maxW = 240)
                         Column(Modifier.weight(1f)) {
                             Text(e.title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             Text("Chapter ${e.lastChapterNumber.orEmpty()}", color = Accent, fontSize = 12.sp)
                             Text(ago(e.readAt), color = Muted, fontSize = 11.sp)
                         }
-                        Text("Hapus", color = Muted, fontSize = 12.sp, modifier = Modifier.clickable { Library.removeHistory(e.id) }.padding(8.dp))
+                        Text("Hapus", color = IosRed, fontSize = 14.sp, modifier = Modifier.clickable { Library.removeHistory(e.id) }.padding(8.dp))
                     }
                 }
             }

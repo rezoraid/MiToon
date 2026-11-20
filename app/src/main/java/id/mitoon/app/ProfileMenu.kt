@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -21,7 +22,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 
-private val R16 = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+private val R16 = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
 
 /** Halaman akun: kartu profil (foto bulat, nama, status Owner/Premium, peran + level, XP) lalu menu dalam kartu berkelompok + Keluar. */
 @Composable
@@ -32,7 +33,7 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
         SubTopBar("Akun", onBack)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             // ---- kartu profil
-            Column(Modifier.fillMaxWidth().clip(R16).border(1.dp, CardLine, R16).background(CardBg).clickable(onClick = onEdit).padding(16.dp)) {
+            Column(Modifier.fillMaxWidth().clip(R16).background(CardBg).clickable(onClick = onEdit).padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Avatar(user.id, user.name, user.avatarV, 72.dp, shape = androidx.compose.foundation.shape.CircleShape)
                     Column(Modifier.weight(1f).padding(start = 16.dp)) {
@@ -55,19 +56,19 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
 
             Spacer(Modifier.height(14.dp))
             MenuGroup {
-                MenuRow(Ic.Person, "Pengaturan Profil", onEdit)
+                MenuRow(Ic.Person, "Pengaturan Profil", Accent, onEdit)
                 MenuDivider()
-                MenuRow(Ic.Star, "Peran & Lencana", onRoles)
+                MenuRow(Ic.Star, "Peran & Lencana", Color(0xFFFF9F0A), onRoles)
                 MenuDivider()
-                MenuRow(Ic.List, "Riwayat Aktivitas", onHistory)
+                MenuRow(Ic.List, "Riwayat Aktivitas", IosGreen, onHistory)
                 MenuDivider()
-                MenuRow(Ic.Gear, "Pengaturan Akun", onAccount)
+                MenuRow(Ic.Gear, "Pengaturan Akun", Muted, onAccount)
                 MenuDivider()
                 LanguageRow()
-                if (user.isOwner) { MenuDivider(); MenuRow(Ic.Tool, "Panel Admin", onAdmin) }
+                if (user.isOwner) { MenuDivider(); MenuRow(Ic.Tool, "Panel Admin", Color(0xFFBF5AF2), onAdmin) }
             }
             Spacer(Modifier.height(14.dp))
-            MenuGroup { MenuRow(Ic.Logout, "Keluar") { Auth.logout() } }
+            MenuGroup { MenuRow(Ic.Logout, "Keluar", IosRed) { Auth.logout() } }
             Spacer(Modifier.height(16.dp))
         }
     }
@@ -75,26 +76,26 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
 
 @Composable
 private fun MenuGroup(content: @Composable ColumnScope.() -> Unit) =
-    Column(Modifier.fillMaxWidth().clip(R16).border(1.dp, CardLine, R16).background(CardBg), content = content)
+    Column(Modifier.fillMaxWidth().clip(R16).background(CardBg), content = content)
 
 @Composable
-private fun MenuDivider() = HorizontalDivider(color = Line, modifier = Modifier.padding(start = 54.dp))
+private fun MenuDivider() = HorizontalDivider(color = Line, thickness = 0.5.dp, modifier = Modifier.padding(start = 60.dp))
 
 @Composable
 fun SubTopBar(title: String, onBack: () -> Unit) {
-    Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) }
-        Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+    Box(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 4.dp)) {
+        IconButton(onBack, Modifier.align(Alignment.CenterStart)) { Icon(Ic.Left, "Kembali", tint = Accent) }
+        Text(title, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.Center).padding(horizontal = 52.dp))
     }
-    HorizontalDivider(color = Line)
+    HorizontalDivider(color = Line, thickness = 0.5.dp)
 }
 
 @Composable
-private fun MenuRow(icon: ImageVector, label: String, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 16.dp, horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = Color.White, modifier = Modifier.size(22.dp))
-        Text(label, color = Color.White, fontSize = 16.sp, modifier = Modifier.weight(1f).padding(start = 16.dp))
-        Icon(Ic.Right, null, tint = Muted, modifier = Modifier.size(22.dp))
+private fun MenuRow(icon: ImageVector, label: String, color: Color, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp, horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(30.dp).background(color, RoundedCornerShape(7.dp)), Alignment.Center) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(18.dp)) }
+        Text(label, color = Color.White, fontSize = 17.sp, modifier = Modifier.weight(1f).padding(start = 14.dp))
+        Icon(Ic.Right, null, tint = Color(0xFF636366), modifier = Modifier.size(16.dp))
     }
 }
 
@@ -158,13 +159,13 @@ fun AccountSettingsScreen(onBack: () -> Unit) {
 private fun LanguageRow() {
     var open by remember { mutableStateOf(false) }
     val current = Lang.options.firstOrNull { it.code == Lang.choice }?.label ?: tr("Ikuti bahasa perangkat")
-    Row(Modifier.fillMaxWidth().clickable { open = true }.padding(vertical = 16.dp, horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(22.dp), Alignment.Center) { Text("文A", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
-        Column(Modifier.weight(1f).padding(start = 16.dp)) {
-            Text("Bahasa", color = Color.White, fontSize = 16.sp)
+    Row(Modifier.fillMaxWidth().clickable { open = true }.padding(vertical = 10.dp, horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(30.dp).background(Color(0xFF5E5CE6), RoundedCornerShape(7.dp)), Alignment.Center) { Text("文A", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+        Column(Modifier.weight(1f).padding(start = 14.dp)) {
+            Text("Bahasa", color = Color.White, fontSize = 17.sp)
             Text(current, color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Icon(Ic.Right, null, tint = Muted, modifier = Modifier.size(22.dp))
+        Icon(Ic.Right, null, tint = Color(0xFF636366), modifier = Modifier.size(16.dp))
     }
     if (open) AlertDialog(
         onDismissRequest = { open = false },

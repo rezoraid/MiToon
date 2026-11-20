@@ -324,3 +324,4 @@ Kualitas gambar||Image quality||Kualiti imej||Calidad de imagen||画質
 Tinggi||High||Tinggi||Alta||高
 Rendah (hemat data)||Low (saves data)||Rendah (jimat data)||Baja (ahorra datos)||低（データ節約）
 Rendah memperkecil gambar chapter (±70% lebih hemat kuota). Berlaku untuk halaman yang dimuat berikutnya.||Low shrinks chapter images (about 70% less data). Applies to pages loaded from now on.||Rendah mengecilkan imej bab (±70% jimat data). Terpakai untuk halaman yang dimuat seterusnya.||Baja reduce las imágenes del capítulo (≈70% menos datos). Se aplica a las páginas que se carguen a partir de ahora.||低画質は章の画像を縮小します（データ量約70%減）。以降に読み込むページから適用されます。
+Lihat Semua||See All||Lihat Semua||Ver todo||すべて見る

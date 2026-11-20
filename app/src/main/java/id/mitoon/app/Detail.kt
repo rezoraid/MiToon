@@ -93,9 +93,9 @@ private fun relTime(iso: String?): String? {
 
 @Composable
 private fun ActionButton(text: String, filled: Boolean, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) =
-    Box(modifier.alpha(if (enabled) 1f else 0.45f).height(40.dp).clip(R6).then(if (filled) Modifier.background(Accent) else Modifier.border(1.5.dp, Accent, R6)).clickable(enabled = enabled, onClick = onClick),
+    Box(modifier.alpha(if (enabled) 1f else 0.45f).height(46.dp).clip(RoundedCornerShape(12.dp)).background(if (filled) Accent else Fill).clickable(enabled = enabled, onClick = onClick),
         Alignment.Center) {
-        Text(text, color = if (filled) OnAccent else Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Text(text, color = if (filled) OnAccent else Accent, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
     }
 
 @Composable
@@ -105,18 +105,7 @@ private fun Info(label: String, content: @Composable () -> Unit) =
     }
 
 @Composable
-private fun DetailTabs(tab: Int, onTab: (Int) -> Unit) = Column(Modifier.padding(top = 20.dp)) {
-    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-        listOf("Chapter", "Komentar").forEachIndexed { i, t ->
-            Column(Modifier.width(IntrinsicSize.Max).clickable { onTab(i) }) {
-                Text(t, fontSize = 16.sp, color = if (i == tab) Color.White else Muted, fontWeight = if (i == tab) FontWeight.Bold else FontWeight.Normal,
-                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 2.dp))
-                Box(Modifier.height(3.dp).fillMaxWidth().background(if (i == tab) Accent else Color.Transparent))
-            }
-        }
-    }
-    HorizontalDivider(color = Line, thickness = 1.dp)
-}
+private fun DetailTabs(tab: Int, onTab: (Int) -> Unit) = Segmented(listOf("Chapter", "Komentar"), tab, onTab, Modifier.padding(top = 20.dp))
 
 // ------------------------------------------------------------------ DETAIL KOMIK (mengikuti layout Siikomik)
 @Composable
@@ -275,17 +264,17 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
             // Detail (sinopsis) tepat di bawah cover, di atas genre. Ringkas 4 baris; ketuk untuk membuka penuh.
             if (d == null && !failed) item("synopsis-skel") {
                 Column(Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.fillMaxWidth().height(12.dp).background(Color(0xFF24262C), R6))
-                    Box(Modifier.fillMaxWidth().height(12.dp).background(Color(0xFF24262C), R6))
-                    Box(Modifier.fillMaxWidth(0.6f).height(12.dp).background(Color(0xFF24262C), R6))
+                    Box(Modifier.fillMaxWidth().height(12.dp).background(Fill, R6))
+                    Box(Modifier.fillMaxWidth().height(12.dp).background(Fill, R6))
+                    Box(Modifier.fillMaxWidth(0.6f).height(12.dp).background(Fill, R6))
                 }
             } else if (d != null && d.synopsis.isNotBlank()) item("synopsis") {
                 Column(Modifier.padding(top = 14.dp).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { if (synopsisLong || synopsisOpen) synopsisOpen = !synopsisOpen }) {
                     Text(d.synopsis, color = Color(0xFFD0D3DA), fontSize = 14.sp, lineHeight = 21.sp,
                         maxLines = if (synopsisOpen) Int.MAX_VALUE else 4, overflow = TextOverflow.Ellipsis,
                         onTextLayout = { if (!synopsisOpen) synopsisLong = it.hasVisualOverflow })
-                    if (synopsisLong || synopsisOpen) Text(if (synopsisOpen) "Tutup" else "Selengkapnya", color = Color.White, fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+                    if (synopsisLong || synopsisOpen) Text(if (synopsisOpen) "Tutup" else "Selengkapnya", color = Accent, fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
                 }
             }
             if (genres.isNotEmpty()) item {
@@ -312,8 +301,8 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
             if (tab == 0) {
                 item {
                     Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (d != null) "Chapters: ${d.chapters.size}" else "Chapters", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        if (d != null) Text(if (newestFirst) "Terlama ⇅" else "Terbaru ⇅", color = Muted, fontSize = 14.sp,
+                        Text(if (d != null) "Chapters: ${d.chapters.size}" else "Chapters", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        if (d != null) Text(if (newestFirst) "Terlama ⇅" else "Terbaru ⇅", color = Accent, fontSize = 15.sp,
                             modifier = Modifier.clickable { newestFirst = !newestFirst }.padding(8.dp))
                     }
                 }
@@ -324,7 +313,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
                     else -> {
                         items(chapters, key = { it.id }) { c ->
                             val read = entry?.read?.contains(c.id) == true
-                            Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(R6).background(CardBg).border(1.dp, Line, R6)
+                            Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(R6).background(CardBg)
                                 .clickable { open(c) }.padding(horizontal = 16.dp, vertical = 14.dp)) {
                                 Text("Chapter ${c.number}", color = if (read) Muted else Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                                 if (c.title.isNotBlank() && !c.title.equals("Chapter ${c.number}", true))
@@ -348,9 +337,9 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
 
 private val Glass = Color(0xE61C1D22)
 private val GlassLine = Color(0x1AFFFFFF)
-private val SheetBg = Color(0xFF1C1D21)
-private val SheetCard = Color(0xFF26272C)
-private val SheetChip = Color(0xFF34353B)
+private val SheetBg = CardBg
+private val SheetCard = Fill
+private val SheetChip = Color(0xFF3A3A3C)
 private val Blue = Color(0xFF0A84FF)
 private val Green = Color(0xFF30D158)
 private val speeds = listOf("Lambat" to 70, "Sedang" to 130, "Cepat" to 230)
@@ -705,7 +694,7 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
                     Text("Lanjut chapter otomatis", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 12.dp).weight(1f))
                     Switch(ReaderPrefs.autoNext, ReaderPrefs::setAutoNext, colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White, checkedTrackColor = Green, checkedBorderColor = Color.Transparent,
-                        uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFF45464C), uncheckedBorderColor = Color.Transparent))
+                        uncheckedThumbColor = Color.White, uncheckedTrackColor = CardLine, uncheckedBorderColor = Color.Transparent))
                 }
                 Text("Jeda sebelum lanjut", color = Color(0xFFD7D9DF), fontSize = 15.sp, modifier = Modifier.alpha(if (ReaderPrefs.autoNext) 1f else 0.4f))
                 Segmented(pauses.map { it.first }, ReaderPrefs.pause, ReaderPrefs.autoNext, ReaderPrefs::setPause)

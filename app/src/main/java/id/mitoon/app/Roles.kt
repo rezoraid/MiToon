@@ -66,8 +66,8 @@ fun nextRole(level: Int): Role? = Roles.firstOrNull { it.minLevel > level }
 /** Gelar berdasarkan level (nama peran). */
 fun rankTitle(level: Int): String = roleFor(level).title
 
-private val Ink = Color(0xFF17181C)
-private val LockedInk = Color(0xFF4A4C53)
+private val Ink = Bg
+private val LockedInk = CardLine
 
 private fun poly(vararg p: Float): Path = Path().apply {
     moveTo(p[0], p[1]); var i = 2
@@ -169,19 +169,19 @@ fun RoleBadge(role: Role, size: Dp = 28.dp, modifier: Modifier = Modifier, locke
         val c = Offset(s / 2f, s / 2f)
         val rim = lerp(role.colors.last(), Color.Black, 0.3f)
         val medal: Brush = when {
-            locked -> SolidColor(Color(0xFF2C2E35))
+            locked -> SolidColor(Fill)
             role.sweep -> Brush.sweepGradient(role.colors + role.colors.first(), c)
             else -> Brush.linearGradient(role.colors, Offset(0f, 0f), Offset(s, s))
         }
-        drawCircle(if (locked) Color(0xFF3A3C44) else if (role.sweep) Color(0xFF3A2F5C) else rim, s / 2f)
+        drawCircle(if (locked) Line else if (role.sweep) Color(0xFF3A2F5C) else rim, s / 2f)
         drawCircle(medal, s / 2f - s * 0.06f)
         if (!locked) drawCircle( // kilau lembut di bagian atas supaya terlihat seperti medali
             Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.28f), Color.Transparent), 0f, s * 0.6f),
             s / 2f - s * 0.06f
         )
         val g = s * 0.56f; val o = (s - g) / 2f
-        val glyphFill: Brush = SolidColor(if (locked) Color(0xFF4A4C53) else if (role.sweep) Color(0xFF1A1A24) else Color.White)
-        val ink = if (locked) Color(0xFF2C2E35) else if (role.sweep) Color.White else lerp(role.colors.last(), Color.Black, 0.25f)
+        val glyphFill: Brush = SolidColor(if (locked) CardLine else if (role.sweep) Color(0xFF1A1A24) else Color.White)
+        val ink = if (locked) Fill else if (role.sweep) Color.White else lerp(role.colors.last(), Color.Black, 0.25f)
         withTransform({ translate(o, o); scale(g, g, Offset.Zero) }) { glyph(role.glyph, glyphFill, ink) }
     }
 }
@@ -207,7 +207,7 @@ fun RolesScreen(onBack: () -> Unit) {
         SubTopBar("Peran & Lencana", onBack)
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp)) {
             item("now") {
-                Column(Modifier.fillMaxWidth().clip(R6).border(1.dp, Color(0xFF3A3C44), R6).background(CardBg).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(Modifier.fillMaxWidth().clip(R6).border(1.dp, Line, R6).background(CardBg).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     RoleBadge(cur, 84.dp)
                     Text(cur.title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
                     LevelChip(user.level, Modifier.padding(top = 8.dp), size = 12)

@@ -102,7 +102,7 @@ fun ActivityHistoryScreen(onBack: () -> Unit, onOpenComment: (CommentOrigin) -> 
     var tab by rememberSaveable { mutableIntStateOf(0) }
     Column(Modifier.fillMaxSize().background(Bg)) {
         Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) }
+            IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Accent) }
             Text("Riwayat Aktivitas", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
         }
         Row(Modifier.fillMaxWidth()) {

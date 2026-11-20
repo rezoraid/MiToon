@@ -2,6 +2,20 @@ package id.mitoon.app
 
 import android.net.Uri
 import android.os.Bundle
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -81,6 +95,20 @@ private fun AppContent() {
 }
 
 @Composable
+private fun TabBar(tabs: List<Tab>, route: String?, onSelect: (Tab) -> Unit) = Column(Modifier.background(Color(0xFF0B0B0C))) {
+    HorizontalDivider(color = Line, thickness = 0.5.dp)
+    Row(Modifier.fillMaxWidth().navigationBarsPadding().height(54.dp), verticalAlignment = Alignment.CenterVertically) {
+        tabs.forEach { t ->
+            val on = route == t.route; val c = if (on) Accent else Muted
+            Column(Modifier.weight(1f).fillMaxHeight().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelect(t) }, Arrangement.Center, Alignment.CenterHorizontally) {
+                Icon(if (on) t.on else t.icon, t.label, tint = c, modifier = Modifier.size(26.dp))
+                Text(t.label, color = c, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+            }
+        }
+    }
+}
+
+@Composable
 private fun AppScaffold() {
     val nav = rememberNavController()
     LvClock.Run()
@@ -99,15 +127,7 @@ private fun AppScaffold() {
     val openNotif: () -> Unit = { nav.navigate("notifications") { launchSingleTop = true } }
     CompositionLocalProvider(LocalOpenUser provides openUser, LocalOpenNotif provides openNotif) {
     Scaffold(containerColor = Bg, bottomBar = {
-        if (tabs.any { it.route == route }) NavigationBar(containerColor = CardBg) {
-            tabs.forEach { t ->
-                NavigationBarItem(route == t.route, {
-                    nav.navigate(t.route) { popUpTo("home"); launchSingleTop = true; restoreState = true }
-                }, { Icon(if (route == t.route) t.on else t.icon, t.label) }, label = { Text(t.label, fontSize = 11.sp) },
-                    colors = NavigationBarItemDefaults.colors(selectedIconColor = Accent, selectedTextColor = Accent,
-                        indicatorColor = Color.Transparent, unselectedIconColor = Muted, unselectedTextColor = Muted))
-            }
-        }
+        if (tabs.any { it.route == route }) TabBar(tabs, route) { t -> nav.navigate(t.route) { popUpTo("home"); launchSingleTop = true; restoreState = true } }
     }) { pad ->
         // Transisi singkat (<250 ms) dan ringan: pindah tab = fade; buka layar = fade + geser tipis; kembali = layar atas menyingkir.
         NavHost(nav, "home", Modifier.padding(pad).consumeWindowInsets(pad),

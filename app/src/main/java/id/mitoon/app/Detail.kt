@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package id.mitoon.app
 
 import androidx.compose.animation.AnimatedVisibility

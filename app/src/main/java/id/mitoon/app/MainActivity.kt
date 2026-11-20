@@ -18,10 +18,6 @@ import androidx.navigation.NavBackStackEntry
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -31,7 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
 
-private data class Tab(val route: String, val label: String, val icon: ImageVector)
+private data class Tab(val route: String, val label: String, val icon: ImageVector, val on: ImageVector = icon)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -88,7 +84,7 @@ private fun AppContent() {
 private fun AppScaffold() {
     val nav = rememberNavController()
     LvClock.Run()
-    val tabs = listOf(Tab("home", "Home", Icons.Default.Home), Tab("explore", "Explore", Icons.Default.Search), Tab("library", "Library", Icons.Default.Favorite))
+    val tabs = listOf(Tab("home", "Home", Ic.Home, Ic.HomeOn), Tab("explore", "Explore", Ic.Search), Tab("library", "Library", Ic.Heart, Ic.HeartOn))
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
     // Pil merah notifikasi (lonceng di header): cek tiap menit selama login, dan setiap kali pindah layar (kecuali saat sedang membuka halaman Notifikasi).
     val uid = Auth.user?.id
@@ -107,7 +103,7 @@ private fun AppScaffold() {
             tabs.forEach { t ->
                 NavigationBarItem(route == t.route, {
                     nav.navigate(t.route) { popUpTo("home"); launchSingleTop = true; restoreState = true }
-                }, { Icon(t.icon, t.label) }, label = { Text(t.label, fontSize = 11.sp) },
+                }, { Icon(if (route == t.route) t.on else t.icon, t.label) }, label = { Text(t.label, fontSize = 11.sp) },
                     colors = NavigationBarItemDefaults.colors(selectedIconColor = Accent, selectedTextColor = Accent,
                         indicatorColor = Color.Transparent, unselectedIconColor = Muted, unselectedTextColor = Muted))
             }

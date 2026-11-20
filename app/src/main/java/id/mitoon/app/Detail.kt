@@ -12,14 +12,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -73,8 +65,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -372,13 +362,15 @@ object ReaderPrefs {
     var speed by mutableIntStateOf(1); private set
     var pause by mutableIntStateOf(1); private set
     var autoNext by mutableStateOf(true); private set
+    var quality by mutableIntStateOf(0); private set
     fun init(ctx: Context) {
         if (prefs != null) return
         val p = ctx.getSharedPreferences("reader", Context.MODE_PRIVATE).also { prefs = it }
-        speed = p.getInt("s", 1).coerceIn(0, 2); pause = p.getInt("p", 1).coerceIn(0, 2); autoNext = p.getBoolean("a", true)
+        speed = p.getInt("s", 1).coerceIn(0, 2); pause = p.getInt("p", 1).coerceIn(0, 2); autoNext = p.getBoolean("a", true); quality = p.getInt("q", 0).coerceIn(0, 1)
     }
     @JvmName("applySpeed") fun setSpeed(i: Int) { speed = i; prefs?.edit()?.putInt("s", i)?.apply() }
     @JvmName("applyPause") fun setPause(i: Int) { pause = i; prefs?.edit()?.putInt("p", i)?.apply() }
+    @JvmName("applyQuality") fun setQuality(i: Int) { quality = i; prefs?.edit()?.putInt("q", i)?.apply() }
     @JvmName("applyAutoNext") fun setAutoNext(v: Boolean) { autoNext = v; prefs?.edit()?.putBoolean("a", v)?.apply() }
 }
 
@@ -511,7 +503,7 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
             c == null -> Failed { tick++ }
             c.images.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Chapter belum tersedia", color = Muted) }
             else -> LazyColumn(Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { bars = !bars }, listState) {
-                items(c.images, key = { it }) { url -> key(reloadNonce) { Img(url, "", Modifier.fillMaxWidth().heightIn(min = 240.dp), ContentScale.FillWidth, c.imageHeaders) } }
+                items(c.images, key = { it }) { url -> key(reloadNonce, ReaderPrefs.quality) { Img(url, "", Modifier.fillMaxWidth().heightIn(min = 240.dp), ContentScale.FillWidth, c.imageHeaders, maxW = if (ReaderPrefs.quality == 1) 720 else 0, q = 50) } }
             }
         }
         AnimatedVisibility(bars, Modifier.align(Alignment.TopCenter), fadeIn(tween(120)), fadeOut(tween(120))) {
@@ -547,13 +539,13 @@ private fun ReaderTopBar(series: String, chapter: String, onBack: () -> Unit, on
                          refetching: Boolean, left: Int, onRefetch: () -> Unit) =
     Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).padding(start = 12.dp, end = 12.dp, top = 2.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(48.dp).glass().clickable(onClick = onBack), Alignment.Center) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Kembali", tint = Color.White, modifier = Modifier.size(30.dp)) }
+        Box(Modifier.size(48.dp).glass().clickable(onClick = onBack), Alignment.Center) { Icon(Ic.Left, "Kembali", tint = Color.White, modifier = Modifier.size(30.dp)) }
         Row(Modifier.weight(1f).height(48.dp).glass().clickable(onClick = onTitle).padding(start = 18.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                 if (series.isNotBlank()) Text(series, color = Muted, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(chapter, color = Color.White, fontSize = 16.sp, lineHeight = 19.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Icon(Icons.Default.KeyboardArrowDown, "Daftar chapter", tint = Muted, modifier = Modifier.size(22.dp))
+            Icon(Ic.Down, "Daftar chapter", tint = Muted, modifier = Modifier.size(22.dp))
         }
         Row(Modifier.height(48.dp).glass().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onRefetch), Alignment.Center) { RefetchIcon(refetching, left, 22.dp) }
@@ -603,15 +595,15 @@ private fun BottomBar(
         }
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f).height(48.dp).alpha(if (canPrev) 1f else 0.35f).clip(CircleShape).clickable(enabled = canPrev, onClick = onPrev), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                Icon(Ic.Left, null, tint = Color.White, modifier = Modifier.size(24.dp))
                 Text(prevLabel, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             }
             Box(Modifier.size(56.dp).clip(CircleShape).background(Color.White).clickable(onClick = onPlay), Alignment.Center) {
-                if (playing) PauseIcon(Color.Black) else Icon(Icons.Default.PlayArrow, "Auto-scroll", tint = Color.Black, modifier = Modifier.size(30.dp))
+                if (playing) PauseIcon(Color.Black) else Icon(Ic.Play, "Auto-scroll", tint = Color.Black, modifier = Modifier.size(30.dp))
             }
             Row(Modifier.weight(1f).height(48.dp).alpha(if (canNext) 1f else 0.35f).clip(CircleShape).clickable(enabled = canNext, onClick = onNext), Arrangement.End, Alignment.CenterVertically) {
                 Text(nextLabel, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                Icon(Ic.Right, null, tint = Color.White, modifier = Modifier.size(24.dp))
             }
         }
     }
@@ -690,7 +682,7 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
         Column(Modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(Modifier.fillMaxWidth().padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Pengaturan baca", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Box(Modifier.size(38.dp).clip(CircleShape).background(SheetChip).clickable(onClick = onDismiss), Alignment.Center) { Icon(Icons.Filled.Close, "Tutup", tint = Color(0xFFD7D9DF), modifier = Modifier.size(20.dp)) }
+                Box(Modifier.size(38.dp).clip(CircleShape).background(SheetChip).clickable(onClick = onDismiss), Alignment.Center) { Icon(Ic.Close, "Tutup", tint = Color(0xFFD7D9DF), modifier = Modifier.size(20.dp)) }
             }
             SettingCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -698,6 +690,14 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
                     Text("Kecepatan auto-scroll", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 12.dp))
                 }
                 Segmented(speeds.map { it.first }, ReaderPrefs.speed, onSelect = ReaderPrefs::setSpeed)
+            }
+            SettingCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconTile(Color(0xFFB5651D)) { Text("HD", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold) }
+                    Text("Kualitas gambar", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 12.dp))
+                }
+                Segmented(listOf("Tinggi", "Rendah (hemat data)"), ReaderPrefs.quality, onSelect = ReaderPrefs::setQuality)
+                Text("Rendah memperkecil gambar chapter (±70% lebih hemat kuota). Berlaku untuk halaman yang dimuat berikutnya.", color = Muted, fontSize = 13.sp, lineHeight = 18.sp)
             }
             SettingCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {

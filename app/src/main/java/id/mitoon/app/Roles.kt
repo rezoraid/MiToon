@@ -6,8 +6,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -234,7 +232,7 @@ fun RolesScreen(onBack: () -> Unit) {
                     }
                     if (open) Text("Lv. ${r.minLevel}", color = Color(0xFFD7D9DE), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     else Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Lock, null, tint = Muted, modifier = Modifier.size(14.dp))
+                        Icon(Ic.Lock, null, tint = Muted, modifier = Modifier.size(14.dp))
                         Text(" Lv. ${r.minLevel}", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }

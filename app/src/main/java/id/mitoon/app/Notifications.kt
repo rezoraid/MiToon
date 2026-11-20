@@ -10,8 +10,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -266,7 +264,7 @@ fun NoticeRow(n: Notice, unread: Boolean, onClick: (() -> Unit)? = null) {
         verticalAlignment = Alignment.Top
     ) {
         Box(Modifier.size(44.dp).clip(CircleShape).background(Color(0xFF2A2C32)), Alignment.Center) {
-            Icon(Icons.Default.Info, null, tint = Color.White, modifier = Modifier.size(22.dp))
+            Icon(Ic.Info, null, tint = Color.White, modifier = Modifier.size(22.dp))
         }
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
             Text(plainText(n.title), color = Color.White, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)

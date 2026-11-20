@@ -7,8 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -104,7 +102,7 @@ fun ActivityHistoryScreen(onBack: () -> Unit, onOpenComment: (CommentOrigin) -> 
     var tab by rememberSaveable { mutableIntStateOf(0) }
     Column(Modifier.fillMaxSize().background(Bg)) {
         Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
+            IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) }
             Text("Riwayat Aktivitas", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
         }
         Row(Modifier.fillMaxWidth()) {

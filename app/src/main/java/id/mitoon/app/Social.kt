@@ -32,10 +32,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -487,7 +484,7 @@ fun CommentComposer(feed: CommentFeed, modifier: Modifier = Modifier) {
         if (reply != null) Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(R6).background(Color(0xFF24262C)).padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(painterResource(R.drawable.ic_reply), null, tint = Muted, modifier = Modifier.size(14.dp))
             Text("  Membalas ${reply.user.name}", color = Color.White, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            IconButton({ feed.cancelReply() }, Modifier.size(36.dp)) { Icon(Icons.Filled.Close, "Batal membalas", tint = Muted, modifier = Modifier.size(16.dp)) }
+            IconButton({ feed.cancelReply() }, Modifier.size(36.dp)) { Icon(Ic.Close, "Batal membalas", tint = Muted, modifier = Modifier.size(16.dp)) }
         }
         val mutedUntil = Auth.user?.mutedUntil ?: 0L
         if (mutedUntil > System.currentTimeMillis()) Text("Kamu dibisukan ${muteUntilText(mutedUntil)} dan tidak bisa berkomentar.", color = Color(0xFFFFB86B), fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))

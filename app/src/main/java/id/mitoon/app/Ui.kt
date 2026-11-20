@@ -9,13 +9,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -100,7 +93,7 @@ fun MiToonTheme(content: @Composable () -> Unit) = MaterialTheme(
 )
 
 @Composable
-fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale = ContentScale.Crop, extra: Map<String, String>? = null, retries: Int = 4, onFail: (() -> Unit)? = null, maxW: Int = 0) {
+fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale = ContentScale.Crop, extra: Map<String, String>? = null, retries: Int = 4, onFail: (() -> Unit)? = null, maxW: Int = 0, q: Int = 72) {
     val ctx = LocalContext.current
     // Gagal muat (mis. header referer belum siap saat app baru dibuka, atau koneksi goyang) -> coba lagi sampai 2x
     // dengan header yang dibaca ulang saat itu juga (supaya tidak memakai header lama).
@@ -109,7 +102,7 @@ fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale =
     // Jaringan lambat -> request timeout lalu kotak tetap kosong. Coba lagi dengan jeda bertahap (1,5 dtk, 3 dtk, ...) sampai 4x.
     LaunchedEffect(failed) { if (failed) { if (attempt < retries) { delay(1500L * (attempt + 1)); attempt++; failed = false } else onFail?.invoke() } }
     // maxW > 0 = cover: coba versi kecil/terkompres dulu; gagal -> unduh gambar asli.
-    val small = remember(url, maxW) { if (maxW > 0) Net.thumb(url, maxW) else null }
+    val small = remember(url, maxW, q) { if (maxW > 0) Net.thumb(url, maxW, q) else null }
     var direct by remember(url) { mutableStateOf(false) }
     val viaThumb = small != null && !direct
     val src = if (viaThumb) small!! else url
@@ -153,7 +146,7 @@ fun SeriesCard(s: Series, up: Boolean, sub: String? = null, onClick: () -> Unit)
         s.rating?.takeIf { it > 0 }?.let {
             Row(Modifier.align(Alignment.TopStart).padding(5.dp).background(Dim, RoundedCornerShape(2.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Text("★", color = Star, fontSize = 11.sp); Spacer(Modifier.width(3.dp))
+                Icon(Ic.StarOn, null, tint = Star, modifier = Modifier.size(12.dp)); Spacer(Modifier.width(3.dp))
                 Text("%.1f".format(it), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
@@ -174,33 +167,33 @@ fun SectionTitle(text: String, onMore: (() -> Unit)? = null) =
     Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 12.dp).then(if (onMore != null) Modifier.clickable(onClick = onMore) else Modifier),
         verticalAlignment = Alignment.CenterVertically) {
         Text(text, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-        if (onMore != null) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White)
+        if (onMore != null) Icon(Ic.Right, null, tint = Color.White)
     }
 
 @Composable
 fun Header(onSearch: () -> Unit, onBack: (() -> Unit)? = null) = Column {
     Row(Modifier.fillMaxWidth().background(CardBg).height(54.dp).padding(start = if (onBack == null) 14.dp else 4.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        if (onBack != null) IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
+        if (onBack != null) IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) }
         Image(painterResource(R.drawable.logo), "MiToon", Modifier.size(34.dp).clip(R6))
         Spacer(Modifier.width(8.dp))
         Text(buildAnnotatedString {
             withStyle(SpanStyle(color = Color.White)) { append("Mi") }
             withStyle(SpanStyle(color = Muted)) { append("Toon") }
         }, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-        IconButton(onSearch) { Icon(Icons.Default.Search, "Cari", tint = Muted, modifier = Modifier.size(26.dp)) }
+        IconButton(onSearch) { Icon(Ic.Search, "Cari", tint = Muted, modifier = Modifier.size(26.dp)) }
         val openNotif = LocalOpenNotif.current
         IconButton(openNotif) {
             val n = NotifState.unread
             if (n > 0) BadgedBox({
                 Badge(containerColor = Color(0xFFE5484D), contentColor = Color.White) { Text(if (n > 99) "99+" else "$n") }
-            }) { Icon(Icons.Default.Notifications, "Notifikasi", tint = Muted, modifier = Modifier.size(26.dp)) }
-            else Icon(Icons.Default.Notifications, "Notifikasi", tint = Muted, modifier = Modifier.size(26.dp))
+            }) { Icon(Ic.Bell, "Notifikasi", tint = Muted, modifier = Modifier.size(26.dp)) }
+            else Icon(Ic.Bell, "Notifikasi", tint = Muted, modifier = Modifier.size(26.dp))
         }
         IconButton({ Auth.menuOpen = true }) {
             val u = Auth.user
             if (u != null && u.avatarV > 0) Avatar(u.id, u.username, u.avatarV, 30.dp)
-            else Icon(Icons.Default.Person, "Akun", tint = Muted, modifier = Modifier.size(26.dp))
+            else Icon(Ic.Person, "Akun", tint = Muted, modifier = Modifier.size(26.dp))
         }
     }
     HorizontalDivider(color = Line, thickness = 1.dp)

@@ -10,11 +10,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,7 +29,7 @@ fun AdminScreen(onBack: () -> Unit) {
     val tabs = listOf("Ringkasan", "Komik", "User", "Komentar", "Informasi")
     Column(Modifier.fillMaxSize().background(Bg)) {
         Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
+            IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) }
             Text("Panel Admin", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
         }
         HorizontalDivider(color = Line)
@@ -94,7 +89,7 @@ private fun AdminStatsTab() {
                 StatCard("Dibisukan", s.muted.toString(), Modifier.weight(1f))
             }
             Spacer(Modifier.height(16.dp))
-            TextButton({ load() }) { Icon(Icons.Filled.Refresh, null, tint = Accent); Spacer(Modifier.width(6.dp)); Text("Refresh", color = Accent) }
+            TextButton({ load() }) { Icon(Ic.Refresh, null, tint = Accent); Spacer(Modifier.width(6.dp)); Text("Refresh", color = Accent) }
         }
     }
 }
@@ -138,7 +133,7 @@ private fun AdminSeriesTab() {
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Accent, unfocusedBorderColor = CardLine, focusedTextColor = Color.White, unfocusedTextColor = Color.White)
             )
-            IconButton({ load(1) }) { Icon(Icons.Filled.Search, null, tint = Accent) }
+            IconButton({ load(1) }) { Icon(Ic.Search, null, tint = Accent) }
         }
         if (loading) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Accent) }
         else if (err != null) Text(err!!, color = Color(0xFFFF6B6B), modifier = Modifier.padding(16.dp))
@@ -228,7 +223,7 @@ fun AdminSeriesEditScreen(id: Long, onBack: () -> Unit) {
     }
     Column(Modifier.fillMaxSize().background(Bg)) {
         Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
+            IconButton(onBack) { Icon(Ic.Left, null, tint = Color.White) }
             Text("Edit Komik", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             TextButton({ save() }, enabled = !saving) { Text(if (saving) "…" else "Simpan", color = Accent, fontWeight = FontWeight.Bold) }
         }
@@ -256,7 +251,7 @@ fun AdminSeriesEditScreen(id: Long, onBack: () -> Unit) {
                 if ((s?.chapters?.size ?: 0) > 30) Text("… dan ${(s?.chapters?.size ?: 0) - 30} lainnya", color = Muted, fontSize = 11.sp)
                 Spacer(Modifier.height(16.dp))
                 TextButton({ delete() }) {
-                    Icon(Icons.Filled.Delete, null, tint = Color(0xFFFF6B6B))
+                    Icon(Ic.Trash, null, tint = Color(0xFFFF6B6B))
                     Spacer(Modifier.width(6.dp))
                     Text("Hapus seri dari DB", color = Color(0xFFFF6B6B))
                 }
@@ -397,7 +392,7 @@ private fun AdminCommentsTab() {
                 placeholder = { Text("Cari isi komentar / username…", color = Muted) }, singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Accent, unfocusedBorderColor = CardLine, focusedTextColor = Color.White, unfocusedTextColor = Color.White)
             )
-            IconButton({ load(1) }) { Icon(Icons.Filled.Search, null, tint = Accent) }
+            IconButton({ load(1) }) { Icon(Ic.Search, null, tint = Accent) }
         }
         info?.let { Text(it, color = if (infoBad) RedText else Color(0xFF6BCB77), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
         err?.let { Text(it, color = RedText, modifier = Modifier.padding(16.dp)) }
@@ -411,7 +406,7 @@ private fun AdminCommentsTab() {
                         Text(c.body, color = Color(0xFFD7D8DD), fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp))
                         Text((if (c.parentId != null) "Balasan · " else "") + commentTargetLabel(c.target) + " · " + agoText(c.createdAt), color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
                     }
-                    IconButton({ delete = c }, Modifier.size(36.dp)) { Icon(Icons.Filled.Delete, "Hapus", tint = RedText) }
+                    IconButton({ delete = c }, Modifier.size(36.dp)) { Icon(Ic.Trash, "Hapus", tint = RedText) }
                 }
             }
             item("more") {
@@ -502,7 +497,7 @@ private fun AdminUsersTab() {
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Accent, unfocusedBorderColor = CardLine, focusedTextColor = Color.White, unfocusedTextColor = Color.White)
             )
-            IconButton({ load(1) }) { Icon(Icons.Filled.Search, null, tint = Accent) }
+            IconButton({ load(1) }) { Icon(Ic.Search, null, tint = Accent) }
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             UserFilters.forEach { (key, label) -> AdminChip(label, filter == key) { filter = key } }
@@ -617,7 +612,7 @@ private fun AdminNoticeRow(n: Notice, onDelete: () -> Unit) {
             val meta = (if (n.createdAt > 0) "Terbit ${dateText(n.createdAt)}" else "Terbit") + "  ·  " + (n.expiresAt?.let { "Berakhir ${dateText(it)}" } ?: "Tanpa batas waktu")
             Text(meta, color = Muted, fontSize = 11.sp)
         }
-        IconButton(onDelete) { Icon(Icons.Filled.Delete, "Hapus", tint = RedText) }
+        IconButton(onDelete) { Icon(Ic.Trash, "Hapus", tint = RedText) }
     }
 }
 

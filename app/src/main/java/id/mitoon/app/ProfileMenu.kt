@@ -6,17 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Build
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -54,7 +43,7 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
                         Text("@${user.username}", color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         StatusLabels(user.isOwner, user.premium, Modifier.padding(top = 6.dp), iconSize = 18.dp, textSize = 13, center = false)
                     }
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Muted, modifier = Modifier.size(24.dp))
+                    Icon(Ic.Right, null, tint = Muted, modifier = Modifier.size(24.dp))
                 }
                 Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                     RoleTag(user.level, iconSize = 22.dp)
@@ -66,19 +55,19 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
 
             Spacer(Modifier.height(14.dp))
             MenuGroup {
-                MenuRow(Icons.Filled.Person, "Pengaturan Profil", onEdit)
+                MenuRow(Ic.Person, "Pengaturan Profil", onEdit)
                 MenuDivider()
-                MenuRow(Icons.Filled.Star, "Peran & Lencana", onRoles)
+                MenuRow(Ic.Star, "Peran & Lencana", onRoles)
                 MenuDivider()
-                MenuRow(Icons.AutoMirrored.Filled.List, "Riwayat Aktivitas", onHistory)
+                MenuRow(Ic.List, "Riwayat Aktivitas", onHistory)
                 MenuDivider()
-                MenuRow(Icons.Filled.Settings, "Pengaturan Akun", onAccount)
+                MenuRow(Ic.Gear, "Pengaturan Akun", onAccount)
                 MenuDivider()
                 LanguageRow()
-                if (user.isOwner) { MenuDivider(); MenuRow(Icons.Filled.Build, "Panel Admin", onAdmin) }
+                if (user.isOwner) { MenuDivider(); MenuRow(Ic.Tool, "Panel Admin", onAdmin) }
             }
             Spacer(Modifier.height(14.dp))
-            MenuGroup { MenuRow(Icons.AutoMirrored.Filled.ExitToApp, "Keluar") { Auth.logout() } }
+            MenuGroup { MenuRow(Ic.Logout, "Keluar") { Auth.logout() } }
             Spacer(Modifier.height(16.dp))
         }
     }
@@ -94,7 +83,7 @@ private fun MenuDivider() = HorizontalDivider(color = Line, modifier = Modifier.
 @Composable
 fun SubTopBar(title: String, onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
+        IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) }
         Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
     }
     HorizontalDivider(color = Line)
@@ -105,7 +94,7 @@ private fun MenuRow(icon: ImageVector, label: String, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 16.dp, horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, tint = Color.White, modifier = Modifier.size(22.dp))
         Text(label, color = Color.White, fontSize = 16.sp, modifier = Modifier.weight(1f).padding(start = 16.dp))
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Muted, modifier = Modifier.size(22.dp))
+        Icon(Ic.Right, null, tint = Muted, modifier = Modifier.size(22.dp))
     }
 }
 
@@ -123,12 +112,12 @@ fun AccountSettingsScreen(onBack: () -> Unit) {
         SubTopBar("Pengaturan Akun", onBack)
         Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
             Row(Modifier.fillMaxWidth().clickable { err = null; confirm = true }.padding(vertical = 16.dp, horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Delete, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                Icon(Ic.Trash, null, tint = Color.White, modifier = Modifier.size(22.dp))
                 Column(Modifier.weight(1f).padding(start = 16.dp)) {
                     Text("Hapus Akun", color = Color.White, fontSize = 16.sp)
                     Text("Akun, XP, dan komentarmu dihapus permanen.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
                 }
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Muted, modifier = Modifier.size(22.dp))
+                Icon(Ic.Right, null, tint = Muted, modifier = Modifier.size(22.dp))
             }
             HorizontalDivider(color = Line)
         }
@@ -175,7 +164,7 @@ private fun LanguageRow() {
             Text("Bahasa", color = Color.White, fontSize = 16.sp)
             Text(current, color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Muted, modifier = Modifier.size(22.dp))
+        Icon(Ic.Right, null, tint = Muted, modifier = Modifier.size(22.dp))
     }
     if (open) AlertDialog(
         onDismissRequest = { open = false },

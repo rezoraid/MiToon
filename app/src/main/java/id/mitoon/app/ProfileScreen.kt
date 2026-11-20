@@ -11,10 +11,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -121,7 +117,7 @@ fun ProfileEditScreen(onBack: () -> Unit) {
 
     Column(Modifier.fillMaxSize().background(Bg)) { // inset sudah diberikan Scaffold; jangan dobel
         Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
+            IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) }
             Text("Pengaturan Profil", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
         }
         HorizontalDivider(color = Line)
@@ -262,7 +258,7 @@ fun ProfileEditScreen(onBack: () -> Unit) {
                         isError = v.isNotEmpty() && !valid, modifier = Modifier.fillMaxWidth(), colors = fieldColors()
                     )
                     if (locked) Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Lock, null, tint = Muted, modifier = Modifier.size(15.dp))
+                        Icon(Ic.Lock, null, tint = Muted, modifier = Modifier.size(15.dp))
                         Text("  Bisa diganti lagi dalam ${cooldownText(leftMs)}", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     } else Text("3–20 karakter: huruf, angka, titik, atau garis bawah. Setelah diganti, username terkunci selama 7 hari.",
                         color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp))
@@ -309,7 +305,7 @@ private fun InfoRow(label: String, value: String, hint: String?, locked: Boolean
             Text(value, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = maxLines, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
             if (hint != null) Text(hint, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 3.dp))
         }
-        Icon(if (locked) Icons.Filled.Lock else Icons.Filled.Edit, null, tint = Muted, modifier = Modifier.padding(start = 12.dp).size(18.dp))
+        Icon(if (locked) Ic.Lock else Ic.Edit, null, tint = Muted, modifier = Modifier.padding(start = 12.dp).size(18.dp))
     }
 }
 

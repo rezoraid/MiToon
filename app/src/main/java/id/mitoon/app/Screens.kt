@@ -12,9 +12,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -38,7 +35,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 fun TopBar(title: String, onBack: (() -> Unit)?, action: @Composable () -> Unit = {}) =
     Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (onBack != null) IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) } else Spacer(Modifier.width(16.dp))
+        if (onBack != null) IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) } else Spacer(Modifier.width(16.dp))
         Text(title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         action()
     }
@@ -166,7 +163,7 @@ fun ExploreScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit) {
                 Row(Modifier.padding(top = 12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Row(Modifier.weight(1f).height(46.dp).clip(R6).background(CardBg).border(1.dp, Line, R6).clickable(onClick = onSearch).padding(horizontal = 12.dp),
                         verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Search, null, tint = Muted); Spacer(Modifier.width(8.dp)); Text("Cari komik / novel", color = Muted, fontSize = 14.sp)
+                        Icon(Ic.Search, null, tint = Muted); Spacer(Modifier.width(8.dp)); Text("Cari komik / novel", color = Muted, fontSize = 14.sp)
                     }
                     val on = active.isNotEmpty()
                     Box(Modifier.size(46.dp).clip(R6).background(CardBg).border(1.dp, if (on) Accent else Line, R6).clickable { sheet = true }, Alignment.Center) {
@@ -199,7 +196,7 @@ fun SearchScreen(onBack: () -> Unit, onOpen: (Series) -> Unit) {
     val kb = LocalSoftwareKeyboardController.current
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
+            IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) }
             OutlinedTextField(q, { q = it }, Modifier.weight(1f).padding(end = 12.dp), singleLine = true,
                 placeholder = { Text("Cari komik / novel", color = Muted) },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),

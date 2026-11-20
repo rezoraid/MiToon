@@ -218,12 +218,12 @@ object Net {
     private const val COVER_PROXY = "https://wsrv.nl/"
     private val thumbBlocked = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private fun hostOf(url: String) = runCatching { java.net.URI(url.trim()).host.orEmpty() }.getOrDefault("")
-    fun thumb(url: String, width: Int): String? {
+    fun thumb(url: String, width: Int, q: Int = 72): String? {
         val u = url.trim()
         if (width <= 0 || !(u.startsWith("http://") || u.startsWith("https://")) || u.startsWith(COVER_PROXY) || u.endsWith(".gif", true)) return null
         val host = hostOf(u)
         if (host.isBlank() || host in thumbBlocked || u.startsWith(BuildConfig.API_BASE_URL)) return null
-        return "$COVER_PROXY?url=${java.net.URLEncoder.encode(u, "UTF-8")}&w=$width&we=1&output=webp&q=72"
+        return "$COVER_PROXY?url=${java.net.URLEncoder.encode(u, "UTF-8")}&w=$width&we=1&output=webp&q=$q"
     }
     fun thumbFailed(url: String) { hostOf(url).takeIf { it.isNotBlank() }?.let { thumbBlocked.add(it) } }
 

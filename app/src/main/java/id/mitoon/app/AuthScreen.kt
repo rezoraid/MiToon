@@ -35,11 +35,6 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
@@ -145,11 +140,11 @@ private fun FeaturesPage() =
         Text("Semua dalam\nsatu aplikasi", color = Color.White, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp, modifier = Modifier.padding(horizontal = 8.dp))
         Spacer(Modifier.height(24.dp))
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardBg)) {
-            Feature(Icons.Default.Search, Color(0xFF0A84FF), "Cari & jelajahi", "Temukan komik dari berbagai sumber, lengkap dengan genre.")
+            Feature(Ic.Search, Color(0xFF0A84FF), "Cari & jelajahi", "Temukan komik dari berbagai sumber, lengkap dengan genre.")
             Box(Modifier.padding(start = 74.dp).fillMaxWidth().height(0.5.dp).background(Line))
-            Feature(Icons.Default.Favorite, Color(0xFFFF375F), "Pustaka pribadi", "Simpan favoritmu dan lanjutkan baca dari chapter terakhir.")
+            Feature(Ic.Heart, Color(0xFFFF375F), "Pustaka pribadi", "Simpan favoritmu dan lanjutkan baca dari chapter terakhir.")
             Box(Modifier.padding(start = 74.dp).fillMaxWidth().height(0.5.dp).background(Line))
-            Feature(Icons.Default.Notifications, Color(0xFFFF9F0A), "Komentar & notifikasi", "Ngobrol di tiap komik dan terima kabar terbaru.")
+            Feature(Ic.Bell, Color(0xFFFF9F0A), "Komentar & notifikasi", "Ngobrol di tiap komik dan terima kabar terbaru.")
         }
     }
 
@@ -196,7 +191,7 @@ private fun SwipeHint(modifier: Modifier, onClick: () -> Unit) {
     val inf = rememberInfiniteTransition(label = "hint")
     val dy by inf.animateFloat(0f, -6f, infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "dy")
     Column(modifier.clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(Icons.Default.KeyboardArrowUp, null, tint = Color(0xFF8A8E9A), modifier = Modifier.size(28.dp).offset(y = dy.dp))
+        Icon(Ic.Up, null, tint = Color(0xFF8A8E9A), modifier = Modifier.size(28.dp).offset(y = dy.dp))
         Text("Geser ke atas", color = Color(0xFF8A8E9A), fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }

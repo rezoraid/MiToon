@@ -195,7 +195,10 @@ object Net {
     // ---- "sudah dibuka & masih segar" -> tidak diambil ulang; lewat batas waktu -> diambil diam-diam & diganti hanya bila ada yang baru ----
     private val freshAt = ConcurrentHashMap<String, Long>()
     fun markFresh(key: String) { freshAt[key] = System.currentTimeMillis() }
-    fun isFresh(key: String, maxAgeMs: Long): Boolean = (freshAt[key] ?: return false).let { System.currentTimeMillis() - it < maxAgeMs }
+    fun isFresh(key: String, maxAgeMs: Long): Boolean {
+        val t = freshAt[key] ?: return false
+        return System.currentTimeMillis() - t < maxAgeMs
+    }
     const val DETAIL_FRESH_MS = 120_000L
     const val CHAPTER_FRESH_MS = 600_000L
 

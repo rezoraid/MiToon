@@ -31,6 +31,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -206,10 +207,12 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
     // Detail yang pernah dibuka langsung tampil dari cache memori; data terbaru tetap diambil di belakang layar.
     val res by produceState<Result<Detail>?>(Net.detailCache[id]?.let { Result.success(it) }, id, tick) {
         if (tick > 0) value = null
+        // Baru saja dibuka (masih segar) -> pakai yang ada, tanpa request. Sudah lewat -> ambil lagi dan ganti bila ada yang baru.
+        if (tick == 0 && value != null && Net.isFresh("detail:$id", Net.DETAIL_FRESH_MS)) return@produceState
         // Belum ada di memori -> coba disk dulu (tampil instan, juga saat offline), lalu segarkan dari server.
         if (value == null) Net.loadDetailDisk(id)?.let { value = Result.success(it) }
         val r = runCatching { Net.detail(id) }
-        r.getOrNull()?.let { Net.storeDetail(id, it) }
+        r.getOrNull()?.let { Net.storeDetail(id, it); Net.markFresh("detail:$id") }
         if (r.isSuccess || value == null) value = r
     }
     // Info dasar dari kartu yang diklik / pustaka -> header detail muncul seketika, tanpa menunggu server.
@@ -393,8 +396,10 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     val res by produceState<Result<Content>?>((local ?: Net.cachedChapter(chapterId))?.let { Result.success(it) }, chapterId, tick) {
         if (local != null) return@produceState
         if (tick > 0) value = null
+        // Chapter yang baru dibaca tidak perlu diambil ulang (daftar gambarnya tetap); lewat 10 menit -> cek yang terbaru.
+        if (tick == 0 && value != null && Net.isFresh("chapter:$chapterId", Net.CHAPTER_FRESH_MS)) return@produceState
         val r = runCatching { Net.chapter(chapterId) }
-        r.getOrNull()?.let { Net.storeChapter(chapterId, it) }
+        r.getOrNull()?.let { Net.storeChapter(chapterId, it); Net.markFresh("chapter:$chapterId") }
         if (r.isSuccess) { if (value?.getOrNull() != r.getOrNull()) value = r } else if (value == null) value = r
     }
     val ctx = LocalContext.current
@@ -533,9 +538,9 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
             c == null -> Failed { tick++ }
             c.images.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Chapter belum tersedia", color = Muted) }
             else -> LazyColumn(Modifier.fillMaxSize().nestedScroll(barsByScroll).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { bars = !bars }, listState) {
-                items(c.images, key = { it }) { url ->
+                itemsIndexed(c.images, key = { i, u -> "$i|$u" }) { i, url ->
                     ReaderPage(url, imgHeaders, reloadNonce) {
-                        if (url == c.images.first() && !autoTried && left > 0 && local == null && !refetching) { autoTried = true; doRefetch() }
+                        if (i == 0 && !autoTried && left > 0 && local == null && !refetching) { autoTried = true; doRefetch() }
                     }
                 }
             }
@@ -570,7 +575,7 @@ private fun ReaderPage(url: String, headers: Map<String, String>, nonce: Int, on
     val dead0 by rememberUpdatedState(onDead)
     key(nonce, round) {
         Box(Modifier.fillMaxWidth()) {
-            Img(url, "", Modifier.fillMaxWidth().heightIn(min = 240.dp), ContentScale.FillWidth, headers, onFail = { dead = true; dead0() })
+            Img(url, "", Modifier.fillMaxWidth().heightIn(min = 240.dp), ContentScale.FillWidth, headers, onFail = { dead = true; dead0() }, maxH = 12000)
             if (dead) Column(Modifier.matchParentSize().clickable { dead = false; round++ }, Arrangement.Center, Alignment.CenterHorizontally) {
                 Text("Gagal memuat gambar", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 Text("Ketuk untuk coba lagi", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))

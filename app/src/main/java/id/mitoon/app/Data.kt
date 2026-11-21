@@ -192,6 +192,19 @@ object Net {
     /** Header gambar per provider (referer), diisi sekali dari /v1/providers. */
     var hdr by mutableStateOf<Map<String, Map<String, String>>>(emptyMap())
 
+    // ---- "sudah dibuka & masih segar" -> tidak diambil ulang; lewat batas waktu -> diambil diam-diam & diganti hanya bila ada yang baru ----
+    private val freshAt = ConcurrentHashMap<String, Long>()
+    fun markFresh(key: String) { freshAt[key] = System.currentTimeMillis() }
+    fun isFresh(key: String, maxAgeMs: Long): Boolean = (freshAt[key] ?: return false).let { System.currentTimeMillis() - it < maxAgeMs }
+    const val DETAIL_FRESH_MS = 120_000L
+    const val CHAPTER_FRESH_MS = 600_000L
+
+    /** Status penuh sebuah daftar berhalaman (item + halaman terakhir + habis?) supaya membuka ulang layar tidak memuat dari nol. */
+    class PageState(val items: List<Series>, val page: Int, val end: Boolean)
+    val pageMem: MutableMap<String, PageState> = java.util.Collections.synchronizedMap(object : LinkedHashMap<String, PageState>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, PageState>?): Boolean = size > 40
+    })
+
     private fun <V> lru(max: Int): MutableMap<String, V> = object : LinkedHashMap<String, V>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, V>?): Boolean = size > max
     }
@@ -569,10 +582,10 @@ class MiToonApp : Application(), ImageLoaderFactory {
             .readTimeout(40, TimeUnit.SECONDS).callTimeout(90, TimeUnit.SECONDS).build())
         .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.30).build() }
         .respectCacheHeaders(false) // gambar yang sudah ada di disk dipakai langsung, tanpa cek ulang ke server
-        .diskCache { DiskCache.Builder().directory(cacheDir.resolve("img")).maxSizeBytes(200L * 1024 * 1024).build() }
+        .diskCache { DiskCache.Builder().directory(cacheDir.resolve("img")).maxSizeBytes(300L * 1024 * 1024).build() }
         .components {
             // GIF animasi (mascot loading): ImageDecoder di API 28+, GifDecoder di bawahnya.
             if (android.os.Build.VERSION.SDK_INT >= 28) add(coil.decode.ImageDecoderDecoder.Factory()) else add(coil.decode.GifDecoder.Factory())
         }
-        .allowRgb565(true).crossfade(120).build()
+        .allowRgb565(true).crossfade(false).build()
 }

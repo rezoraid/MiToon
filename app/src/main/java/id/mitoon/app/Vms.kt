@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.builtins.ListSerializer
 
 private val seriesListSer = ListSerializer(Series.serializer())
+private const val FRESH_MS = 90_000L
 
 @Composable
 inline fun <reified T : ViewModel> keyedVm(key: String, crossinline make: () -> T): T =
@@ -23,14 +24,18 @@ inline fun <reified T : ViewModel> keyedVm(key: String, crossinline make: () -> 
  * lalu diganti data terbaru begitu server menjawab.
  */
 class PagedVm(private val snapKey: String? = null, private val loader: suspend (Int) -> List<Series>) : ViewModel() {
-    var items by mutableStateOf(snapKey?.let { Net.readSnap(it, seriesListSer) }.orEmpty()); private set
+    // Bila daftar ini baru dibuka (< 90 dtk) -> pulihkan penuh dari memori (termasuk halaman yang sudah digulir) dan JANGAN memuat ulang.
+    private val mem = snapKey?.let { Net.pageMem[it] }?.takeIf { Net.isFresh("page:$snapKey", FRESH_MS) }
+    var items by mutableStateOf(mem?.items ?: snapKey?.let { Net.readSnap(it, seriesListSer) }.orEmpty()); private set
     var loading by mutableStateOf(false); private set
     var error by mutableStateOf<String?>(null); private set
-    private var page = 1
-    private var end = false
+    private var page = mem?.page ?: 1
+    private var end = mem?.end ?: false
     private var busy = false
 
-    init { more() }
+    init { if (mem == null) more() }
+
+    private fun saveMem() { if (snapKey != null && items.isNotEmpty()) Net.pageMem[snapKey] = Net.PageState(items, page, end) }
 
     fun more() {
         if (busy || end) return
@@ -42,7 +47,7 @@ class PagedVm(private val snapKey: String? = null, private val loader: suspend (
                 .onSuccess { r ->
                     if (page == 1) {
                         if (r.isEmpty()) end = true
-                        else { items = r; page = 2; snapKey?.let { Net.writeSnap(it, seriesListSer, r) }; r.take(3).forEach { Net.prefetchDetail(it.id) }; Net.preloadCovers(r, skip = 12) }
+                        else { items = r; page = 2; snapKey?.let { Net.writeSnap(it, seriesListSer, r); Net.markFresh("page:$it") }; r.take(3).forEach { Net.prefetchDetail(it.id) }; Net.preloadCovers(r, skip = 12) }
                     } else {
                         val seen = items.mapTo(HashSet()) { it.id }
                         val fresh = r.filter { it.id !in seen }
@@ -50,6 +55,7 @@ class PagedVm(private val snapKey: String? = null, private val loader: suspend (
                     }
                 }
                 .onFailure { if (items.isEmpty() || page > 1) error = "Gagal memuat" }
+            saveMem()
             busy = false; loading = false
         }
     }

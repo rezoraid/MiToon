@@ -99,7 +99,7 @@ fun MiToonTheme(content: @Composable () -> Unit) = MaterialTheme(
 )
 
 @Composable
-fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale = ContentScale.Crop, extra: Map<String, String>? = null, retries: Int = 4, onFail: (() -> Unit)? = null, maxW: Int = 0, q: Int = 72) {
+fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale = ContentScale.Crop, extra: Map<String, String>? = null, retries: Int = 4, onFail: (() -> Unit)? = null, maxW: Int = 0, q: Int = 72, maxH: Int = 0) {
     val ctx = LocalContext.current
     // Gagal muat (mis. header referer belum siap saat app baru dibuka, atau koneksi goyang) -> coba lagi sampai 2x
     // dengan header yang dibaca ulang saat itu juga (supaya tidak memakai header lama).
@@ -116,6 +116,7 @@ fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale =
     // Kunci memori eksplisit: gambar yang sudah tampil di kartu langsung dipakai sebagai placeholder di detail (tanpa kotak kosong).
     val req = remember(src, h, attempt) {
         ImageRequest.Builder(ctx).data(src.trim()).memoryCacheKey(url).placeholderMemoryCacheKey(url)
+            .apply { if (maxH > 0) size(ctx.resources.displayMetrics.widthPixels, maxH).scale(coil.size.Scale.FIT) }
             .apply { h.forEach { (k, v) -> addHeader(k, v) } }.build()
     }
     AsyncImage(model = req, contentDescription = null, modifier = modifier.background(CardBg), contentScale = scale,
@@ -133,11 +134,11 @@ fun MascotLoading(modifier: Modifier = Modifier, size: androidx.compose.ui.unit.
     }
 }
 
-private const val SHELF_ROWS = 4
+private const val SHELF_ROWS = 1 // satu baris kartu; geser ke samping untuk lanjut
 private val ShelfGap = 7.dp // sama dengan jarak grid di Explore
 
 /**
- * Rak horizontal: kartu PERSIS sama dengan grid Explore (lebar = 1/3 layar, rasio 1:2), disusun 4 baris.
+ * Rak horizontal: kartu PERSIS sama dengan grid Explore (lebar = 1/3 layar, rasio 1:2), satu baris.
  * Geser ke kiri untuk melihat lebih banyak; halaman berikutnya dimuat otomatis menjelang ujung.
  */
 @Composable

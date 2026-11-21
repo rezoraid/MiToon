@@ -234,15 +234,20 @@ private fun ago(t: Long): String {
 private fun Empty(text: String) = Box(Modifier.fillMaxSize().padding(32.dp), Alignment.Center) { Text(text, color = Muted, fontSize = 14.sp) }
 
 @Composable
-fun LibraryScreen(onOpen: (String) -> Unit, onContinue: (LibEntry) -> Unit, onSearch: () -> Unit) {
+fun LibraryScreen(onOpen: (String) -> Unit, onContinue: (LibEntry) -> Unit, onSearch: () -> Unit, onRead: (seriesId: String, chapterId: String) -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val all = Library.entries.values
     Column(Modifier.fillMaxSize()) {
         Header(onSearch)
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Chip("Bookmark", tab == 0) { tab = 0 }; Chip("Riwayat", tab == 1) { tab = 1 }
+        if (Auth.isGuest) Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 10.dp).clip(R6).background(CardBg).clickable { GuestGate.openUpgrade() }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Mode tamu: pustaka hanya tersimpan di perangkat ini.", color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+            Text("Daftar", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
-        if (tab == 0) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Chip("Bookmark", tab == 0) { tab = 0 }; Chip("Riwayat", tab == 1) { tab = 1 }; Chip("Download", tab == 2) { tab = 2 }
+        }
+        if (tab == 2) DownloadsContent(onRead, onOpen)
+        else if (tab == 0) {
             val list = all.filter { it.bookmarked }.sortedByDescending { it.readAt }
             if (list.isEmpty()) Empty("Belum ada bookmark. Buka detail komik lalu tekan Bookmark.")
             else LazyVerticalGrid(GridCells.Fixed(3), Modifier.fillMaxSize(), contentPadding = PaddingValues(12.dp),

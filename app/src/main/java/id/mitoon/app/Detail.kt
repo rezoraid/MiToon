@@ -121,7 +121,7 @@ private fun DetailTabs(tab: Int, onTab: (Int) -> Unit) = Column(Modifier.padding
 // ------------------------------------------------------------------ DETAIL KOMIK (mengikuti layout Siikomik)
 @Composable
 private fun LazyLoader() =
-    MascotLoading(Modifier.fillMaxWidth().padding(vertical = 20.dp), 96.dp, "Memuat chapter…")
+    MascotLoading(Modifier.fillMaxWidth().padding(vertical = 20.dp), 96.dp)
 
 @Composable
 private fun RetryBox(text: String, onRetry: () -> Unit) =
@@ -371,15 +371,13 @@ object ReaderPrefs {
     var speed by mutableIntStateOf(1); private set
     var pause by mutableIntStateOf(1); private set
     var autoNext by mutableStateOf(true); private set
-    var quality by mutableIntStateOf(0); private set
     fun init(ctx: Context) {
         if (prefs != null) return
         val p = ctx.getSharedPreferences("reader", Context.MODE_PRIVATE).also { prefs = it }
-        speed = p.getInt("s", 1).coerceIn(0, 2); pause = p.getInt("p", 1).coerceIn(0, 2); autoNext = p.getBoolean("a", true); quality = p.getInt("q", 0).coerceIn(0, 1)
+        speed = p.getInt("s", 1).coerceIn(0, 2); pause = p.getInt("p", 1).coerceIn(0, 2); autoNext = p.getBoolean("a", true)
     }
     @JvmName("applySpeed") fun setSpeed(i: Int) { speed = i; prefs?.edit()?.putInt("s", i)?.apply() }
     @JvmName("applyPause") fun setPause(i: Int) { pause = i; prefs?.edit()?.putInt("p", i)?.apply() }
-    @JvmName("applyQuality") fun setQuality(i: Int) { quality = i; prefs?.edit()?.putInt("q", i)?.apply() }
     @JvmName("applyAutoNext") fun setAutoNext(v: Boolean) { autoNext = v; prefs?.edit()?.putBoolean("a", v)?.apply() }
 }
 
@@ -513,11 +511,11 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
 
     Box(Modifier.fillMaxSize()) {
         when {
-            res == null -> Box(Modifier.fillMaxSize(), Alignment.Center) { MascotLoading(size = 150.dp, label = "Menyiapkan chapter…") }
+            res == null -> Box(Modifier.fillMaxSize(), Alignment.Center) { MascotLoading(size = 150.dp) }
             c == null -> Failed { tick++ }
             c.images.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Chapter belum tersedia", color = Muted) }
             else -> LazyColumn(Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { bars = !bars }, listState) {
-                items(c.images, key = { it }) { url -> key(reloadNonce, ReaderPrefs.quality) { Img(url, "", Modifier.fillMaxWidth().heightIn(min = 240.dp), ContentScale.FillWidth, c.imageHeaders, maxW = if (ReaderPrefs.quality == 1) 720 else 0, q = 50) } }
+                items(c.images, key = { it }) { url -> key(reloadNonce) { Img(url, "", Modifier.fillMaxWidth().heightIn(min = 240.dp), ContentScale.FillWidth, c.imageHeaders) } }
             }
         }
         AnimatedVisibility(bars, Modifier.align(Alignment.TopCenter), fadeIn(tween(120)), fadeOut(tween(120))) {
@@ -704,14 +702,6 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
                     Text("Kecepatan auto-scroll", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 12.dp))
                 }
                 Segmented(speeds.map { it.first }, ReaderPrefs.speed, onSelect = ReaderPrefs::setSpeed)
-            }
-            SettingCard {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconTile(Color(0xFFB5651D)) { Text("HD", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold) }
-                    Text("Kualitas gambar", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 12.dp))
-                }
-                Segmented(listOf("Tinggi", "Rendah (hemat data)"), ReaderPrefs.quality, onSelect = ReaderPrefs::setQuality)
-                Text("Rendah memperkecil gambar chapter (±70% lebih hemat kuota). Berlaku untuk halaman yang dimuat berikutnya.", color = Muted, fontSize = 13.sp, lineHeight = 18.sp)
             }
             SettingCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {

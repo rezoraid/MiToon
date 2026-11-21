@@ -52,7 +52,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private val tabRoutes = setOf("home", "explore", "library", "downloads", "ranking")
+private val tabRoutes = setOf("home", "explore", "library", "ranking")
 private fun NavBackStackEntry.isTab() = destination.route in tabRoutes
 private fun NavBackStackEntry.isReader() = destination.route?.startsWith("reader") == true
 
@@ -85,7 +85,7 @@ private fun AppScaffold() {
     val nav = rememberNavController()
     LvClock.Run()
     val tabs = listOf(Tab("home", "Home", Ic.Home, Ic.HomeOn), Tab("explore", "Explore", Ic.Search), Tab("library", "Library", Ic.Heart, Ic.HeartOn),
-        Tab("downloads", "Download", Ic.Download, Ic.DownloadOn), Tab("ranking", "Ranking", Ic.Trophy, Ic.TrophyOn))
+        Tab("ranking", "Ranking", Ic.Trophy, Ic.TrophyOn))
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
     // Pil merah notifikasi (lonceng di header): cek tiap menit selama login, dan setiap kali pindah layar (kecuali saat sedang membuka halaman Notifikasi).
     val uid = Auth.user?.id
@@ -97,6 +97,7 @@ private fun AppScaffold() {
     Auth.roleUnlocked?.let { r ->
         RoleUnlockDialog(r, { Auth.roleUnlocked = null }) { Auth.roleUnlocked = null; nav.navigate("profile/roles") { launchSingleTop = true } }
     }
+    GuestGateHost()
     val openNotif: () -> Unit = { nav.navigate("notifications") { launchSingleTop = true } }
     CompositionLocalProvider(LocalOpenUser provides openUser, LocalOpenNotif provides openNotif) {
     Scaffold(containerColor = Bg, bottomBar = {
@@ -123,17 +124,15 @@ private fun AppScaffold() {
             }
             composable("explore") { ExploreScreen({ nav.detail(it) }, { nav.navigate("search") }) }
             composable("library") {
-                LibraryScreen({ nav.detail(it) }, { e -> e.lastChapterId?.let { nav.reader(e.id, it) } ?: nav.detail(e.id) }, { nav.navigate("search") })
-            }
-            composable("downloads") {
-                DownloadsScreen({ nav.navigate("search") }, { sid, cid -> nav.reader(sid, cid) }, { nav.detail(it) })
+                LibraryScreen({ nav.detail(it) }, { e -> e.lastChapterId?.let { nav.reader(e.id, it) } ?: nav.detail(e.id) }, { nav.navigate("search") }, { sid, cid -> nav.reader(sid, cid) })
             }
             composable("ranking") { LeaderboardScreen { nav.navigate("search") } }
             composable("notifications") {
                 NotificationsScreen(nav::popBackStack) { o -> if (o.chapterId != null) nav.reader(o.seriesId, o.chapterId) else nav.detail(o.seriesId) }
             }
             composable("search") { SearchScreen(nav::popBackStack) { nav.detail(it) } }
-            composable("profile") { ProfileScreen(nav::popBackStack, { nav.navigate("profile/edit") }, { nav.navigate("profile/history") }, { nav.navigate("profile/account") }, { nav.navigate("profile/roles") }, { nav.navigate("admin") }) }
+            composable("profile") { ProfileScreen(nav::popBackStack, { nav.navigate("profile/edit") }, { nav.navigate("profile/history") }, { nav.navigate("profile/account") }, { nav.navigate("profile/roles") }, { nav.navigate("admin") }, { nav.navigate("profile/privacy") }) }
+            composable("profile/privacy") { PrivacyScreen(nav::popBackStack) }
             composable("admin") { AdminScreen(nav::popBackStack) }
             composable("admin/series/{id}") { e -> AdminSeriesEditScreen(e.arguments?.getString("id")?.toLongOrNull() ?: 0L, nav::popBackStack) }
             composable("profile/roles") { RolesScreen(nav::popBackStack) }

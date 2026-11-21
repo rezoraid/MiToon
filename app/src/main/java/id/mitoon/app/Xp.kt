@@ -62,7 +62,7 @@ object Xp {
     fun reset() = sent.clear()
 
     fun event(type: String, ref: String? = null) {
-        if (Auth.token == null) return
+        if (Auth.token == null || Auth.isGuest) return
         // Bonus harian: kunci per hari WIB supaya aplikasi yang terbuka berhari-hari tetap melapor tiap hari baru.
         val key = if (type == "daily") "daily|${(System.currentTimeMillis() + 7 * 3_600_000L) / 86_400_000L}" else "$type|$ref"
         if (!sent.add(key)) return

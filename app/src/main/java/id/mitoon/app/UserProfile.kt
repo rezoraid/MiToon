@@ -27,7 +27,7 @@ import java.util.Locale
 @Serializable data class PublicUser(
     val id: Long = 0, val username: String = "", val displayName: String = "", val bio: String = "", val avatarV: Int = 0,
     val xp: Int = 0, val level: Int = 1, val joinedAt: Long = 0, val commentCount: Int = 0,
-    val verified: Boolean = false, val isOwner: Boolean = false, val premium: Boolean = false
+    val verified: Boolean = false, val isOwner: Boolean = false, val premium: Boolean = false, val readingHidden: Boolean = false
 ) { val name: String get() = displayName.ifBlank { username } }
 
 /** Halaman profil orang lain: foto, nama, level, ringkasan, lalu daftar komik yang dibaca + chapter terakhirnya (ketuk untuk melanjutkan baca). */
@@ -41,7 +41,7 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
     var listErr by remember(userId) { mutableStateOf(false) }
     var reload by remember(userId) { mutableIntStateOf(0) }
 
-    suspend fun loadComments(before: Long?) {
+    suspend fun loadReading(before: Long?) {
         loading = true; listErr = false
         try {
             val p = Net.api.userReading(userId, before = before).data
@@ -52,7 +52,7 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
     LaunchedEffect(userId, reload) {
         userErr = null
         try { user = Net.api.user(userId).data } catch (e: CancellationException) { throw e } catch (e: Exception) { if (user == null) userErr = e.friendly() }
-        loadComments(null)
+        if (user?.readingHidden == true) { items = emptyList(); hasMore = false; loading = false } else loadReading(null)
     }
 
     Column(Modifier.fillMaxSize().background(Bg)) {
@@ -70,7 +70,7 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
                         Avatar(u.id, u.name, u.avatarV, 104.dp, shape = CircleShape)
                         Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(u.name, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                            if (u.verified || u.isOwner) VerifiedBadge(Modifier.padding(start = 6.dp), 20.dp)
+                            if (u.verified) VerifiedBadge(Modifier.padding(start = 6.dp), 20.dp)
                         }
                         Text("@${u.username}", color = Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
                         StatusLabels(u.isOwner, u.premium, Modifier.padding(top = 8.dp), iconSize = 20.dp, textSize = 13)
@@ -97,6 +97,7 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
                     Box(Modifier.fillMaxWidth().padding(vertical = 32.dp), Alignment.Center) {
                         when {
                             loading -> CircularProgressIndicator(Modifier.size(22.dp), Color.White, strokeWidth = 2.dp)
+                            u.readingHidden -> Text(if (u.id == Auth.user?.id) "Daftar bacaanmu disembunyikan. Atur di menu Privasi." else "Daftar bacaan disembunyikan oleh pemilik akun.", color = Muted, fontSize = 14.sp, textAlign = TextAlign.Center)
                             listErr -> TextButton({ reload++ }) { Text("Gagal memuat daftar baca. Coba lagi", color = Muted) }
                             else -> Text("Belum ada komik yang dibaca.", color = Muted, fontSize = 14.sp)
                         }
@@ -104,7 +105,7 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
                 }
                 items(items, key = { it.seriesId }) { r -> ReadRow(r, onOpen); HorizontalDivider(color = Line) }
                 if (hasMore) item("more") {
-                    LaunchedEffect(items.size) { loadComments(items.lastOrNull()?.readAt) }
+                    LaunchedEffect(items.size) { loadReading(items.lastOrNull()?.readAt) }
                     Box(Modifier.fillMaxWidth().padding(16.dp), Alignment.Center) { CircularProgressIndicator(Modifier.size(22.dp), Color.White, strokeWidth = 2.dp) }
                 }
                 item("end") { Spacer(Modifier.height(24.dp)) }

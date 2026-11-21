@@ -25,14 +25,14 @@ private val R16 = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
 
 /** Halaman akun: kartu profil (foto bulat, nama, status Owner/Premium, peran + level, XP) lalu menu dalam kartu berkelompok + Keluar. */
 @Composable
-fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit, onAccount: () -> Unit, onRoles: () -> Unit = {}, onAdmin: () -> Unit = {}) {
+fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit, onAccount: () -> Unit, onRoles: () -> Unit = {}, onAdmin: () -> Unit = {}, onPrivacy: () -> Unit = {}) {
     val user = Auth.user
     if (user == null) { Box(Modifier.fillMaxSize().background(Bg)); return }
     Column(Modifier.fillMaxSize().background(Bg)) {
         SubTopBar("Akun", onBack)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             // ---- kartu profil
-            Column(Modifier.fillMaxWidth().clip(R16).border(1.dp, CardLine, R16).background(CardBg).clickable(onClick = onEdit).padding(16.dp)) {
+            Column(Modifier.fillMaxWidth().clip(R16).border(1.dp, CardLine, R16).background(CardBg).then(if (user.guest) Modifier else Modifier.clickable(onClick = onEdit)).padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Avatar(user.id, user.name, user.avatarV, 72.dp, shape = androidx.compose.foundation.shape.CircleShape)
                     Column(Modifier.weight(1f).padding(start = 16.dp)) {
@@ -43,22 +43,36 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
                         Text("@${user.username}", color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         StatusLabels(user.isOwner, user.premium, Modifier.padding(top = 6.dp), iconSize = 18.dp, textSize = 13, center = false)
                     }
-                    Icon(Ic.Right, null, tint = Muted, modifier = Modifier.size(24.dp))
+                    if (!user.guest) Icon(Ic.Right, null, tint = Muted, modifier = Modifier.size(24.dp))
                 }
-                Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (!user.guest) Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                     RoleTag(user.level, iconSize = 22.dp)
                     LevelChip(user.level, Modifier.padding(start = 8.dp), size = 11)
                 }
-                if (user.bio.isNotBlank()) Text(user.bio, color = Color(0xFFD7D9DE), fontSize = 13.sp, lineHeight = 19.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 12.dp))
-                XpBar(user, Modifier.padding(top = 14.dp))
+                if (!user.guest && user.bio.isNotBlank()) Text(user.bio, color = Color(0xFFD7D9DE), fontSize = 13.sp, lineHeight = 19.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 12.dp))
+                if (!user.guest) XpBar(user, Modifier.padding(top = 14.dp))
+            }
+
+            if (user.guest) {
+                Spacer(Modifier.height(14.dp))
+                Column(Modifier.fillMaxWidth().clip(R16).border(1.dp, CardLine, R16).background(CardBg).padding(16.dp)) {
+                    Text("Kamu masuk sebagai tamu", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text("Daftar untuk berkomentar, memberi like, punya profil, mengumpulkan XP, dan menyinkronkan pustaka lintas perangkat. Data tamumu ikut terbawa.", color = Muted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 6.dp))
+                    Button({ GuestGate.openUpgrade() }, Modifier.padding(top = 12.dp).fillMaxWidth(), shape = R6,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)) { Text("Daftar / Masuk", fontWeight = FontWeight.Bold) }
+                }
             }
 
             Spacer(Modifier.height(14.dp))
             MenuGroup {
-                MenuRow(Ic.Person, "Pengaturan Profil", onEdit)
-                MenuDivider()
-                MenuRow(Ic.Star, "Peran & Lencana", onRoles)
-                MenuDivider()
+                if (!user.guest) {
+                    MenuRow(Ic.Person, "Pengaturan Profil", onEdit)
+                    MenuDivider()
+                    MenuRow(Ic.Lock, "Privasi", onPrivacy)
+                    MenuDivider()
+                    MenuRow(Ic.Star, "Peran & Lencana", onRoles)
+                    MenuDivider()
+                }
                 MenuRow(Ic.List, "Riwayat Aktivitas", onHistory)
                 MenuDivider()
                 MenuRow(Ic.Gear, "Pengaturan Akun", onAccount)

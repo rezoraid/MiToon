@@ -328,7 +328,7 @@ private fun DlOption(title: String, desc: String, enabled: Boolean, onClick: () 
 // ------------------------------------------------------------------ tab Download
 
 @Composable
-fun DownloadsScreen(onSearch: () -> Unit, onRead: (seriesId: String, chapterId: String) -> Unit, onSeries: (String) -> Unit) {
+fun DownloadsContent(onRead: (seriesId: String, chapterId: String) -> Unit, onSeries: (String) -> Unit) {
     val saved = Downloads.items
     // berjalan dulu, lalu menunggu, gagal paling bawah; di dalam kelompok urut judul + nomor chapter (peta status tidak menjaga urutan masuk)
     val queue = Downloads.active.entries.sortedWith(compareBy<Map.Entry<String, DlProgress>>({ when (it.value.phase) { DlPhase.Running -> 0; DlPhase.Queued -> 1; DlPhase.Failed -> 2 } }, { it.value.title }, { chapterOrder(it.value.number) }))
@@ -339,7 +339,6 @@ fun DownloadsScreen(onSearch: () -> Unit, onRead: (seriesId: String, chapterId: 
     var dropChapter by remember { mutableStateOf<DlMeta?>(null) }
 
     Column(Modifier.fillMaxSize()) {
-        Header(onSearch)
         if (saved.isEmpty() && queue.isEmpty()) {
             Column(Modifier.fillMaxSize().padding(horizontal = 36.dp), Arrangement.Center, Alignment.CenterHorizontally) {
                 Icon(Ic.Download, null, tint = Line, modifier = Modifier.size(56.dp))
@@ -353,8 +352,7 @@ fun DownloadsScreen(onSearch: () -> Unit, onRead: (seriesId: String, chapterId: 
             item("summary") {
                 Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.Bottom) {
                     Column(Modifier.weight(1f)) {
-                        Text("Download", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
-                        Text("${saved.size} chapter · ${fmtBytes(Downloads.totalBytes)}", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
+                        Text("${saved.size} chapter · ${fmtBytes(Downloads.totalBytes)}", color = Muted, fontSize = 13.sp)
                     }
                     if (saved.isNotEmpty()) Text("Hapus semua", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium,
                         modifier = Modifier.clip(R6).clickable { wipe = true }.padding(8.dp))

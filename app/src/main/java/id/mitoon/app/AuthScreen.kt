@@ -47,10 +47,22 @@ import coil.request.ImageRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-private fun Context.findActivity(): Activity? {
+internal fun Context.findActivity(): Activity? {
     var c = this
     while (c is ContextWrapper) { if (c is Activity) return c; c = c.baseContext }
     return null
+}
+
+internal suspend fun googleSignIn(ctx: Context, clientId: String?, keep: Boolean) {
+    val id = clientId ?: Net.api.authConfig().data.google ?: throw IllegalStateException("Masuk dengan Google belum diaktifkan di server")
+    val act = ctx.findActivity() ?: throw IllegalStateException("Activity tidak ditemukan")
+    Auth.save(Net.api.googleLogin(GoogleReq(googleIdToken(act, id))).data, keep)
+}
+
+internal fun Throwable.googleError(): String? = when (this) {
+    is GetCredentialCancellationException -> null
+    is GetCredentialException -> "Masuk dengan Google gagal. Pastikan ada akun Google di perangkat. (${message ?: type})"
+    else -> friendly()
 }
 
 @Composable
@@ -67,18 +79,35 @@ fun AuthScreen() {
         if (busy) return
         msg = null; busy = true
         scope.launch {
-            try {
-                val clientId = config?.google ?: Net.api.authConfig().data.google
-                    ?: throw IllegalStateException("Masuk dengan Google belum diaktifkan di server")
-                val act = ctx.findActivity() ?: throw IllegalStateException("Activity tidak ditemukan")
-                val idToken = googleIdToken(act, clientId)
-                Auth.save(Net.api.googleLogin(GoogleReq(idToken)).data, keep)
-            } catch (e: CancellationException) { throw e }
-            catch (e: GetCredentialCancellationException) { /* dibatalkan pengguna */ }
-            catch (e: GetCredentialException) { msg = "Masuk dengan Google gagal. Pastikan ada akun Google di perangkat. (${e.message ?: e.type})" }
-            catch (e: Exception) { msg = e.friendly() } finally { busy = false }
+            try { googleSignIn(ctx, config?.google, keep) }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { msg = e.googleError() } finally { busy = false }
         }
     }
+
+    var guestAsk by remember { mutableStateOf(false) }
+    fun guest() {
+        if (busy) return
+        guestAsk = false; msg = null; busy = true
+        scope.launch {
+            try { Auth.save(Net.api.guestLogin().data, keep) }
+            catch (e: CancellationException) { throw e } catch (e: Exception) { msg = e.friendly() } finally { busy = false }
+        }
+    }
+    val guestInfo = config?.guest?.takeIf { it.enabled }
+    if (guestAsk) AlertDialog(
+        onDismissRequest = { guestAsk = false }, containerColor = CardBg, shape = RoundedCornerShape(12.dp),
+        title = { Text("Masuk sebagai tamu?", color = Color.White, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Kamu bisa membaca, bookmark, riwayat, dan unduh. Yang belum bisa:", color = Muted, fontSize = 14.sp, lineHeight = 20.sp)
+                guestInfo?.limits?.forEach { Text("•  ${tr(it.label)}", color = Color.White, fontSize = 14.sp, lineHeight = 20.sp) }
+                Text("Kamu bisa daftar kapan saja tanpa kehilangan data.", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+            }
+        },
+        confirmButton = { TextButton({ guest() }) { Text("Lanjut sebagai tamu", color = Color.White, fontWeight = FontWeight.Bold) } },
+        dismissButton = { TextButton({ guestAsk = false }) { Text("Batal", color = Muted) } }
+    )
 
     val pages = 3
     val pager = rememberPagerState(pageCount = { pages })
@@ -94,7 +123,7 @@ fun AuthScreen() {
                 when (p) {
                     0 -> WelcomePage()
                     1 -> FeaturesPage()
-                    else -> LoginPage(busy, msg, keep, { keep = it }) { google() }
+                    else -> LoginPage(busy, msg, keep, { keep = it }, guestInfo != null, { guestAsk = true }) { google() }
                 }
             }
         }
@@ -159,7 +188,7 @@ private fun Feature(icon: ImageVector, tint: Color, title: String, desc: String)
     }
 
 @Composable
-private fun LoginPage(busy: Boolean, msg: String?, keep: Boolean, onKeep: (Boolean) -> Unit, onGoogle: () -> Unit) =
+private fun LoginPage(busy: Boolean, msg: String?, keep: Boolean, onKeep: (Boolean) -> Unit, guestOn: Boolean, onGuest: () -> Unit, onGoogle: () -> Unit) =
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Mascot(130.dp)
         Text("Mulai membaca", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp, modifier = Modifier.padding(top = 4.dp))
@@ -179,6 +208,10 @@ private fun LoginPage(busy: Boolean, msg: String?, keep: Boolean, onKeep: (Boole
                 Spacer(Modifier.width(12.dp))
                 Text("Masuk dengan Google", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
+        }
+        if (guestOn) OutlinedButton(onGuest, Modifier.padding(top = 12.dp).widthIn(max = 420.dp).fillMaxWidth().height(52.dp), enabled = !busy, shape = RoundedCornerShape(16.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF45464C))) {
+            Text("Masuk sebagai tamu", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         }
         Row(Modifier.padding(top = 14.dp).widthIn(max = 420.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardBg).clickable { onKeep(!keep) }.padding(start = 18.dp, end = 12.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Ingat saya", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))

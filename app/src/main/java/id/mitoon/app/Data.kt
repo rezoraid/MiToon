@@ -144,6 +144,8 @@ interface Api {
     @POST("v1/auth/login") suspend fun login(@Body b: LoginReq): Env<AuthRes>
     @POST("v1/auth/register") suspend fun register(@Body b: RegisterReq): Env<AuthRes>
     @POST("v1/auth/google") suspend fun googleLogin(@Body b: GoogleReq): Env<AuthRes>
+    @POST("v1/auth/guest") suspend fun guestLogin(): Env<AuthRes>
+    @POST("v1/auth/guest/upgrade") suspend fun guestUpgrade(@Body b: RegisterReq): Env<AuthRes>
     @GET("v1/auth/me") suspend fun me(): Env<AuthUser>
     @PATCH("v1/auth/me") suspend fun updateProfile(@Body b: ProfileReq): Env<AuthUser>
     @PUT("v1/auth/me/avatar") suspend fun putAvatar(@Body jpeg: RequestBody): Env<AuthUser>
@@ -264,6 +266,24 @@ object Net {
         }
         withContext(Dispatchers.Main) { storeChapter(id, c) }
         return c
+    }
+
+    @Volatile private var rankMem: Pair<String?, RankBoard>? = null
+    /** Papan terakhir dari memori untuk sesi [token] (berisi `me`); null bila belum ada / akun berbeda / minggunya sudah lewat. */
+    fun rankBoard(token: String?): RankBoard? = rankMem?.takeIf { it.first == token && it.second.resetAt > System.currentTimeMillis() }?.second
+    suspend fun leaderboard(): RankBoard {
+        val tk = Auth.token
+        val r = shared("rank:$tk") { api.leaderboard().data }
+        rankMem = tk to r
+        writeSnap("rank-week", RankBoard.serializer(), r.copy(me = null))
+        return r
+    }
+    /** Hangatkan papan peringkat begitu app buka (setelah layar utama jalan) supaya tab Ranking langsung terisi. */
+    fun warmRanking() {
+        MainScope().launch {
+            delay(1200)
+            if (Auth.token != null) runCatching { leaderboard() }
+        }
     }
 
     /** Beberapa detik pertama setelah proses mulai = hanya untuk layar yang terlihat; prefetch spekulatif menunggu. */
@@ -532,6 +552,7 @@ class MiToonApp : Application(), ImageLoaderFactory {
         MainScope().launch { runCatching { Net.loadProviders() } }
         Net.warmHomeSnaps()
         MainScope().launch { Auth.validate() }
+        Net.warmRanking()
         val recent = Library.entries.values.filter { it.readAt > 0 }.sortedByDescending { it.readAt }
         recent.firstOrNull()?.lastChapterId?.let { Net.prefetchChapter(it) }
         recent.take(3).forEach { Net.prefetchDetail(it.id) }

@@ -265,7 +265,7 @@ class CommentFeed(val target: String) {
     }
 
     // ------------------------------------------------------------ kirim, balas, hapus
-    fun startReply(c: Comment) { replyingTo = c }
+    fun startReply(c: Comment) { if (Auth.isGuest) GuestGate.ask(GUEST_REPLY) else replyingTo = c }
     fun cancelReply() { replyingTo = null }
 
     fun send(body: String, onSent: () -> Unit) {
@@ -349,6 +349,7 @@ class CommentFeed(val target: String) {
 
     /** Ketuk like/dislike: tampil seketika (optimistik), lalu disamakan dengan angka dari server; ketuk lagi = batal. */
     fun vote(c: Comment, tap: Int) {
+        if (Auth.isGuest) { GuestGate.ask(GUEST_VOTE); return }
         if (Auth.token == null || !voting.add(c.id)) return
         val next = if (c.myVote == tap) 0 else tap
         patch(c.id) { it.withVote(next) }
@@ -481,6 +482,11 @@ fun CommentComposer(feed: CommentFeed, modifier: Modifier = Modifier) {
     val reply = feed.replyingTo
     LaunchedEffect(reply?.id) { if (reply != null) runCatching { focus.requestFocus() } }
     Column(modifier) {
+        if (Auth.isGuest) {
+            Text("Daftar atau masuk untuk berkomentar", color = Muted, fontSize = 14.sp,
+                modifier = Modifier.fillMaxWidth().clip(R6).border(1.dp, Color(0xFF4A4C53), R6).clickable { GuestGate.ask(GUEST_COMMENT) }.padding(16.dp))
+            return@Column
+        }
         if (reply != null) Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(R6).background(Color(0xFF24262C)).padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(painterResource(R.drawable.ic_reply), null, tint = Muted, modifier = Modifier.size(14.dp))
             Text("  Membalas ${reply.user.name}", color = Color.White, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))

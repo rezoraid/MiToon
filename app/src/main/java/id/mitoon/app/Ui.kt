@@ -118,12 +118,11 @@ fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale =
 
 /** Mascot loading (GIF animasi, background transparan): menggantikan spinner polos di layar yang menunggu lama. */
 @Composable
-fun MascotLoading(modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 110.dp, label: String? = null) {
+fun MascotLoading(modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 110.dp) {
     val ctx = LocalContext.current
     val req = remember { ImageRequest.Builder(ctx).data(R.raw.mascot_loading).memoryCacheKey("mascot_loading").build() }
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         AsyncImage(model = req, contentDescription = "Memuat", modifier = Modifier.height(size).aspectRatio(384f / 512f), contentScale = ContentScale.Fit)
-        if (label != null) Text(label, color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
     }
 }
 

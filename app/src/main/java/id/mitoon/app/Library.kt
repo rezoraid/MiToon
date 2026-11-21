@@ -88,14 +88,14 @@ object Library {
     }
 
     fun scheduleSync() {
-        if (Auth.token == null) return
+        if (Auth.token == null || Auth.isGuest) return
         job?.cancel()
         job = scope.launch { delay(2500); syncNow() }
     }
 
     /** Dipanggil setelah login / aplikasi dibuka. Gagal = diam saja; dicoba lagi pada perubahan berikutnya. */
     suspend fun syncNow() = mutex.withLock {
-        if (Auth.token == null) return@withLock
+        if (Auth.token == null || Auth.isGuest) return@withLock
         val uid = Auth.user?.id ?: return@withLock
         if (owner != uid) {
             if (owner != 0L) all = emptyMap()
@@ -130,7 +130,7 @@ object Library {
     private fun sync(e: LibEntry) {
         val cid = e.lastChapterId ?: return
         val num = e.lastChapterNumber ?: return
-        if (Auth.token == null) return
+        if (Auth.token == null || Auth.isGuest) return
         scope.launch {
             try { Net.api.reportRead(ReadReq(e.id, e.title, e.cover, e.provider, cid, num, e.read.size)) }
             catch (ex: CancellationException) { throw ex } catch (_: Exception) {}

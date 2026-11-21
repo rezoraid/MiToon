@@ -415,6 +415,7 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var confirm by remember(chapterId) { mutableStateOf(false) }
+    var autoTried by remember(chapterId) { mutableStateOf(false) }
     val doRefetch: () -> Unit = {
         refetching = true
         scope.launch {
@@ -431,6 +432,7 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     if (confirm) RefetchConfirm("chapter", left, { confirm = false; doRefetch() }, { confirm = false })
     val density = LocalDensity.current
     val onChapterNow by rememberUpdatedState(onChapter)
+    val imgHeaders = remember(c?.imageHeaders, seriesId, Net.hdr) { Net.hdr[seriesId.substringBefore(':')].orEmpty() + c?.imageHeaders.orEmpty() }
     val nextNow by rememberUpdatedState(c?.next)
     val advance = { id: String, keep: Boolean -> if (!leaving) { leaving = true; resumePlay = keep; onChapterNow(id) } }
     val view = LocalView.current
@@ -458,14 +460,14 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
         val cc = c ?: return@LaunchedEffect
         if (cc.images.firstOrNull()?.startsWith("file:") == true) return@LaunchedEffect // gambar lokal tidak perlu diunduh dulu
         val to = minOf(10, cc.images.size)
-        if (to > 0) { Net.preloadImages(cc.images.subList(0, to), cc.imageHeaders); preloaded.intValue = to }
+        if (to > 0) { Net.preloadImages(cc.images.subList(0, to), imgHeaders); preloaded.intValue = to }
     }
     LaunchedEffect(c, firstVisible) {
         val cc = c ?: return@LaunchedEffect
         if (cc.images.firstOrNull()?.startsWith("file:") == true) return@LaunchedEffect
         val from = maxOf(preloaded.intValue, firstVisible + 2)
         val to = minOf(firstVisible + 10, cc.images.size)
-        if (from < to) { Net.preloadImages(cc.images.subList(from, to), cc.imageHeaders); preloaded.intValue = to }
+        if (from < to) { Net.preloadImages(cc.images.subList(from, to), imgHeaders); preloaded.intValue = to }
     }
     LaunchedEffect(playing, ReaderPrefs.speed, c != null) {
         if (!playing || c == null) return@LaunchedEffect
@@ -515,16 +517,20 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
             c == null -> Failed { tick++ }
             c.images.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Chapter belum tersedia", color = Muted) }
             else -> LazyColumn(Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { bars = !bars }, listState) {
-                items(c.images, key = { it }) { url -> key(reloadNonce) { Img(url, "", Modifier.fillMaxWidth().heightIn(min = 240.dp), ContentScale.FillWidth, c.imageHeaders) } }
+                items(c.images, key = { it }) { url ->
+                    ReaderPage(url, imgHeaders, reloadNonce) {
+                        if (url == c.images.first() && !autoTried && left > 0 && local == null && !refetching) { autoTried = true; doRefetch() }
+                    }
+                }
             }
         }
         AnimatedVisibility(bars, Modifier.align(Alignment.TopCenter), fadeIn(tween(120)), fadeOut(tween(120))) {
-            ReaderTopBar(seriesTitle, c?.number?.let { "Chapter $it" } ?: "Baca", onBack, { showList = true }, { showComments = true }, { showSettings = true }, refetching, left, refetch)
+            ReaderTopBar(seriesTitle, c?.number?.let { "Chapter $it" } ?: "Baca", onBack, { showList = true }, refetching, left, refetch)
         }
         if (c != null && total > 0) AnimatedVisibility(bars && countdown == null, Modifier.align(Alignment.BottomCenter), fadeIn(tween(120)), fadeOut(tween(120))) {
             BottomBar(page, total, { i -> scope.launch { listState.scrollToItem(i) } }, playing, prevNum?.let { "Ch. $it" } ?: "Sebelumnya", nextNum?.let { "Ch. $it" } ?: "Berikutnya", c.prev != null, c.next != null,
                 onPrev = { c.prev?.let { advance(it, false) } }, onNext = { c.next?.let { advance(it, false) } },
-                onPlay = { playing = !playing; if (playing) bars = false })
+                onPlay = { playing = !playing; if (playing) bars = false }, onSettings = { showSettings = true }, onComments = { showComments = true })
         }
         AnimatedVisibility(countdown != null, Modifier.align(Alignment.BottomCenter), slideInVertically(tween(220)) { it } + fadeIn(tween(220)), slideOutVertically(tween(160)) { it } + fadeOut(tween(160))) {
             NextCard(c?.number.orEmpty(), nextNum, lastSec, ring.value, onCancel = { dismissed = true }, onNow = { c?.next?.let { advance(it, false) } })
@@ -542,13 +548,28 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
 }
 
 @Composable
+private fun ReaderPage(url: String, headers: Map<String, String>, nonce: Int, onDead: () -> Unit) {
+    var dead by remember(url, nonce) { mutableStateOf(false) }
+    var round by remember(url, nonce) { mutableIntStateOf(0) }
+    val dead0 by rememberUpdatedState(onDead)
+    key(nonce, round) {
+        Box(Modifier.fillMaxWidth()) {
+            Img(url, "", Modifier.fillMaxWidth().heightIn(min = 240.dp), ContentScale.FillWidth, headers, onFail = { dead = true; dead0() })
+            if (dead) Column(Modifier.matchParentSize().clickable { dead = false; round++ }, Arrangement.Center, Alignment.CenterHorizontally) {
+                Text("Gagal memuat gambar", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text("Ketuk untuk coba lagi", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+            }
+        }
+    }
+}
+
+@Composable
 private fun Modifier.noTap(): Modifier = clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
 
 private fun Modifier.glass(shape: Shape = CircleShape) = clip(shape).background(Glass).border(1.dp, GlassLine, shape)
 
 @Composable
-private fun ReaderTopBar(series: String, chapter: String, onBack: () -> Unit, onTitle: () -> Unit, onComments: () -> Unit, onSettings: () -> Unit,
-                         refetching: Boolean, left: Int, onRefetch: () -> Unit) =
+private fun ReaderTopBar(series: String, chapter: String, onBack: () -> Unit, onTitle: () -> Unit, refetching: Boolean, left: Int, onRefetch: () -> Unit) =
     Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).padding(start = 12.dp, end = 12.dp, top = 2.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(48.dp).glass().clickable(onClick = onBack), Alignment.Center) { Icon(Ic.Left, "Kembali", tint = Color.White, modifier = Modifier.size(30.dp)) }
@@ -559,11 +580,7 @@ private fun ReaderTopBar(series: String, chapter: String, onBack: () -> Unit, on
             }
             Icon(Ic.Down, "Daftar chapter", tint = Muted, modifier = Modifier.size(22.dp))
         }
-        Row(Modifier.height(48.dp).glass().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onRefetch), Alignment.Center) { RefetchIcon(refetching, left, 22.dp) }
-            Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onComments), Alignment.Center) { CommentIcon(Color.White, 22.dp) }
-            Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onSettings), Alignment.Center) { SlidersIcon(Color.White, 22.dp) }
-        }
+        Box(Modifier.size(48.dp).glass().clickable(onClick = onRefetch), Alignment.Center) { RefetchIcon(refetching, left, 22.dp) }
     }
 
 @Composable
@@ -593,7 +610,7 @@ private fun LineIcon(tint: Color, dp: Dp, vararg paths: FloatArray) = Canvas(Mod
 @Composable
 private fun BottomBar(
     page: Int, total: Int, onSeek: (Int) -> Unit, playing: Boolean, prevLabel: String, nextLabel: String, canPrev: Boolean, canNext: Boolean,
-    onPrev: () -> Unit, onNext: () -> Unit, onPlay: () -> Unit
+    onPrev: () -> Unit, onNext: () -> Unit, onPlay: () -> Unit, onSettings: () -> Unit, onComments: () -> Unit
 ) {
     val shape = RoundedCornerShape(30.dp)
     Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)).padding(start = 12.dp, end = 12.dp, bottom = 12.dp).glass(shape).noTap().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)) {
@@ -607,15 +624,17 @@ private fun BottomBar(
         }
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f).height(48.dp).alpha(if (canPrev) 1f else 0.35f).clip(CircleShape).clickable(enabled = canPrev, onClick = onPrev), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Ic.Left, null, tint = Color.White, modifier = Modifier.size(24.dp))
-                Text(prevLabel, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Icon(Ic.Left, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Text(prevLabel, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onSettings), Alignment.Center) { SlidersIcon(Color.White, 22.dp) }
             Box(Modifier.size(56.dp).clip(CircleShape).background(Color.White).clickable(onClick = onPlay), Alignment.Center) {
                 if (playing) PauseIcon(Color.Black) else Icon(Ic.Play, "Auto-scroll", tint = Color.Black, modifier = Modifier.size(30.dp))
             }
+            Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onComments), Alignment.Center) { CommentIcon(Color.White, 22.dp) }
             Row(Modifier.weight(1f).height(48.dp).alpha(if (canNext) 1f else 0.35f).clip(CircleShape).clickable(enabled = canNext, onClick = onNext), Arrangement.End, Alignment.CenterVertically) {
-                Text(nextLabel, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                Icon(Ic.Right, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                Text(nextLabel, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                Icon(Ic.Right, null, tint = Color.White, modifier = Modifier.size(20.dp))
             }
         }
     }

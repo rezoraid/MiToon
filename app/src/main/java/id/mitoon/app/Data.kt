@@ -359,13 +359,13 @@ object Net {
     fun prefetchChapter(id: String) {
         if (Downloads.has(id)) return // sudah ada di perangkat
         if (chapterCache.containsKey(id)) {
-            chapterCache[id]?.let { preloadImages(it.images.take(8), it.imageHeaders) }
+            chapterCache[id]?.let { preloadImages(it.images.take(8), hdr[id.substringBefore(':')].orEmpty() + it.imageHeaders) }
             return
         }
         MainScope().launch {
             val wait = QUIET_MS - (System.currentTimeMillis() - bootAt)
             if (wait > 0) delay(wait)
-            runCatching { chapter(id) }.onSuccess { storeChapter(id, it); preloadImages(it.images.take(8), it.imageHeaders) }
+            runCatching { chapter(id) }.onSuccess { storeChapter(id, it); preloadImages(it.images.take(8), hdr[id.substringBefore(':')].orEmpty() + it.imageHeaders) }
         }
     }
 

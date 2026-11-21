@@ -41,23 +41,38 @@ fun TopBar(title: String, onBack: (() -> Unit)?, action: @Composable () -> Unit 
     }
 
 // ------------------------------------------------------------------ HOME
+/** 24 item per halaman = 6 kolom x 4 baris; backend membatasi limit maks. 50. */
+private const val SHELF_PAGE = 24
+
 @Composable
 fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Unit) {
     val hv: HomeVm = viewModel()
-    var sel by rememberSaveable { mutableStateOf("sorotan") }
-    val s = sel
-    val feed = keyedVm("home-$s") {
-        PagedVm("home-$s") { p -> when (s) { "sorotan" -> Net.latest(p); "populer" -> Net.popular(p); else -> Net.api.byGenre(s, p).data } }
-    }
-    val tabs = listOf("sorotan" to "Sorotan", "populer" to "Populer") + hv.genres.map { it.slug to it.name }
+    var sel by rememberSaveable { mutableStateOf("beranda") }
+    val s = if (sel == "sorotan" || sel == "populer") "beranda" else sel // nilai lama dari versi sebelumnya
+    val tabs = listOf("beranda" to "Beranda") + hv.genres.map { it.slug to it.name }
     Column(Modifier.fillMaxSize()) {
         Header(onSearch)
-        SeriesGrid(feed, onOpen, upCount = if (s == "sorotan") 9 else 0, modifier = Modifier.weight(1f)) {
-            full { Pills(tabs, s) { sel = it } }
-            if (s == "sorotan") {
-                if (hv.spotlight.isNotEmpty()) full { Spotlight(hv.spotlight, onOpen) }
+        if (s == "beranda") {
+            // Kunci snapshot "home-sorotan" / "home-populer" sama seperti sebelumnya, jadi cache lama tetap terpakai.
+            val rec = keyedVm("home-rec") { PagedVm("home-rec") { p -> Net.recommended(p, SHELF_PAGE) } }
+            val upd = keyedVm("home-sorotan") { PagedVm("home-sorotan") { p -> Net.latest(p, SHELF_PAGE) } }
+            val pop = keyedVm("home-populer") { PagedVm("home-populer") { p -> Net.popular(p, SHELF_PAGE) } }
+            LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 16.dp)) {
+                item { Box(Modifier.padding(horizontal = 12.dp)) { Pills(tabs, s) { sel = it } } }
+                if (hv.spotlight.isNotEmpty()) item { Box(Modifier.padding(horizontal = 12.dp)) { Spotlight(hv.spotlight, onOpen) } }
+                item { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Rekomendasi") } }
+                item { SeriesShelf(rec, onOpen) }
+                item { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Update Komik", onMore) } }
+                item { SeriesShelf(upd, onOpen, upCount = 9) }
+                item { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Populer") } }
+                item { SeriesShelf(pop, onOpen) }
             }
-            full { if (s == "sorotan") SectionTitle("Update Komik", onMore) else SectionTitle(tabs.firstOrNull { it.first == s }?.second ?: "") }
+        } else {
+            val feed = keyedVm("home-$s") { PagedVm("home-$s") { p -> Net.api.byGenre(s, p).data } }
+            SeriesGrid(feed, onOpen, modifier = Modifier.weight(1f)) {
+                full { Pills(tabs, s) { sel = it } }
+                full { SectionTitle(tabs.firstOrNull { it.first == s }?.second ?: "") }
+            }
         }
     }
 }

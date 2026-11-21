@@ -118,11 +118,70 @@ fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale =
 
 /** Mascot loading (GIF animasi, background transparan): menggantikan spinner polos di layar yang menunggu lama. */
 @Composable
-fun MascotLoading(modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 110.dp) {
+fun MascotLoading(modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 110.dp, label: String? = "Memuat…") {
     val ctx = LocalContext.current
     val req = remember { ImageRequest.Builder(ctx).data(R.raw.mascot_loading).memoryCacheKey("mascot_loading").build() }
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         AsyncImage(model = req, contentDescription = "Memuat", modifier = Modifier.height(size).aspectRatio(384f / 512f), contentScale = ContentScale.Fit)
+        if (label != null) Text(label, color = Muted, fontSize = if (size < 100.dp) 12.sp else 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 6.dp))
+    }
+}
+
+private val ShelfRowH = 80.dp
+
+/** Rak horizontal 4 baris: geser ke kiri untuk melihat lebih banyak; halaman berikutnya dimuat otomatis menjelang ujung. */
+@Composable
+fun SeriesShelf(vm: PagedVm, onOpen: (Series) -> Unit, upCount: Int = 0) {
+    val st = rememberLazyGridState()
+    val near by remember { derivedStateOf { val l = st.layoutInfo; (l.visibleItemsInfo.lastOrNull()?.index ?: 0) >= l.totalItemsCount - 10 } }
+    LaunchedEffect(near, vm.items.size) { if (near) vm.more() }
+    // Lebar sel = layar - 44dp, jadi kolom berikutnya selalu mengintip dan jelas bisa digeser.
+    val cellW = (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp - 44).dp
+    LazyHorizontalGrid(GridCells.Fixed(4), Modifier.fillMaxWidth().height(ShelfRowH * 4 + 10.dp * 3), st,
+        PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (vm.items.isEmpty() && vm.loading) items(8) { Box(Modifier.width(cellW).fillMaxHeight().background(CardBg, R6)) }
+        itemsIndexed(vm.items, key = { _, s -> s.id }) { i, s -> ShelfRow(s, i < upCount, cellW) { onOpen(s) } }
+        if (vm.loading && vm.items.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+            Box(Modifier.width(88.dp).fillMaxHeight(), Alignment.Center) { MascotLoading(size = 72.dp) }
+        }
+        vm.error?.let { e -> item(span = { GridItemSpan(maxLineSpan) }) {
+            Column(Modifier.width(120.dp).fillMaxHeight(), Arrangement.Center, Alignment.CenterHorizontally) {
+                Text(e, color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center)
+                TextButton(vm::retry) { Text("Coba lagi", color = Accent) }
+            }
+        } }
+    }
+}
+
+@Composable
+private fun ShelfRow(s: Series, up: Boolean, w: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
+    Row(Modifier.width(w).fillMaxHeight().clip(R6).clickable(onClick = onClick), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.width(58.dp).fillMaxHeight().clip(R6)) {
+            var bad by remember(s.id, s.cover) { mutableStateOf(false) }
+            val fixed = Net.coverFix[s.id]
+            val url = fixed ?: s.cover
+            LaunchedEffect(fixed) { if (fixed != null) bad = false }
+            LaunchedEffect(s.id, url.isBlank(), bad) {
+                if (url.isBlank() || bad) Net.fixCover(s.id, force = bad, bad = url.takeIf { bad && it.isNotBlank() })
+            }
+            Img(url, s.provider, Modifier.fillMaxSize(), retries = 1, onFail = { bad = true; Net.dropCoverFix(s.id, url) }, maxW = 240)
+            if (up) Text("UP", color = OnAccent, fontSize = 9.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.TopStart).padding(3.dp).background(Accent, RoundedCornerShape(2.dp)).padding(horizontal = 4.dp, vertical = 1.dp))
+        }
+        Column(Modifier.weight(1f).padding(start = 12.dp, end = 4.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(s.title, color = Color.White, fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            s.latestChapter?.takeIf { it.isNotBlank() }?.let {
+                Text(it, color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                s.rating?.takeIf { it > 0 }?.let {
+                    Icon(Ic.StarOn, null, tint = Star, modifier = Modifier.size(12.dp)); Spacer(Modifier.width(3.dp))
+                    Text("%.1f".format(it), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    if (s.genres.isNotEmpty()) Text("  ·  ", color = Muted, fontSize = 12.sp)
+                }
+                if (s.genres.isNotEmpty()) Text(s.genres.take(2).joinToString(", "), color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
     }
 }
 

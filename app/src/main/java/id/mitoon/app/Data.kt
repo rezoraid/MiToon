@@ -127,6 +127,7 @@ import java.security.MessageDigest
 interface Api {
     @GET("v1/latest") suspend fun latest(@Query("page") page: Int = 1, @Query("limit") limit: Int = 12, @Query("type") type: String? = null): Env<List<Series>>
     @GET("v1/popular") suspend fun popular(@Query("page") page: Int = 1, @Query("limit") limit: Int = 12): Env<List<Series>>
+    @GET("v1/recommended") suspend fun recommended(@Query("page") page: Int = 1, @Query("limit") limit: Int = 12): Env<List<Series>>
     @GET("v1/search") suspend fun search(@Query("q") q: String, @Query("page") page: Int = 1, @Query("limit") limit: Int = 12): Env<List<Series>>
     @GET("v1/genres") suspend fun genres(): Env<List<Genre>>
     @GET("v1/genres/{slug}/series") suspend fun byGenre(@Path("slug") slug: String, @Query("page") page: Int = 1, @Query("limit") limit: Int = 12,
@@ -212,6 +213,7 @@ object Net {
 
     suspend fun latest(page: Int = 1, limit: Int = 12, type: String? = null): List<Series> = shared("latest:$page:$limit:$type") { api.latest(page, limit, type).data }
     suspend fun popular(page: Int = 1, limit: Int = 12): List<Series> = shared("popular:$page:$limit") { api.popular(page, limit).data }
+    suspend fun recommended(page: Int = 1, limit: Int = 12): List<Series> = shared("recommended:$page:$limit") { api.recommended(page, limit).data }
     suspend fun detail(id: String): Detail = shared("detail:$id") { api.detail(id).data }
     suspend fun chapter(id: String): Content = shared("chapter:$id") { api.chapter(id).data }
     suspend fun unread(): NotifCount = shared("unread") { api.notifUnread().data }

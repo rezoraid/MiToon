@@ -65,6 +65,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -414,6 +417,19 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     countdown?.let { if (it != lastSec) lastSec = it }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    // Geser jari ke atas (baca lanjut) -> bar tersembunyi; geser ke bawah (balik) -> bar muncul lagi.
+    val barsByScroll = remember {
+        object : NestedScrollConnection {
+            var acc = 0f
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source != NestedScrollSource.UserInput) return Offset.Zero
+                if (acc * available.y < 0f) acc = 0f
+                acc += available.y
+                if (acc < -48f) { bars = false; acc = 0f } else if (acc > 48f) { bars = true; acc = 0f }
+                return Offset.Zero
+            }
+        }
+    }
     var confirm by remember(chapterId) { mutableStateOf(false) }
     var autoTried by remember(chapterId) { mutableStateOf(false) }
     val doRefetch: () -> Unit = {
@@ -516,7 +532,7 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
             res == null -> Box(Modifier.fillMaxSize(), Alignment.Center) { MascotLoading(size = 150.dp) }
             c == null -> Failed { tick++ }
             c.images.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Chapter belum tersedia", color = Muted) }
-            else -> LazyColumn(Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { bars = !bars }, listState) {
+            else -> LazyColumn(Modifier.fillMaxSize().nestedScroll(barsByScroll).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { bars = !bars }, listState) {
                 items(c.images, key = { it }) { url ->
                     ReaderPage(url, imgHeaders, reloadNonce) {
                         if (url == c.images.first() && !autoTried && left > 0 && local == null && !refetching) { autoTried = true; doRefetch() }
@@ -528,7 +544,7 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
             ReaderTopBar(seriesTitle, c?.number?.let { "Chapter $it" } ?: "Baca", onBack, { showList = true }, refetching, left, refetch)
         }
         if (c != null && total > 0) AnimatedVisibility(bars && countdown == null, Modifier.align(Alignment.BottomCenter), fadeIn(tween(120)), fadeOut(tween(120))) {
-            BottomBar(page, total, { i -> scope.launch { listState.scrollToItem(i) } }, playing, prevNum?.let { "Ch. $it" } ?: "Sebelumnya", nextNum?.let { "Ch. $it" } ?: "Berikutnya", c.prev != null, c.next != null,
+            BottomBar(page, total, { i -> scope.launch { listState.scrollToItem(i) } }, playing, prevNum?.let { "Ch. $it" } ?: "Sebelum", nextNum?.let { "Ch. $it" } ?: "Lanjut", c.prev != null, c.next != null,
                 onPrev = { c.prev?.let { advance(it, false) } }, onNext = { c.next?.let { advance(it, false) } },
                 onPlay = { playing = !playing; if (playing) bars = false }, onSettings = { showSettings = true }, onComments = { showComments = true })
         }
@@ -570,15 +586,15 @@ private fun Modifier.glass(shape: Shape = CircleShape) = clip(shape).background(
 
 @Composable
 private fun ReaderTopBar(series: String, chapter: String, onBack: () -> Unit, onTitle: () -> Unit, refetching: Boolean, left: Int, onRefetch: () -> Unit) =
-    Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).padding(start = 12.dp, end = 12.dp, top = 2.dp, bottom = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(48.dp).glass().clickable(onClick = onBack), Alignment.Center) { Icon(Ic.Left, "Kembali", tint = Color.White, modifier = Modifier.size(30.dp)) }
+    Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(48.dp).glass().clickable(onClick = onBack), Alignment.Center) { Icon(Ic.Left, "Kembali", tint = Color.White, modifier = Modifier.size(26.dp)) }
         Row(Modifier.weight(1f).height(48.dp).glass().clickable(onClick = onTitle).padding(start = 18.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                 if (series.isNotBlank()) Text(series, color = Muted, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(chapter, color = Color.White, fontSize = 16.sp, lineHeight = 19.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Icon(Ic.Down, "Daftar chapter", tint = Muted, modifier = Modifier.size(22.dp))
+            Icon(Ic.Down, "Daftar chapter", tint = Muted, modifier = Modifier.size(22.dp).padding(start = 2.dp))
         }
         Box(Modifier.size(48.dp).glass().clickable(onClick = onRefetch), Alignment.Center) { RefetchIcon(refetching, left, 22.dp) }
     }
@@ -608,34 +624,38 @@ private fun LineIcon(tint: Color, dp: Dp, vararg paths: FloatArray) = Canvas(Mod
 }
 
 @Composable
+private fun BarButton(label: String, enabled: Boolean = true, onClick: () -> Unit, icon: @Composable () -> Unit) =
+    Column(Modifier.widthIn(min = 56.dp).alpha(if (enabled) 1f else 0.35f).clip(RoundedCornerShape(16.dp)).clickable(enabled = enabled, onClick = onClick).padding(vertical = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(44.dp), Alignment.Center) { icon() }
+        Text(label, color = Muted, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+
+@Composable
 private fun BottomBar(
     page: Int, total: Int, onSeek: (Int) -> Unit, playing: Boolean, prevLabel: String, nextLabel: String, canPrev: Boolean, canNext: Boolean,
     onPrev: () -> Unit, onNext: () -> Unit, onPlay: () -> Unit, onSettings: () -> Unit, onComments: () -> Unit
 ) {
     val shape = RoundedCornerShape(30.dp)
-    Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)).padding(start = 12.dp, end = 12.dp, bottom = 12.dp).glass(shape).noTap().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)) {
+    Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)).padding(start = 12.dp, end = 12.dp, bottom = 12.dp).glass(shape).noTap().padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 10.dp)) {
+        // Baris 1: posisi halaman + slider (lebih tinggi supaya mudah digeser)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(buildAnnotatedString {
                 withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) { append("$page") }
                 withStyle(SpanStyle(color = Muted)) { append(" / $total") }
-            }, fontSize = 13.sp, modifier = Modifier.widthIn(min = 52.dp))
-            PageSlider(page, total, onSeek, Modifier.weight(1f).padding(horizontal = 8.dp))
-            Text("${if (total > 0) page * 100 / total else 0}%", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Medium, modifier = Modifier.widthIn(min = 36.dp), textAlign = TextAlign.End)
+            }, fontSize = 13.sp, modifier = Modifier.widthIn(min = 56.dp))
+            PageSlider(page, total, onSeek, Modifier.weight(1f).padding(horizontal = 10.dp))
+            Text("${if (total > 0) page * 100 / total else 0}%", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Medium, modifier = Modifier.widthIn(min = 40.dp), textAlign = TextAlign.End)
         }
-        Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Row(Modifier.weight(1f).height(48.dp).alpha(if (canPrev) 1f else 0.35f).clip(CircleShape).clickable(enabled = canPrev, onClick = onPrev), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Ic.Left, null, tint = Color.White, modifier = Modifier.size(20.dp))
-                Text(prevLabel, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // Baris 2: 5 tombol sama jarak. Kiri-kanan = pindah chapter, tengah = auto-scroll.
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+            BarButton(prevLabel, canPrev, onPrev) { Icon(Ic.Left, "Chapter sebelumnya", tint = Color.White, modifier = Modifier.size(26.dp)) }
+            BarButton("Atur", true, onSettings) { SlidersIcon(Color.White, 26.dp) }
+            Box(Modifier.padding(horizontal = 2.dp).size(64.dp).clip(CircleShape).background(Color.White).clickable(onClick = onPlay), Alignment.Center) {
+                if (playing) PauseIcon(Color.Black) else Icon(Ic.Play, "Auto-scroll", tint = Color.Black, modifier = Modifier.size(32.dp))
             }
-            Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onSettings), Alignment.Center) { SlidersIcon(Color.White, 22.dp) }
-            Box(Modifier.size(56.dp).clip(CircleShape).background(Color.White).clickable(onClick = onPlay), Alignment.Center) {
-                if (playing) PauseIcon(Color.Black) else Icon(Ic.Play, "Auto-scroll", tint = Color.Black, modifier = Modifier.size(30.dp))
-            }
-            Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onComments), Alignment.Center) { CommentIcon(Color.White, 22.dp) }
-            Row(Modifier.weight(1f).height(48.dp).alpha(if (canNext) 1f else 0.35f).clip(CircleShape).clickable(enabled = canNext, onClick = onNext), Arrangement.End, Alignment.CenterVertically) {
-                Text(nextLabel, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                Icon(Ic.Right, null, tint = Color.White, modifier = Modifier.size(20.dp))
-            }
+            BarButton("Komentar", true, onComments) { CommentIcon(Color.White, 26.dp) }
+            BarButton(nextLabel, canNext, onNext) { Icon(Ic.Right, "Chapter berikutnya", tint = Color.White, modifier = Modifier.size(26.dp)) }
         }
     }
 }
@@ -671,7 +691,7 @@ private fun PageSlider(page: Int, total: Int, onSeek: (Int) -> Unit, modifier: M
     val frac = if (total > 1) (page - 1).toFloat() / (total - 1) else 0f
     fun at(x: Float, w: Int) = if (total > 1 && w > 0) ((x / w).coerceIn(0f, 1f) * (total - 1)).roundToInt() else 0
     Canvas(
-        modifier.height(32.dp)
+        modifier.height(40.dp)
             .pointerInput(total) { detectTapGestures { o -> seek(at(o.x, size.width)) } }
             .pointerInput(total) {
                 detectHorizontalDragGestures(onDragStart = { o -> seek(at(o.x, size.width)) }) { change, _ ->

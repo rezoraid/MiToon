@@ -59,7 +59,8 @@ fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Uni
             } }
             val upd = keyedVm("home-sorotan") { PagedVm("home-sorotan") { p -> Net.latest(p, SHELF_PAGE) } }
             val pop = keyedVm("home-populer") { PagedVm("home-populer") { p -> Net.popular(p, SHELF_PAGE) } }
-            LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 16.dp)) {
+            PullRefresh(rec.refreshing || upd.refreshing || pop.refreshing, { rec.refresh(); upd.refresh(); pop.refresh(); hv.refresh() }, Modifier.weight(1f).fillMaxWidth()) {
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                 item("pills", "pills") { Box(Modifier.padding(horizontal = 12.dp)) { Pills(tabs, s) { sel = it } } }
                 if (hv.spotlight.isNotEmpty()) item("spot", "spot") { Box(Modifier.padding(horizontal = 12.dp)) { Spotlight(hv.spotlight, onOpen) } }
                 item("t-rec", "title") { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Rekomendasi") } }
@@ -69,11 +70,14 @@ fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Uni
                 item("t-pop", "title") { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Populer") } }
                 item("s-pop", "shelf") { SeriesShelf(pop, onOpen) }
             }
+            }
         } else {
             val feed = keyedVm("home-$s") { PagedVm("home-$s") { p -> Net.api.byGenre(s, p).data } }
-            SeriesGrid(feed, onOpen, modifier = Modifier.weight(1f)) {
-                full { Pills(tabs, s) { sel = it } }
-                full { SectionTitle(tabs.firstOrNull { it.first == s }?.second ?: "") }
+            PullRefresh(feed.refreshing, feed::refresh, Modifier.weight(1f)) {
+                SeriesGrid(feed, onOpen, modifier = Modifier.fillMaxSize()) {
+                    full { Pills(tabs, s) { sel = it } }
+                    full { SectionTitle(tabs.firstOrNull { it.first == s }?.second ?: "") }
+                }
             }
         }
     }
@@ -175,7 +179,8 @@ fun ExploreScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit) {
     }
     Column(Modifier.fillMaxSize()) {
         Header(onSearch)
-        SeriesGrid(vm, onOpen, modifier = Modifier.weight(1f), warm = true) {
+        PullRefresh(vm.refreshing, vm::refresh, Modifier.weight(1f)) {
+        SeriesGrid(vm, onOpen, modifier = Modifier.fillMaxSize(), warm = true) {
             full {
                 Row(Modifier.padding(top = 12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Row(Modifier.weight(1f).height(46.dp).clip(R6).background(CardBg).border(1.dp, Line, R6).clickable(onClick = onSearch).padding(horizontal = 12.dp),
@@ -195,6 +200,7 @@ fun ExploreScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit) {
                 }
             }
             full { Spacer(Modifier.height(12.dp)) }
+        }
         }
     }
     if (sheet) FilterSheet(genres, gs, ss, ts, onDismiss = { sheet = false }) { ng, ns, nt -> g = ng; sort = ns; type = nt; sheet = false }

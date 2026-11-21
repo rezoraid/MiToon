@@ -195,6 +195,8 @@ object Net {
         val t = freshAt[key] ?: return false
         return System.currentTimeMillis() - t < maxAgeMs
     }
+    /** > 0 selama pull-to-refresh berjalan: GET ke API dikirim dengan `Cache-Control: no-cache` supaya tidak dijawab dari cache HTTP (max-age 60 dtk). */
+    val forceNet = java.util.concurrent.atomic.AtomicInteger(0)
     const val DETAIL_FRESH_MS = 120_000L
     const val CHAPTER_FRESH_MS = 600_000L
 
@@ -553,6 +555,10 @@ object Net {
             .addInterceptor { chain -> // GET yang gagal sesaat (sinyal goyang) diulang sekali, langsung
                 val req = chain.request()
                 try { chain.proceed(req) } catch (e: java.io.IOException) { if (req.method == "GET") chain.proceed(req) else throw e }
+            }
+            .addInterceptor { chain -> // pull-to-refresh: lewati cache HTTP
+                val req = chain.request()
+                chain.proceed(if (forceNet.get() > 0 && req.method == "GET" && req.url.host == apiHost && req.header("Cache-Control") == null) req.newBuilder().header("Cache-Control", "no-cache").build() else req)
             }
             .addInterceptor { chain -> // token login hanya ke endpoint pribadi di server API (katalog publik tanpa token = bisa di-cache CDN)
                 val req = chain.request()

@@ -29,6 +29,8 @@ class PagedVm(private val snapKey: String? = null, private val loader: suspend (
     var items by mutableStateOf(mem?.items ?: snapKey?.let { Net.readSnap(it, seriesListSer) }.orEmpty()); private set
     var loading by mutableStateOf(false); private set
     var error by mutableStateOf<String?>(null); private set
+    /** true selama pull-to-refresh berjalan (indikator di UI). */
+    var refreshing by mutableStateOf(false); private set
     private var page = mem?.page ?: 1
     private var end = mem?.end ?: false
     private var busy = false
@@ -60,6 +62,31 @@ class PagedVm(private val snapKey: String? = null, private val loader: suspend (
         }
     }
     fun retry() = more()
+
+    /**
+     * Pull-to-refresh: ambil halaman 1 langsung dari jaringan (lewati cache HTTP) lalu ganti daftar.
+     * Gagal / hasil kosong -> daftar lama dibiarkan.
+     */
+    fun refresh() {
+        if (refreshing) return
+        refreshing = true
+        viewModelScope.launch {
+            Net.forceNet.incrementAndGet()
+            try {
+                runCatching { loader(1) }.onSuccess { r ->
+                    if (r.isNotEmpty()) {
+                        items = r; page = 2; end = false; error = null
+                        snapKey?.let { Net.writeSnap(it, seriesListSer, r); Net.markFresh("page:$it") }
+                        saveMem()
+                        r.take(3).forEach { Net.prefetchDetail(it.id) }; Net.preloadCovers(r, skip = 12)
+                    }
+                }
+            } finally {
+                Net.forceNet.decrementAndGet()
+                refreshing = false
+            }
+        }
+    }
 }
 
 class HomeVm : ViewModel() {
@@ -71,5 +98,16 @@ class HomeVm : ViewModel() {
         // Sama dengan request tab Populer & warm-up (limit 12) -> digabung jadi satu; sorotan = 6 teratas.
         viewModelScope.launch { runCatching { Net.popular(1, 12).take(6) }.onSuccess { spotlight = it; Net.writeSnap("home-spotlight", seriesListSer, it) } }
         viewModelScope.launch { runCatching { Net.genres().sortedByDescending { it.count }.take(20) }.onSuccess { genres = it } }
+    }
+
+    /** Ikut pull-to-refresh Beranda: sorotan & daftar genre disegarkan juga. */
+    fun refresh() {
+        viewModelScope.launch {
+            Net.forceNet.incrementAndGet()
+            try {
+                runCatching { Net.popular(1, 12).take(6) }.onSuccess { if (it.isNotEmpty()) { spotlight = it; Net.writeSnap("home-spotlight", seriesListSer, it) } }
+                runCatching { Net.genres().sortedByDescending { it.count }.take(20) }.onSuccess { if (it.isNotEmpty()) genres = it }
+            } finally { Net.forceNet.decrementAndGet() }
+        }
     }
 }

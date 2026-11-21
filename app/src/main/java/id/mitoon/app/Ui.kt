@@ -212,6 +212,23 @@ fun SectionTitle(text: String, onMore: (() -> Unit)? = null) =
         if (onMore != null) Icon(Ic.Right, null, tint = Color.White)
     }
 
+/** Tarik ke bawah untuk menyegarkan (seperti Chrome). Hanya aktif saat isi sudah di posisi paling atas. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PullRefresh(refreshing: Boolean, onRefresh: () -> Unit, modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+    val state = rememberPullToRefreshState()
+    PullToRefreshBox(
+        isRefreshing = refreshing, onRefresh = onRefresh, modifier = modifier, state = state,
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = state, isRefreshing = refreshing, modifier = Modifier.align(Alignment.TopCenter),
+                containerColor = CardBg, color = Accent
+            )
+        },
+        content = content
+    )
+}
+
 @Composable
 fun Header(onSearch: () -> Unit, onBack: (() -> Unit)? = null) = Column {
     Row(Modifier.fillMaxWidth().background(CardBg).height(54.dp).padding(start = if (onBack == null) 14.dp else 4.dp, end = 4.dp),

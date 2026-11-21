@@ -91,15 +91,28 @@ fun ProfileEditScreen(onBack: () -> Unit) {
     var avatarUri by remember { mutableStateOf<Uri?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) avatarUri = uri }
     fun removePhoto() {
-        busy = true; notice = null
-        scope.launch {
-            try { Auth.update(Net.api.deleteAvatar().data); notice = true to "Foto profil dihapus" }
-            catch (e: CancellationException) { throw e } catch (e: Exception) { notice = false to e.friendly() } finally { busy = false }
+        val oldV = user.avatarV
+        notice = true to "Foto profil dihapus"
+        Auth.setting({ it.copy(avatarV = 0) }, { it.copy(avatarV = oldV) }, { Net.api.deleteAvatar().data }) { err ->
+            if (err != null) notice = false to err.friendly()
         }
     }
 
     /** Simpan nama / username. Berhasil -> tutup dialog; gagal -> pesan tampil di dalam dialog. */
     fun save(req: ProfileReq, okMsg: String, onOk: () -> Unit) {
+        if (req.username == null) {
+            // Nama & bio: tampil dan dialog tertutup seketika; server menyusul (gagal -> nilai lama kembali + pesan error).
+            val before = user
+            Auth.setting(
+                { it.copy(displayName = req.displayName ?: it.displayName, bio = req.bio ?: it.bio) },
+                { it.copy(displayName = if (req.displayName != null) before.displayName else it.displayName, bio = if (req.bio != null) before.bio else it.bio) },
+                { Net.api.updateProfile(req).data }
+            ) { err -> if (err != null) notice = false to err.friendly() }
+            notice = true to okMsg
+            onOk()
+            return
+        }
+        // Username: harus dikonfirmasi server (unik + cooldown), jadi tetap ditunggu.
         saving = true; dialogErr = null
         scope.launch {
             try {
@@ -167,12 +180,11 @@ fun ProfileEditScreen(onBack: () -> Unit) {
                             Text("Matikan untuk menyembunyikan centang di profil dan komentarmu.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
                         }
                         Switch(!user.verifiedHidden, { show ->
-                            busy = true; notice = null
-                            scope.launch {
-                                try { Auth.update(Net.api.updateProfile(ProfileReq(verifiedHidden = !show)).data); notice = true to (if (show) "Centang verified ditampilkan" else "Centang verified disembunyikan") }
-                                catch (e: CancellationException) { throw e } catch (e: Exception) { notice = false to e.friendly() } finally { busy = false }
+                            notice = true to (if (show) "Centang verified ditampilkan" else "Centang verified disembunyikan")
+                            Auth.setting({ it.copy(verifiedHidden = !show) }, { it.copy(verifiedHidden = show) }, { Net.api.updateProfile(ProfileReq(verifiedHidden = !show)).data }) { err ->
+                                if (err != null) notice = false to err.friendly()
                             }
-                        }, enabled = !busy, colors = SwitchDefaults.colors(checkedTrackColor = Accent))
+                        }, colors = SwitchDefaults.colors(checkedTrackColor = Accent))
                     }
                     HorizontalDivider(color = Line)
                 }

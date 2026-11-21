@@ -57,6 +57,7 @@ import java.io.File
 import java.security.MessageDigest
 
 @Serializable data class Env<T>(val data: T)
+@androidx.compose.runtime.Immutable
 @Serializable data class Series(
     val id: String, val provider: String = "", val title: String = "", val cover: String = "",
     val type: String? = null, val rating: Double? = null, val latestChapter: String? = null,

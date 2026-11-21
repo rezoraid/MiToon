@@ -41,7 +41,7 @@ fun TopBar(title: String, onBack: (() -> Unit)?, action: @Composable () -> Unit 
     }
 
 // ------------------------------------------------------------------ HOME
-/** 24 item per halaman = 6 kolom x 4 baris; backend membatasi limit maks. 50. */
+/** 24 item per halaman = 6 kolom x 4 baris (kartu seukuran Explore, geser horizontal); backend membatasi limit maks. 50. */
 private const val SHELF_PAGE = 24
 
 @Composable
@@ -49,23 +49,27 @@ fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Uni
     val hv: HomeVm = viewModel()
     var sel by rememberSaveable { mutableStateOf("beranda") }
     val s = if (sel == "sorotan" || sel == "populer") "beranda" else sel // nilai lama dari versi sebelumnya
-    val tabs = listOf("beranda" to "Beranda") + hv.genres.map { it.slug to it.name }
+    val genres = hv.genres
+    val tabs = remember(genres) { listOf("beranda" to "Beranda") + genres.map { it.slug to it.name } }
     Column(Modifier.fillMaxSize()) {
         Header(onSearch)
         if (s == "beranda") {
             // Kunci snapshot "home-sorotan" / "home-populer" sama seperti sebelumnya, jadi cache lama tetap terpakai.
-            val rec = keyedVm("home-rec") { PagedVm("home-rec") { p -> Net.recommended(p, SHELF_PAGE) } }
+            val rec = keyedVm("home-rec") { PagedVm("home-rec") { p ->
+                // Server belum punya data rekomendasi (mis. belum ada rating) -> jangan kosong, pakai urutan populer.
+                Net.recommended(p, SHELF_PAGE).ifEmpty { if (p == 1) Net.popular(p, SHELF_PAGE) else emptyList() }
+            } }
             val upd = keyedVm("home-sorotan") { PagedVm("home-sorotan") { p -> Net.latest(p, SHELF_PAGE) } }
             val pop = keyedVm("home-populer") { PagedVm("home-populer") { p -> Net.popular(p, SHELF_PAGE) } }
             LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 16.dp)) {
-                item { Box(Modifier.padding(horizontal = 12.dp)) { Pills(tabs, s) { sel = it } } }
-                if (hv.spotlight.isNotEmpty()) item { Box(Modifier.padding(horizontal = 12.dp)) { Spotlight(hv.spotlight, onOpen) } }
-                item { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Rekomendasi") } }
-                item { SeriesShelf(rec, onOpen) }
-                item { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Update Komik", onMore) } }
-                item { SeriesShelf(upd, onOpen, upCount = 9) }
-                item { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Populer") } }
-                item { SeriesShelf(pop, onOpen) }
+                item("pills", "pills") { Box(Modifier.padding(horizontal = 12.dp)) { Pills(tabs, s) { sel = it } } }
+                if (hv.spotlight.isNotEmpty()) item("spot", "spot") { Box(Modifier.padding(horizontal = 12.dp)) { Spotlight(hv.spotlight, onOpen) } }
+                item("t-rec", "title") { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Rekomendasi") } }
+                item("s-rec", "shelf") { SeriesShelf(rec, onOpen) }
+                item("t-upd", "title") { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Update Komik", onMore) } }
+                item("s-upd", "shelf") { SeriesShelf(upd, onOpen, upCount = 9) }
+                item("t-pop", "title") { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Populer") } }
+                item("s-pop", "shelf") { SeriesShelf(pop, onOpen) }
             }
         } else {
             val feed = keyedVm("home-$s") { PagedVm("home-$s") { p -> Net.api.byGenre(s, p).data } }
@@ -251,7 +255,7 @@ private fun Empty(text: String) = Box(Modifier.fillMaxSize().padding(32.dp), Ali
 @Composable
 fun LibraryScreen(onOpen: (String) -> Unit, onContinue: (LibEntry) -> Unit, onSearch: () -> Unit, onRead: (seriesId: String, chapterId: String) -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    val all = Library.entries.values
+    val entries = Library.entries
     Column(Modifier.fillMaxSize()) {
         Header(onSearch)
         if (Auth.isGuest) Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 10.dp).clip(R6).background(CardBg).clickable { GuestGate.openUpgrade() }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -263,14 +267,14 @@ fun LibraryScreen(onOpen: (String) -> Unit, onContinue: (LibEntry) -> Unit, onSe
         }
         if (tab == 2) DownloadsContent(onRead, onOpen)
         else if (tab == 0) {
-            val list = all.filter { it.bookmarked }.sortedByDescending { it.readAt }
+            val list = remember(entries) { entries.values.filter { it.bookmarked }.sortedByDescending { it.readAt } }
             if (list.isEmpty()) Empty("Belum ada bookmark. Buka detail komik lalu tekan Bookmark.")
             else LazyVerticalGrid(GridCells.Fixed(3), Modifier.fillMaxSize(), contentPadding = PaddingValues(12.dp),
                 verticalArrangement = Arrangement.spacedBy(7.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 gridItems(list, key = { it.id }) { e -> SeriesCard(e.toSeries(), false, sub = e.lastChapterNumber?.let { "Ch. $it" }) { onOpen(e.id) } }
             }
         } else {
-            val list = all.filter { it.readAt > 0 }.sortedByDescending { it.readAt }
+            val list = remember(entries) { entries.values.filter { it.readAt > 0 }.sortedByDescending { it.readAt } }
             if (list.isEmpty()) Empty("Belum ada riwayat baca.")
             else LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(list, key = { it.id }) { e ->

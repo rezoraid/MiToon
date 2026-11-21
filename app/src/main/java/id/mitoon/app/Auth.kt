@@ -12,6 +12,8 @@ import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -96,6 +98,36 @@ object Auth {
         user = u
         usernameUnlockAt = unlockAt(u)
         if (prefs.contains("t")) prefs.edit().putString("u", u.username).putLong("i", u.id).putInt("v", u.avatarV).putString("n", u.displayName).putString("b", u.bio).putLong("x", usernameUnlockAt).also { it.putXp(u) }.apply()
+    }
+
+    /** Ubah lokal saja (layar + disk) tanpa menyentuh waktu cooldown username; dasar untuk perubahan optimistik. */
+    fun patchLocal(f: (AuthUser) -> AuthUser) {
+        val u = f(user ?: return)
+        user = u
+        if (prefs.contains("t")) prefs.edit().putString("n", u.displayName).putString("b", u.bio).putInt("v", u.avatarV).also { it.putXp(u) }.apply()
+    }
+
+    private val settingsLock = kotlinx.coroutines.sync.Mutex()
+    private var settingsPending = 0
+
+    /**
+     * Pengaturan yang "pasti berhasil" (toggle, foto, nama, bio): [apply] langsung tampil di layar, server dihubungi di latar belakang
+     * secara berurutan (ketukan beruntun tidak saling tabrak; yang terakhir menang). Gagal -> [undo] mengembalikan nilai lama dan [onDone] menerima errornya.
+     */
+    fun setting(apply: (AuthUser) -> AuthUser, undo: (AuthUser) -> AuthUser, call: suspend () -> AuthUser, onDone: (Throwable?) -> Unit = {}) {
+        patchLocal(apply)
+        settingsPending++
+        kotlinx.coroutines.MainScope().launch {
+            var err: Throwable? = null
+            var fresh: AuthUser? = null
+            try { fresh = settingsLock.withLock { call() } }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { err = e; patchLocal(undo) }
+            finally { settingsPending-- }
+            // Samakan dengan server hanya bila tidak ada perubahan lain yang masih dalam antrean (hindari saklar "melompat balik").
+            if (err == null && settingsPending == 0) fresh?.let { update(it) }
+            onDone(err)
+        }
     }
 
     private fun SharedPreferences.Editor.putXp(u: AuthUser) { putInt("xp", u.xp); putInt("lv", u.level); putInt("lx", u.levelXp); putInt("ln", u.levelNeed); putBoolean("vf", u.verified); putBoolean("io", u.isOwner); putBoolean("pm", u.premium); putBoolean("vh", u.verifiedHidden); putBoolean("rh", u.readingHidden); putBoolean("gs", u.guest) }

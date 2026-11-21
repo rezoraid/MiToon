@@ -23,17 +23,14 @@ fun PrivacyScreen(onBack: () -> Unit) {
     val user = Auth.user
     if (user == null) { Box(Modifier.fillMaxSize().background(Bg)); return }
     val scope = rememberCoroutineScope()
-    var busy by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
     LaunchedEffect(notice) { if (notice?.first == true) { delay(3000); notice = null } }
 
     fun setReadingHidden(hidden: Boolean) {
-        busy = true; notice = null
-        scope.launch {
-            try {
-                Auth.update(Net.api.updateProfile(ProfileReq(readingHidden = hidden)).data)
-                notice = true to (if (hidden) "\"Sedang dibaca\" disembunyikan dari profil publik" else "\"Sedang dibaca\" tampil di profil publik")
-            } catch (e: CancellationException) { throw e } catch (e: Exception) { notice = false to e.friendly() } finally { busy = false }
+        // Saklar berpindah seketika; server menyusul di latar belakang (gagal -> saklar kembali + pesan error).
+        notice = true to (if (hidden) "\"Sedang dibaca\" disembunyikan dari profil publik" else "\"Sedang dibaca\" tampil di profil publik")
+        Auth.setting({ it.copy(readingHidden = hidden) }, { it.copy(readingHidden = !hidden) }, { Net.api.updateProfile(ProfileReq(readingHidden = hidden)).data }) { err ->
+            if (err != null) notice = false to err.friendly()
         }
     }
 
@@ -48,7 +45,7 @@ fun PrivacyScreen(onBack: () -> Unit) {
                         Text("Sembunyikan \"Sedang dibaca\"", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                         Text("Daftar komik yang kamu baca tidak tampil di profilmu. Progres bacamu tetap tersimpan dan muncul lagi bila dimatikan.", color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 2.dp))
                     }
-                    Switch(user.readingHidden, { setReadingHidden(it) }, enabled = !busy, colors = SwitchDefaults.colors(checkedTrackColor = Accent))
+                    Switch(user.readingHidden, { setReadingHidden(it) }, colors = SwitchDefaults.colors(checkedTrackColor = Accent))
                 }
                 HorizontalDivider(color = Line)
                 notice?.let { (ok, text) ->

@@ -58,6 +58,7 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import retrofit2.HttpException
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.ByteArrayOutputStream
@@ -157,7 +158,8 @@ class CommentFeed(val target: String) {
     private var diskRead = false
     private val voting = HashSet<Long>()
 
-    private fun snapshot() = Net.storeComments(target, CommentPage(total, rows.take(PAGE), hasMore || rows.size > PAGE))
+    /** Komentar sementara (belum dikonfirmasi server) tidak ikut disimpan ke disk. */
+    private fun snapshot() { val real = rows.filter { !isTemp(it.id) }; Net.storeComments(target, CommentPage(total, real.take(PAGE), hasMore || real.size > PAGE)) }
 
     /** Ambil halaman pertama. Data lama tetap tampil selama menunggu; UI hanya berubah bila isinya memang beda. */
     fun refresh(force: Boolean = false) {
@@ -174,7 +176,7 @@ class CommentFeed(val target: String) {
                 val p = Net.api.comments(target, limit = PAGE).data
                 // Halaman lama yang sudah dimuat user (scroll ke bawah) dipertahankan supaya daftar tidak melompat.
                 val tail = if (p.hasMore) rows.filter { it.id < p.items.last().id } else emptyList()
-                val merged = p.items + tail
+                val merged = rows.filter { isTemp(it.id) } + p.items + tail // komentar yang sedang terkirim tetap tampil
                 if (merged != rows) rows = merged
                 if (total != p.total) total = p.total
                 hasMore = if (tail.isNotEmpty()) hasMore else p.hasMore
@@ -188,7 +190,7 @@ class CommentFeed(val target: String) {
 
     /** Satu halaman berikutnya; false bila gagal. Dipakai pemuat latar belakang dan `loadMore`. */
     private suspend fun fetchMore(): Boolean = try {
-        val p = Net.api.comments(target, limit = PAGE, before = rows.lastOrNull()?.id).data
+        val p = Net.api.comments(target, limit = PAGE, before = rows.lastOrNull { !isTemp(it.id) }?.id).data
         val seen = rows.mapTo(HashSet()) { it.id }
         val fresh = p.items.filter { it.id !in seen }
         rows = rows + fresh
@@ -265,48 +267,118 @@ class CommentFeed(val target: String) {
     }
 
     // ------------------------------------------------------------ kirim, balas, hapus
-    fun startReply(c: Comment) { if (Auth.isGuest) GuestGate.ask(GUEST_REPLY) else replyingTo = c }
+    fun startReply(c: Comment) { if (Auth.isGuest) GuestGate.ask(GUEST_REPLY) else if (!isTemp(c.id)) replyingTo = c }
     fun cancelReply() { replyingTo = null }
 
-    fun send(body: String, onSent: () -> Unit) {
-        if (body.isBlank() || posting) return
-        posting = true; sendError = null
-        val reply = replyingTo
-        MainScope().launch {
-            try {
-                val res = Net.api.addComment(CommentReq(target, body.trim(), reply?.id))
-                val c = res.data
-                res.me?.let { Auth.update(it) } // XP/level terbaru
-                origin?.let { CommentHistory.remember(target, it) }
-                val root = c.parentId
-                if (root == null) rows = listOf(c) + rows
-                else {
-                    rows = rows.map { if (it.id == root) it.copy(replyCount = it.replyCount + 1) else it }
-                    val t = threads[root] ?: ReplyThread()
-                    if (t.loaded) setThread(root) { it.copy(items = (it.items + c).distinctBy { x -> x.id }.sortedBy { x -> x.id }, expanded = true) }
-                    else { setThread(root) { it.copy(expanded = true) }; loadReplies(root) } // belum pernah dimuat: ambil dari server (sudah memuat balasan baru)
-                }
-                total += 1; replyingTo = null; onSent(); snapshot()
-            } catch (e: CancellationException) { throw e } catch (e: Exception) { sendError = e.friendly() } finally { posting = false }
+    private var tempSeq = 0L
+    private var pendingSends = 0
+
+    private fun meAsCommentUser(): CommentUser {
+        val u = Auth.user ?: return CommentUser()
+        return CommentUser(u.id, u.username, u.avatarV, u.displayName, u.level, u.verified && !u.verifiedHidden, u.isOwner, u.premium)
+    }
+
+    private fun addLocal(c: Comment) {
+        val root = c.parentId
+        if (root == null) rows = listOf(c) + rows
+        else {
+            rows = rows.map { if (it.id == root) it.copy(replyCount = it.replyCount + 1) else it }
+            setThread(root) { it.copy(items = (it.items + c).distinctBy { x -> x.id }.sortedBy { x -> x.id }, expanded = true) }
+        }
+        total += 1
+    }
+
+    private fun removeLocal(c: Comment) {
+        val root = c.parentId
+        if (root == null) rows = rows.filter { it.id != c.id }
+        else {
+            setThread(root) { it.copy(items = it.items.filter { x -> x.id != c.id }) }
+            rows = rows.map { if (it.id == root) it.copy(replyCount = maxOf(0, it.replyCount - 1)) else it }
+        }
+        total = maxOf(0, total - 1)
+    }
+
+    /** Ganti komentar sementara dengan versi server (id asli). */
+    private fun swapLocal(tmp: Comment, c: Comment) {
+        val root = c.parentId
+        if (root == null) {
+            rows = when {
+                rows.any { it.id == tmp.id } -> rows.map { if (it.id == tmp.id) c else it }.distinctBy { it.id }
+                rows.any { it.id == c.id } -> rows
+                else -> listOf(c) + rows
+            }
+        } else {
+            setThread(root) { t -> t.copy(items = (t.items.filter { it.id != tmp.id } + c).distinctBy { it.id }.sortedBy { it.id }) }
         }
     }
 
-    fun delete(c: Comment) {
+    /**
+     * Kirim: komentar langsung tampil & kolom input langsung kosong (tanpa menunggu server). Server mengonfirmasi di latar belakang;
+     * gagal -> komentar ditarik lagi dan teksnya dikembalikan lewat [onFail] supaya tidak hilang.
+     */
+    fun send(body: String, onFail: (String) -> Unit = {}, onSent: () -> Unit) {
+        val text = body.trim()
+        if (text.isEmpty()) return
+        val reply = replyingTo
+        if (reply != null && isTemp(reply.id)) return
+        val root = reply?.let { it.parentId ?: it.id }
+        val tmp = Comment(
+            id = TEMP_BASE + (++tempSeq), body = text, createdAt = System.currentTimeMillis(), user = meAsCommentUser(),
+            parentId = root, replyTo = if (reply != null && reply.parentId != null) reply.user.name else ""
+        )
+        sendError = null
+        pendingSends++; posting = true
+        addLocal(tmp)
+        if (root != null && threads[root]?.loaded != true) loadReplies(root) // balasan lama ikut dimuat di latar belakang
+        replyingTo = null
+        onSent()
         MainScope().launch {
             try {
-                Net.api.deleteComment(c.id)
-                val root = c.parentId
-                if (root == null) {
-                    rows = rows.filter { it.id != c.id }; threads = threads - c.id
-                    total = maxOf(0, total - 1 - c.replyCount)
-                } else {
-                    setThread(root) { it.copy(items = it.items.filter { x -> x.id != c.id }) }
-                    rows = rows.map { if (it.id == root) it.copy(replyCount = maxOf(0, it.replyCount - 1)) else it }
-                    total = maxOf(0, total - 1)
-                }
-                if (replyingTo?.id == c.id) replyingTo = null
+                val res = Net.api.addComment(CommentReq(target, text, reply?.id))
+                res.me?.let { Auth.update(it) } // XP/level terbaru
+                origin?.let { CommentHistory.remember(target, it) }
+                swapLocal(tmp, res.data)
                 snapshot()
-            } catch (e: CancellationException) { throw e } catch (e: Exception) { sendError = e.friendly() }
+            } catch (e: CancellationException) { throw e } catch (e: Exception) {
+                removeLocal(tmp)
+                if (replyingTo == null) replyingTo = reply
+                sendError = e.friendly()
+                onFail(text)
+            } finally { pendingSends--; posting = pendingSends > 0 }
+        }
+    }
+
+    /** Hapus: hilang dari daftar seketika; bila server menolak, komentar dikembalikan ke tempatnya. */
+    fun delete(c: Comment) {
+        if (isTemp(c.id)) return
+        val root = c.parentId
+        val oldThread = threads[c.id]
+        if (root == null) {
+            rows = rows.filter { it.id != c.id }; threads = threads - c.id
+            total = maxOf(0, total - 1 - c.replyCount)
+        } else {
+            setThread(root) { it.copy(items = it.items.filter { x -> x.id != c.id }) }
+            rows = rows.map { if (it.id == root) it.copy(replyCount = maxOf(0, it.replyCount - 1)) else it }
+            total = maxOf(0, total - 1)
+        }
+        if (replyingTo?.id == c.id) replyingTo = null
+        snapshot()
+        MainScope().launch {
+            try { Net.api.deleteComment(c.id) }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                if (e is HttpException && e.code() == 404) return@launch // sudah terhapus di server: hasilnya sama
+                if (root == null) {
+                    rows = (rows + c).distinctBy { it.id }.sortedByDescending { it.id }
+                    oldThread?.let { threads = threads + (c.id to it) }
+                    total += 1 + c.replyCount
+                } else {
+                    setThread(root) { it.copy(items = (it.items + c).distinctBy { x -> x.id }.sortedBy { x -> x.id }) }
+                    rows = rows.map { if (it.id == root) it.copy(replyCount = it.replyCount + 1) else it }
+                    total += 1
+                }
+                sendError = e.friendly(); snapshot()
+            }
         }
     }
 
@@ -350,7 +422,7 @@ class CommentFeed(val target: String) {
     /** Ketuk like/dislike: tampil seketika (optimistik), lalu disamakan dengan angka dari server; ketuk lagi = batal. */
     fun vote(c: Comment, tap: Int) {
         if (Auth.isGuest) { GuestGate.ask(GUEST_VOTE); return }
-        if (Auth.token == null || !voting.add(c.id)) return
+        if (Auth.token == null || isTemp(c.id) || !voting.add(c.id)) return
         val next = if (c.myVote == tap) 0 else tap
         patch(c.id) { it.withVote(next) }
         MainScope().launch {
@@ -365,6 +437,9 @@ class CommentFeed(val target: String) {
 }
 
 private const val PAGE = 50
+/** id komentar yang belum dikonfirmasi server (jauh di atas id asli, jadi selalu tampil paling baru). */
+private const val TEMP_BASE = Long.MAX_VALUE / 2
+private fun isTemp(id: Long) = id >= TEMP_BASE
 
 /** Titipan dari layar Notifikasi: komentar mana yang harus dicari dan disorot setelah seri/chapter-nya terbuka. Dipakai sekali. */
 object CommentFocus {
@@ -502,11 +577,10 @@ fun CommentComposer(feed: CommentFeed, modifier: Modifier = Modifier) {
                     focusedBorderColor = Color.White, unfocusedBorderColor = Color(0xFF4A4C53),
                     focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Color.White,
                     focusedContainerColor = Bg, unfocusedContainerColor = Bg))
-            Button({ feed.send(text) { text = "" } }, Modifier.height(56.dp), enabled = text.isNotBlank() && !feed.posting, shape = R6,
+            Button({ feed.send(text, { failed -> if (text.isBlank()) text = failed }) { text = "" } }, Modifier.height(56.dp), enabled = text.isNotBlank(), shape = R6,
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black,
                     disabledContainerColor = Color(0xFF3A3C42), disabledContentColor = Muted)) {
-                if (feed.posting) CircularProgressIndicator(Modifier.size(18.dp), color = Color.Black, strokeWidth = 2.dp)
-                else Text(if (reply != null) "Balas" else "Kirim", fontWeight = FontWeight.Bold)
+                Text(if (reply != null) "Balas" else "Kirim", fontWeight = FontWeight.Bold)
             }
         }
     }

@@ -45,7 +45,8 @@ val Muted = Color(0xFF9EA2AD)
 val R6 = RoundedCornerShape(3.dp) // nama lama; semua tombol/chip/kartu memakai sudut kecil agar tampil kotak
 /** Diisi saat genre di halaman detail ditekan; ExploreScreen membacanya sekali lalu mengosongkannya. */
 object ExploreRequest { var genre by mutableStateOf<String?>(null) }
-fun genreSlug(name: String) = name.lowercase().replace(Regex("[^\\p{L}\\p{N}]+"), "-").trim('-')
+private val NonAlnum = Regex("[^\\p{L}\\p{N}]+")
+fun genreSlug(name: String) = name.lowercase().replace(NonAlnum, "-").trim('-')
 
 /** Dibuka dari ikon lonceng di header; diisi oleh AppScaffold. */
 val LocalOpenNotif = staticCompositionLocalOf<() -> Unit> { {} }
@@ -59,6 +60,11 @@ fun GenreBox(name: String, onClick: () -> Unit) =
 
 private const val COVER_RATIO = 0.5f // rasio kartu mengikuti Siikomik (1:2)
 private val Dim = Color(0x99000000)
+private val Shade = Brush.verticalGradient(listOf(Color.Transparent, Color(0xF2000000))) // dipakai bersama oleh semua kartu & sorotan
+private val LogoText = buildAnnotatedString {
+    withStyle(SpanStyle(color = Color.White)) { append("Mi") }
+    withStyle(SpanStyle(color = Muted)) { append("Toon") }
+}
 
 /** Urbanist (TTF statis per weight, dibuat dari font variable yang diberikan; berfungsi di semua API >= 24). */
 val Urbanist = FontFamily(
@@ -127,20 +133,25 @@ fun MascotLoading(modifier: Modifier = Modifier, size: androidx.compose.ui.unit.
     }
 }
 
-private val ShelfRowH = 80.dp
+private const val SHELF_ROWS = 4
+private val ShelfGap = 7.dp // sama dengan jarak grid di Explore
 
-/** Rak horizontal 4 baris: geser ke kiri untuk melihat lebih banyak; halaman berikutnya dimuat otomatis menjelang ujung. */
+/**
+ * Rak horizontal: kartu PERSIS sama dengan grid Explore (lebar = 1/3 layar, rasio 1:2), disusun 4 baris.
+ * Geser ke kiri untuk melihat lebih banyak; halaman berikutnya dimuat otomatis menjelang ujung.
+ */
 @Composable
 fun SeriesShelf(vm: PagedVm, onOpen: (Series) -> Unit, upCount: Int = 0) {
     val st = rememberLazyGridState()
     val near by remember { derivedStateOf { val l = st.layoutInfo; (l.visibleItemsInfo.lastOrNull()?.index ?: 0) >= l.totalItemsCount - 10 } }
     LaunchedEffect(near, vm.items.size) { if (near) vm.more() }
-    // Lebar sel = layar - 44dp, jadi kolom berikutnya selalu mengintip dan jelas bisa digeser.
-    val cellW = (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp - 44).dp
-    LazyHorizontalGrid(GridCells.Fixed(4), Modifier.fillMaxWidth().height(ShelfRowH * 4 + 10.dp * 3), st,
-        PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (vm.items.isEmpty() && vm.loading) items(8) { Box(Modifier.width(cellW).fillMaxHeight().background(CardBg, R6)) }
-        itemsIndexed(vm.items, key = { _, s -> s.id }) { i, s -> ShelfRow(s, i < upCount, cellW) { onOpen(s) } }
+    // Hitungan sama dengan SeriesGrid: padding 12dp kiri-kanan, jarak 7dp, 3 kolom.
+    val cardW = ((androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp - 24 - 14) / 3f).dp
+    val cardH = cardW / COVER_RATIO
+    LazyHorizontalGrid(GridCells.Fixed(SHELF_ROWS), Modifier.fillMaxWidth().height(cardH * SHELF_ROWS + ShelfGap * (SHELF_ROWS - 1)), st,
+        PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(ShelfGap), verticalArrangement = Arrangement.spacedBy(ShelfGap)) {
+        if (vm.items.isEmpty() && vm.loading) items(SHELF_ROWS * 3) { Box(Modifier.width(cardW).aspectRatio(COVER_RATIO).background(CardBg, R6)) }
+        itemsIndexed(vm.items, key = { _, s -> s.id }) { i, s -> Box(Modifier.width(cardW)) { SeriesCard(s, i < upCount) { onOpen(s) } } }
         if (vm.loading && vm.items.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             Box(Modifier.width(88.dp).fillMaxHeight(), Alignment.Center) { MascotLoading(size = 72.dp) }
         }
@@ -150,37 +161,9 @@ fun SeriesShelf(vm: PagedVm, onOpen: (Series) -> Unit, upCount: Int = 0) {
                 TextButton(vm::retry) { Text("Coba lagi", color = Accent) }
             }
         } }
-    }
-}
-
-@Composable
-private fun ShelfRow(s: Series, up: Boolean, w: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
-    Row(Modifier.width(w).fillMaxHeight().clip(R6).clickable(onClick = onClick), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(58.dp).fillMaxHeight().clip(R6)) {
-            var bad by remember(s.id, s.cover) { mutableStateOf(false) }
-            val fixed = Net.coverFix[s.id]
-            val url = fixed ?: s.cover
-            LaunchedEffect(fixed) { if (fixed != null) bad = false }
-            LaunchedEffect(s.id, url.isBlank(), bad) {
-                if (url.isBlank() || bad) Net.fixCover(s.id, force = bad, bad = url.takeIf { bad && it.isNotBlank() })
-            }
-            Img(url, s.provider, Modifier.fillMaxSize(), retries = 1, onFail = { bad = true; Net.dropCoverFix(s.id, url) }, maxW = 240)
-            if (up) Text("UP", color = OnAccent, fontSize = 9.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.align(Alignment.TopStart).padding(3.dp).background(Accent, RoundedCornerShape(2.dp)).padding(horizontal = 4.dp, vertical = 1.dp))
-        }
-        Column(Modifier.weight(1f).padding(start = 12.dp, end = 4.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(s.title, color = Color.White, fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            s.latestChapter?.takeIf { it.isNotBlank() }?.let {
-                Text(it, color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                s.rating?.takeIf { it > 0 }?.let {
-                    Icon(Ic.StarOn, null, tint = Star, modifier = Modifier.size(12.dp)); Spacer(Modifier.width(3.dp))
-                    Text("%.1f".format(it), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    if (s.genres.isNotEmpty()) Text("  ·  ", color = Muted, fontSize = 12.sp)
-                }
-                if (s.genres.isNotEmpty()) Text(s.genres.take(2).joinToString(", "), color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
+        // Rak yang benar-benar kosong (bukan loading/error) -> beri tahu, jangan biarkan area kosong tanpa penjelasan.
+        if (vm.items.isEmpty() && !vm.loading && vm.error == null) item(span = { GridItemSpan(maxLineSpan) }) {
+            Box(Modifier.width(cardW * 3).fillMaxHeight(), Alignment.Center) { Text("Belum ada data", color = Muted, fontSize = 13.sp) }
         }
     }
 }
@@ -190,7 +173,7 @@ fun SeriesCard(s: Series, up: Boolean, sub: String? = null, onClick: () -> Unit)
     Box(Modifier.fillMaxWidth().aspectRatio(COVER_RATIO).clip(R6).clickable(onClick = onClick)) {
         // Cover dari daftar kosong / gagal dimuat -> pakai cover dari detail seri (diambil sekali dari server, bukan dari cache yang bisa kosong).
         var bad by remember(s.id, s.cover) { mutableStateOf(false) }
-        val fixed = Net.coverFix[s.id]
+        val fixed by remember(s.id) { derivedStateOf { Net.coverFix[s.id] } }
         val url = fixed ?: s.cover
         // Dapat URL cover baru -> beri kesempatan memuat lagi.
         LaunchedEffect(fixed) { if (fixed != null) bad = false }
@@ -200,12 +183,12 @@ fun SeriesCard(s: Series, up: Boolean, sub: String? = null, onClick: () -> Unit)
         }
         Img(url, s.provider, Modifier.fillMaxSize(), retries = 1, onFail = { bad = true; Net.dropCoverFix(s.id, url) }, maxW = 420)
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.38f)
-            .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xF2000000)))))
+            .background(Shade))
         s.rating?.takeIf { it > 0 }?.let {
             Row(Modifier.align(Alignment.TopStart).padding(5.dp).background(Dim, RoundedCornerShape(2.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Icon(Ic.StarOn, null, tint = Star, modifier = Modifier.size(12.dp)); Spacer(Modifier.width(3.dp))
-                Text("%.1f".format(it), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(remember(it) { "%.1f".format(it) }, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
         if (up) Text("UP", color = OnAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold,
@@ -235,10 +218,7 @@ fun Header(onSearch: () -> Unit, onBack: (() -> Unit)? = null) = Column {
         if (onBack != null) IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) }
         Image(painterResource(R.drawable.logo), "MiToon", Modifier.size(34.dp).clip(R6))
         Spacer(Modifier.width(8.dp))
-        Text(buildAnnotatedString {
-            withStyle(SpanStyle(color = Color.White)) { append("Mi") }
-            withStyle(SpanStyle(color = Muted)) { append("Toon") }
-        }, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+        Text(LogoText, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
         IconButton(onSearch) { Icon(Ic.Search, "Cari", tint = Muted, modifier = Modifier.size(26.dp)) }
         val openNotif = LocalOpenNotif.current
         IconButton(openNotif) {
@@ -292,12 +272,12 @@ fun Spotlight(items: List<Series>, onOpen: (Series) -> Unit) {
         while (items.size > 1) { delay(5000); pager.animateScrollToPage((pager.currentPage + 1) % items.size) }
     }
     Box(Modifier.fillMaxWidth().aspectRatio(1.25f).clip(R6)) { // sorotan Home: sedikit lebih pendek dari persegi
-        HorizontalPager(pager, Modifier.fillMaxSize(), key = { items[it].id }) { i ->
+        HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1, key = { items[it].id }) { i ->
             val s = items[i]
             Box(Modifier.fillMaxSize().clickable { onOpen(s) }) {
                 Img(s.cover, s.provider, Modifier.fillMaxSize(), maxW = 800)
                 Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.5f)
-                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xF2000000)))))
+                    .background(Shade))
                 Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
                     Text("Hot", color = OnAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.background(Accent, R6).padding(horizontal = 10.dp, vertical = 4.dp))

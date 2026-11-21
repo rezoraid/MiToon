@@ -177,7 +177,7 @@ fun ExploreScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit) {
     }
     Column(Modifier.fillMaxSize()) {
         Header(onSearch)
-        SeriesGrid(vm, onOpen, modifier = Modifier.weight(1f)) {
+        SeriesGrid(vm, onOpen, modifier = Modifier.weight(1f), warm = true) {
             full {
                 Row(Modifier.padding(top = 12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Row(Modifier.weight(1f).height(46.dp).clip(R6).background(CardBg).border(1.dp, Line, R6).clickable(onClick = onSearch).padding(horizontal = 12.dp),

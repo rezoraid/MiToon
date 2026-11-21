@@ -33,6 +33,8 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 val Bg = Color(0xFF17181C)
 val CardBg = Color(0xFF1E1F25)
@@ -295,8 +297,18 @@ fun Spotlight(items: List<Series>, onOpen: (Series) -> Unit) {
 
 /** Grid 3 kolom (jarak 7dp seperti referensi) + infinite scroll. `header` = item full-width di atas grid. */
 @Composable
-fun SeriesGrid(vm: PagedVm, onOpen: (Series) -> Unit, upCount: Int = 0, modifier: Modifier = Modifier, header: LazyGridScope.() -> Unit = {}) {
+fun SeriesGrid(vm: PagedVm, onOpen: (Series) -> Unit, upCount: Int = 0, modifier: Modifier = Modifier, warm: Boolean = false, header: LazyGridScope.() -> Unit = {}) {
     val st = rememberLazyGridState()
+    if (warm) LaunchedEffect(st) {
+        snapshotFlow { st.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String } }
+            .distinctUntilChanged()
+            .collectLatest { ids ->
+                delay(300)
+                val list = vm.items
+                val last = ids.lastOrNull()?.let { id -> list.indexOfFirst { it.id == id } } ?: -1
+                if (last >= 0) list.subList(maxOf(0, last - 8), minOf(list.size, last + 7)).forEach { Net.prefetchSeries(it.id) }
+            }
+    }
     val near by remember { derivedStateOf { val l = st.layoutInfo; (l.visibleItemsInfo.lastOrNull()?.index ?: 0) >= l.totalItemsCount - 15 } }
     LaunchedEffect(near, vm.items.size) { if (near) vm.more() }
     LazyVerticalGrid(GridCells.Fixed(3), modifier, st, PaddingValues(12.dp, 0.dp, 12.dp, 16.dp),

@@ -441,6 +441,30 @@ object Net {
         }
     }
 
+    private fun metered() = runCatching {
+        (appCtx.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager).isActiveNetworkMetered
+    }.getOrDefault(true)
+    private val seriesWarm = HashSet<String>()
+    private val chapterGate = Semaphore(1)
+    /** Detail + chapter yang kemungkinan dibuka ("Lanjutkan" / chapter pertama) disiapkan diam-diam, satu per satu, supaya seri terbuka instan. */
+    fun prefetchSeries(id: String) {
+        if (!seriesWarm.add(id)) return
+        MainScope().launch {
+            val wait = QUIET_MS - (System.currentTimeMillis() - bootAt)
+            if (wait > 0) delay(wait)
+            val d = detailCache[id] ?: prefetchGate.withPermit {
+                (detailCache[id] ?: loadDetailDisk(id) ?: runCatching { detail(id) }.getOrNull())?.also { storeDetail(id, it) }
+            }
+            if (d == null) { seriesWarm.remove(id); return@launch }
+            val cid = Library.entries[id]?.lastChapterId ?: d.chapters.lastOrNull()?.id ?: return@launch
+            if (Downloads.has(cid)) return@launch
+            chapterGate.withPermit {
+                val c = chapterCache[cid] ?: runCatching { chapter(cid) }.getOrNull()?.also { storeChapter(cid, it) }
+                c?.let { preloadImages(it.images.take(if (metered()) 1 else 4), hdr[cid.substringBefore(':')].orEmpty() + it.imageHeaders) }
+            }
+        }
+    }
+
     /** Cover yang terbukti tampil di halaman detail (id -> URL). Dipakai kartu daftar bila cover dari daftar kosong/gagal dimuat. */
     val coverFix = androidx.compose.runtime.mutableStateMapOf<String, String>()
     private val coverGate = Semaphore(4)

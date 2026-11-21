@@ -27,12 +27,12 @@ private val R16 = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
 @Composable
 fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit, onAccount: () -> Unit, onRoles: () -> Unit = {}, onAdmin: () -> Unit = {}, onPrivacy: () -> Unit = {}) {
     val user = Auth.user
-    if (user == null) { Box(Modifier.fillMaxSize().background(Bg)); return }
+    if (user == null) { VisitorProfile(onBack); return }
     Column(Modifier.fillMaxSize().background(Bg)) {
         SubTopBar("Akun", onBack)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             // ---- kartu profil
-            Column(Modifier.fillMaxWidth().clip(R16).border(1.dp, CardLine, R16).background(CardBg).then(if (user.guest) Modifier else Modifier.clickable(onClick = onEdit)).padding(16.dp)) {
+            Column(Modifier.fillMaxWidth().clip(R16).border(1.dp, CardLine, R16).background(CardBg).clickable(onClick = onEdit).padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Avatar(user.id, user.name, user.avatarV, 72.dp, shape = androidx.compose.foundation.shape.CircleShape)
                     Column(Modifier.weight(1f).padding(start = 16.dp)) {
@@ -43,36 +43,24 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
                         Text("@${user.username}", color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         StatusLabels(user.isOwner, user.premium, Modifier.padding(top = 6.dp), iconSize = 18.dp, textSize = 13, center = false)
                     }
-                    if (!user.guest) Icon(Ic.Right, null, tint = Muted, modifier = Modifier.size(24.dp))
+                    Icon(Ic.Right, null, tint = Muted, modifier = Modifier.size(24.dp))
                 }
-                if (!user.guest) Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                     RoleTag(user.level, iconSize = 22.dp)
                     LevelChip(user.level, Modifier.padding(start = 8.dp), size = 11)
                 }
-                if (!user.guest && user.bio.isNotBlank()) Text(user.bio, color = Color(0xFFD7D9DE), fontSize = 13.sp, lineHeight = 19.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 12.dp))
-                if (!user.guest) XpBar(user, Modifier.padding(top = 14.dp))
-            }
-
-            if (user.guest) {
-                Spacer(Modifier.height(14.dp))
-                Column(Modifier.fillMaxWidth().clip(R16).border(1.dp, CardLine, R16).background(CardBg).padding(16.dp)) {
-                    Text("Kamu masuk sebagai tamu", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    Text("Daftar untuk berkomentar, memberi like, punya profil, mengumpulkan XP, dan menyinkronkan pustaka lintas perangkat. Data tamumu ikut terbawa.", color = Muted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 6.dp))
-                    Button({ GuestGate.openUpgrade() }, Modifier.padding(top = 12.dp).fillMaxWidth(), shape = R6,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)) { Text("Daftar / Masuk", fontWeight = FontWeight.Bold) }
-                }
+                if (user.bio.isNotBlank()) Text(user.bio, color = Color(0xFFD7D9DE), fontSize = 13.sp, lineHeight = 19.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 12.dp))
+                XpBar(user, Modifier.padding(top = 14.dp))
             }
 
             Spacer(Modifier.height(14.dp))
             MenuGroup {
-                if (!user.guest) {
-                    MenuRow(Ic.Person, "Pengaturan Profil", onEdit)
-                    MenuDivider()
-                    MenuRow(Ic.Lock, "Privasi", onPrivacy)
-                    MenuDivider()
-                    MenuRow(Ic.Star, "Peran & Lencana", onRoles)
-                    MenuDivider()
-                }
+                MenuRow(Ic.Person, "Pengaturan Profil", onEdit)
+                MenuDivider()
+                MenuRow(Ic.Lock, "Privasi", onPrivacy)
+                MenuDivider()
+                MenuRow(Ic.Star, "Peran & Lencana", onRoles)
+                MenuDivider()
                 MenuRow(Ic.List, "Riwayat Aktivitas", onHistory)
                 MenuDivider()
                 MenuRow(Ic.Gear, "Pengaturan Akun", onAccount)
@@ -83,6 +71,35 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
             Spacer(Modifier.height(14.dp))
             MenuGroup { MenuRow(Ic.Logout, "Keluar") { Auth.logout() } }
             Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun VisitorProfile(onBack: () -> Unit) {
+    Column(Modifier.fillMaxSize().background(Bg)) {
+        SubTopBar("Akun", onBack)
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+            Column(Modifier.fillMaxWidth().clip(R16).border(1.dp, CardLine, R16).background(CardBg).padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(72.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Line), Alignment.Center) {
+                        Icon(Ic.Person, null, tint = Muted, modifier = Modifier.size(34.dp))
+                    }
+                    Column(Modifier.padding(start = 16.dp)) {
+                        Text("Pengunjung", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                        Text("Belum masuk", color = Muted, fontSize = 13.sp)
+                    }
+                }
+                Text("Masuk dengan Google untuk berkomentar, memberi like, punya profil, mengumpulkan XP, dan menyinkronkan pustaka lintas perangkat. Pustaka di perangkat ini ikut terbawa.", color = Muted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 14.dp))
+                Button({ GuestGate.openUpgrade() }, Modifier.padding(top = 14.dp).fillMaxWidth().height(48.dp), shape = R6,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF1F1F1F))) {
+                    androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.ic_google), null, Modifier.size(20.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Text("Masuk dengan Google", fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            MenuGroup { LanguageRow() }
         }
     }
 }

@@ -85,30 +85,6 @@ fun AuthScreen() {
         }
     }
 
-    var guestAsk by remember { mutableStateOf(false) }
-    fun guest() {
-        if (busy) return
-        guestAsk = false; msg = null; busy = true
-        scope.launch {
-            try { Auth.save(Net.api.guestLogin().data, keep) }
-            catch (e: CancellationException) { throw e } catch (e: Exception) { msg = e.friendly() } finally { busy = false }
-        }
-    }
-    val guestInfo = config?.guest?.takeIf { it.enabled }
-    if (guestAsk) AlertDialog(
-        onDismissRequest = { guestAsk = false }, containerColor = CardBg, shape = RoundedCornerShape(12.dp),
-        title = { Text("Masuk sebagai tamu?", color = Color.White, fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Kamu bisa membaca, bookmark, riwayat, dan unduh. Yang belum bisa:", color = Muted, fontSize = 14.sp, lineHeight = 20.sp)
-                guestInfo?.limits?.forEach { Text("•  ${tr(it.label)}", color = Color.White, fontSize = 14.sp, lineHeight = 20.sp) }
-                Text("Kamu bisa daftar kapan saja tanpa kehilangan data.", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
-            }
-        },
-        confirmButton = { TextButton({ guest() }) { Text("Lanjut sebagai tamu", color = Color.White, fontWeight = FontWeight.Bold) } },
-        dismissButton = { TextButton({ guestAsk = false }) { Text("Batal", color = Muted) } }
-    )
-
     val pages = 3
     val pager = rememberPagerState(pageCount = { pages })
     val last = pager.currentPage == pages - 1
@@ -123,7 +99,7 @@ fun AuthScreen() {
                 when (p) {
                     0 -> WelcomePage()
                     1 -> FeaturesPage()
-                    else -> LoginPage(busy, msg, keep, { keep = it }, guestInfo != null, { guestAsk = true }) { google() }
+                    else -> LoginPage(busy, msg, keep, { keep = it }, { Auth.startVisitor() }) { google() }
                 }
             }
         }
@@ -188,7 +164,7 @@ private fun Feature(icon: ImageVector, tint: Color, title: String, desc: String)
     }
 
 @Composable
-private fun LoginPage(busy: Boolean, msg: String?, keep: Boolean, onKeep: (Boolean) -> Unit, guestOn: Boolean, onGuest: () -> Unit, onGoogle: () -> Unit) =
+private fun LoginPage(busy: Boolean, msg: String?, keep: Boolean, onKeep: (Boolean) -> Unit, onGuest: () -> Unit, onGoogle: () -> Unit) =
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Mascot(130.dp)
         Text("Mulai membaca", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp, modifier = Modifier.padding(top = 4.dp))
@@ -209,9 +185,9 @@ private fun LoginPage(busy: Boolean, msg: String?, keep: Boolean, onKeep: (Boole
                 Text("Masuk dengan Google", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
         }
-        if (guestOn) OutlinedButton(onGuest, Modifier.padding(top = 12.dp).widthIn(max = 420.dp).fillMaxWidth().height(52.dp), enabled = !busy, shape = RoundedCornerShape(16.dp),
+        OutlinedButton(onGuest, Modifier.padding(top = 12.dp).widthIn(max = 420.dp).fillMaxWidth().height(52.dp), enabled = !busy, shape = RoundedCornerShape(16.dp),
             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF45464C))) {
-            Text("Masuk sebagai tamu", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            Text("Lanjut tanpa masuk", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         }
         Row(Modifier.padding(top = 14.dp).widthIn(max = 420.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardBg).clickable { onKeep(!keep) }.padding(start = 18.dp, end = 12.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Ingat saya", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))

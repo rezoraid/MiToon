@@ -1,13 +1,5 @@
 package id.mitoon.app
 
-import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Matrix
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,9 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
@@ -46,22 +36,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import retrofit2.HttpException
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
-import java.io.ByteArrayOutputStream
 
 // ---------------------------------------------------------------- model
 @Serializable data class CommentUser(val id: Long = 0, val username: String = "", val avatarV: Int = 0, val displayName: String = "", val level: Int = 1, val verified: Boolean = false, val isOwner: Boolean = false, val premium: Boolean = false) {
@@ -558,7 +542,7 @@ fun CommentComposer(feed: CommentFeed, modifier: Modifier = Modifier) {
     LaunchedEffect(reply?.id) { if (reply != null) runCatching { focus.requestFocus() } }
     Column(modifier) {
         if (Auth.isGuest) {
-            Text("Daftar atau masuk untuk berkomentar", color = Muted, fontSize = 14.sp,
+            Text("Masuk dengan Google untuk berkomentar", color = Muted, fontSize = 14.sp,
                 modifier = Modifier.fillMaxWidth().clip(R6).border(1.dp, Color(0xFF4A4C53), R6).clickable { GuestGate.ask(GUEST_COMMENT) }.padding(16.dp))
             return@Column
         }
@@ -695,26 +679,6 @@ fun CommentsSheet(target: String, title: String, origin: CommentOrigin? = null, 
 }
 
 // ---------------------------------------------------------------- profil
-/** Foto pilihan -> potong persegi tengah, putar sesuai EXIF, kecilkan 384px, JPEG (±30–60 KB). */
-suspend fun prepareAvatar(ctx: Context, uri: Uri): ByteArray = withContext(Dispatchers.IO) {
-    val cr = ctx.contentResolver
-    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-    var sample = 1
-    while (bounds.outWidth / sample > 1536 || bounds.outHeight / sample > 1536) sample *= 2
-    val decoded = cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample }) }
-        ?: throw IllegalStateException("Gambar tidak bisa dibaca")
-    val orientation = runCatching {
-        cr.openInputStream(uri)?.use { android.media.ExifInterface(it).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, 1) }
-    }.getOrNull() ?: 1
-    val m = Matrix()
-    when (orientation) { 6 -> m.postRotate(90f); 3 -> m.postRotate(180f); 8 -> m.postRotate(270f) }
-    val side = minOf(decoded.width, decoded.height)
-    val square = Bitmap.createBitmap(decoded, (decoded.width - side) / 2, (decoded.height - side) / 2, side, side, m, true)
-    val out = Bitmap.createScaledBitmap(square, 384, 384, true)
-    ByteArrayOutputStream().use { out.compress(Bitmap.CompressFormat.JPEG, 85, it); it.toByteArray() }
-}
-
 /** "sampai 20 Nov 2026 14.05" atau "tanpa batas waktu" untuk bisu permanen. */
 fun muteUntilText(ms: Long): String =
     if (ms > 32_503_680_000_000L) "tanpa batas waktu"

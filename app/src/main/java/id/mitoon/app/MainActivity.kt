@@ -63,8 +63,8 @@ private fun NavHostController.reader(sid: String, cid: String, replace: Boolean 
 
 @Composable
 private fun App() {
-    // Login wajib: belum ada sesi = layar pembuka + login (geser ke atas); setelah login aplikasi masuk dengan zoom lembut.
-    val stage = if (Auth.token == null) 0 else 2
+    // Belum login dan belum memilih "Lanjut tanpa masuk" = layar pembuka + login; setelah itu aplikasi masuk dengan zoom lembut.
+    val stage = if (Auth.token == null && !Auth.visitor) 0 else 2
     Crossfade(stage, animationSpec = tween(320), label = "root") { st ->
         when (st) {
             0 -> AuthScreen()
@@ -98,7 +98,7 @@ private fun AppScaffold() {
         RoleUnlockDialog(r, { Auth.roleUnlocked = null }) { Auth.roleUnlocked = null; nav.navigate("profile/roles") { launchSingleTop = true } }
     }
     GuestGateHost()
-    val openNotif: () -> Unit = { nav.navigate("notifications") { launchSingleTop = true } }
+    val openNotif: () -> Unit = { if (Auth.isGuest) GuestGate.ask(GUEST_NOTIF) else nav.navigate("notifications") { launchSingleTop = true } }
     CompositionLocalProvider(LocalOpenUser provides openUser, LocalOpenNotif provides openNotif) {
     Scaffold(containerColor = Bg, bottomBar = {
         if (tabs.any { it.route == route }) NavigationBar(containerColor = CardBg) {

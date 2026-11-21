@@ -63,11 +63,7 @@ val Roles: List<Role> = listOf(
 fun roleFor(level: Int): Role = Roles.last { level >= it.minLevel }
 fun nextRole(level: Int): Role? = Roles.firstOrNull { it.minLevel > level }
 
-/** Gelar berdasarkan level (nama peran). */
-fun rankTitle(level: Int): String = roleFor(level).title
-
 private val Ink = Color(0xFF17181C)
-private val LockedInk = Color(0xFF4A4C53)
 
 private fun poly(vararg p: Float): Path = Path().apply {
     moveTo(p[0], p[1]); var i = 2

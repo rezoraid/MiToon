@@ -3,7 +3,6 @@ package id.mitoon.app
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -64,7 +63,8 @@ fun LeaderboardScreen(onSearch: () -> Unit) {
     var skew by remember { mutableLongStateOf(0L) }
     var attempt by remember { mutableIntStateOf(0) }
     var clock by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(attempt) {
+    LaunchedEffect(attempt, Auth.token) {
+        if (Auth.token == null) return@LaunchedEffect
         failed = false
         while (true) {
             try {
@@ -82,7 +82,10 @@ fun LeaderboardScreen(onSearch: () -> Unit) {
     Column(Modifier.fillMaxSize()) {
         Header(onSearch)
         if (b == null) {
-            if (failed) Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
+            if (Auth.isGuest) Column(Modifier.fillMaxSize().padding(horizontal = 32.dp), Arrangement.Center, Alignment.CenterHorizontally) {
+                Text("Masuk dengan Google untuk melihat peringkat", color = Muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                TextButton({ GuestGate.openUpgrade() }) { Text("Masuk dengan Google", color = Accent) }
+            } else if (failed) Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
                 Text("Gagal memuat peringkat", color = Muted)
                 TextButton({ attempt++ }) { Text("Coba lagi", color = Accent) }
             } else Box(Modifier.fillMaxSize(), Alignment.Center) { MascotLoading(size = 120.dp) }

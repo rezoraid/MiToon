@@ -39,17 +39,11 @@ import retrofit2.HttpException
     /** centang verified disembunyikan dari tampilan publik oleh pemiliknya */
     val verifiedHidden: Boolean = false,
     val readingHidden: Boolean = false,
-    /** akun tamu: komentar, like, profil, dan sinkronisasi dibatasi sampai daftar */
-    val guest: Boolean = false,
     /** dibisukan sampai (epoch ms); 0 = tidak. Selama dibisukan tidak bisa berkomentar (server menolak). */
     val mutedUntil: Long = 0, val muteReason: String = ""
-) { val name: String get() = displayName.ifBlank { if (guest) "Tamu" else username } }
+) { val name: String get() = displayName.ifBlank { username } }
 @Serializable data class AuthRes(val token: String, val user: AuthUser)
-@Serializable data class GuestLimit(val key: String = "", val label: String = "")
-@Serializable data class GuestInfo(val enabled: Boolean = false, val limits: List<GuestLimit> = emptyList())
-@Serializable data class AuthConfig(val google: String? = null, val guest: GuestInfo? = null)
-@Serializable data class LoginReq(val identifier: String, val password: String)
-@Serializable data class RegisterReq(val username: String, val email: String, val password: String)
+@Serializable data class AuthConfig(val google: String? = null)
 @Serializable data class GoogleReq(val idToken: String)
 @Serializable data class ProfileReq(val displayName: String? = null, val username: String? = null, val bio: String? = null, val verifiedHidden: Boolean? = null, val readingHidden: Boolean? = null)
 
@@ -59,7 +53,10 @@ object Auth {
     var token by mutableStateOf<String?>(null); private set
     var user by mutableStateOf<AuthUser?>(null); private set
     var menuOpen by mutableStateOf(false)
-    val isGuest: Boolean get() = user?.guest == true
+    /** Mode kunjungan: aplikasi dipakai tanpa login (tanpa sesi dan tanpa akun di server); semua data hanya di perangkat ini. */
+    var visitor by mutableStateOf(false); private set
+    /** true selama belum login (mode kunjungan). */
+    val isGuest: Boolean get() = token == null
     /** Penanda satu kali: aplikasi baru saja dibuka setelah login -> animasi masuk. */
     var pendingEntrance = false
     /** Peran baru yang baru saja terbuka (level naik melewati ambang); ditampilkan sekali lalu dikosongkan. */
@@ -70,15 +67,23 @@ object Auth {
     fun init(ctx: Context) {
         prefs = ctx.getSharedPreferences("auth", Context.MODE_PRIVATE)
         token = prefs.getString("t", null)
+        visitor = token == null && prefs.getBoolean("visitor", false)
         user = if (token != null) AuthUser(
             id = prefs.getLong("i", 0), username = prefs.getString("u", "").orEmpty(), avatarV = prefs.getInt("v", 0),
             displayName = prefs.getString("n", "").orEmpty(), bio = prefs.getString("b", "").orEmpty(), xp = prefs.getInt("xp", 0),
-            level = prefs.getInt("lv", 1).coerceAtLeast(1), levelXp = prefs.getInt("lx", 0), levelNeed = prefs.getInt("ln", 40), verified = prefs.getBoolean("vf", false), isOwner = prefs.getBoolean("io", false), premium = prefs.getBoolean("pm", false), verifiedHidden = prefs.getBoolean("vh", false), readingHidden = prefs.getBoolean("rh", false), guest = prefs.getBoolean("gs", false)
+            level = prefs.getInt("lv", 1).coerceAtLeast(1), levelXp = prefs.getInt("lx", 0), levelNeed = prefs.getInt("ln", 40), verified = prefs.getBoolean("vf", false), isOwner = prefs.getBoolean("io", false), premium = prefs.getBoolean("pm", false), verifiedHidden = prefs.getBoolean("vh", false), readingHidden = prefs.getBoolean("rh", false)
         ) else null
         usernameUnlockAt = if (token != null) prefs.getLong("x", 0) else 0L
     }
 
+    fun startVisitor() {
+        visitor = true
+        pendingEntrance = true
+        prefs.edit().putBoolean("visitor", true).apply()
+    }
+
     fun save(r: AuthRes, remember: Boolean) {
+        visitor = false
         token = r.token
         user = r.user
         usernameUnlockAt = unlockAt(r.user)
@@ -130,12 +135,12 @@ object Auth {
         }
     }
 
-    private fun SharedPreferences.Editor.putXp(u: AuthUser) { putInt("xp", u.xp); putInt("lv", u.level); putInt("lx", u.levelXp); putInt("ln", u.levelNeed); putBoolean("vf", u.verified); putBoolean("io", u.isOwner); putBoolean("pm", u.premium); putBoolean("vh", u.verifiedHidden); putBoolean("rh", u.readingHidden); putBoolean("gs", u.guest) }
+    private fun SharedPreferences.Editor.putXp(u: AuthUser) { putInt("xp", u.xp); putInt("lv", u.level); putInt("lx", u.levelXp); putInt("ln", u.levelNeed); putBoolean("vf", u.verified); putBoolean("io", u.isOwner); putBoolean("pm", u.premium); putBoolean("vh", u.verifiedHidden); putBoolean("rh", u.readingHidden) }
 
     private fun unlockAt(u: AuthUser): Long = if (u.usernameCooldownSec > 0) System.currentTimeMillis() + u.usernameCooldownSec * 1000 else 0L
 
     fun logout() {
-        token = null; user = null; menuOpen = false; roleUnlocked = null; usernameUnlockAt = 0L; Xp.reset(); Library.onLogout()
+        visitor = false; token = null; user = null; menuOpen = false; roleUnlocked = null; usernameUnlockAt = 0L; Xp.reset(); Library.onLogout()
         prefs.edit().clear().apply()
     }
 

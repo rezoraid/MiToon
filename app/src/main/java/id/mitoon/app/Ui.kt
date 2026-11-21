@@ -7,7 +7,6 @@ import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,7 +17,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -250,13 +248,6 @@ fun Chip(text: String, on: Boolean, onClick: () -> Unit) =
 fun Pills(items: List<Pair<String, String>>, selected: String, onSelect: (String) -> Unit) =
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 12.dp)) {
         items(items, key = { it.first }) { (k, t) -> Chip(t, selected == k) { onSelect(k) } }
-    }
-
-@Composable
-fun CategoryTabs(genres: List<Genre>, selected: String?, onSelect: (String?) -> Unit) =
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
-        item { Chip("Semua", selected == null) { onSelect(null) } }
-        items(genres, key = { it.slug }) { g -> Chip(g.name, selected == g.slug) { onSelect(g.slug) } }
     }
 
 private val tones = listOf(Triple(Color(0xFF3A3C45), Color.White, Color(0xFF1E1F25)), Triple(Color(0xFF4A4D57), Color(0xFFD0D3DA), Color(0xFF17181C)))

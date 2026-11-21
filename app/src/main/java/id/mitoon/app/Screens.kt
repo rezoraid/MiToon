@@ -8,7 +8,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.items as gridItems
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -18,7 +17,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -259,8 +257,8 @@ fun LibraryScreen(onOpen: (String) -> Unit, onContinue: (LibEntry) -> Unit, onSe
     Column(Modifier.fillMaxSize()) {
         Header(onSearch)
         if (Auth.isGuest) Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 10.dp).clip(R6).background(CardBg).clickable { GuestGate.openUpgrade() }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Mode tamu: pustaka hanya tersimpan di perangkat ini.", color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
-            Text("Daftar", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text("Belum masuk: pustaka hanya tersimpan di perangkat ini.", color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+            Text("Masuk", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
         Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Chip("Bookmark", tab == 0) { tab = 0 }; Chip("Riwayat", tab == 1) { tab = 1 }; Chip("Download", tab == 2) { tab = 2 }

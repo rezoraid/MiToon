@@ -388,30 +388,7 @@ Daftar komik yang kamu baca tidak tampil di profilmu. Progres bacamu tetap tersi
 "Sedang dibaca" disembunyikan dari profil publik||"Currently reading" is hidden from your public profile||"Sedang dibaca" disembunyikan daripada profil awam||"Leyendo ahora" oculto en tu perfil público||「読書中」を公開プロフィールから非表示にしました
 "Sedang dibaca" tampil di profil publik||"Currently reading" is shown on your public profile||"Sedang dibaca" dipaparkan di profil awam||"Leyendo ahora" visible en tu perfil público||「読書中」を公開プロフィールに表示しました
 Daftar bacaanmu disembunyikan. Atur di menu Privasi.||Your reading list is hidden. Change it in Privacy.||Senarai bacaan anda disembunyikan. Tukar di menu Privasi.||Tu lista de lectura está oculta. Cámbialo en Privacidad.||読書リストは非表示です。プライバシーで変更できます。
-Masuk sebagai tamu||Continue as guest||Masuk sebagai tetamu||Entrar como invitado||ゲストとして続ける
-Masuk sebagai tamu?||Continue as guest?||Masuk sebagai tetamu?||¿Entrar como invitado?||ゲストとして続けますか?
-Kamu bisa membaca, bookmark, riwayat, dan unduh. Yang belum bisa:||You can read, bookmark, keep history and download. You can't:||Anda boleh membaca, bookmark, sejarah dan muat turun. Belum boleh:||Puedes leer, guardar favoritos, ver historial y descargar. No puedes:||閲覧・ブックマーク・履歴・ダウンロードができます。できないこと:
-Kamu bisa daftar kapan saja tanpa kehilangan data.||You can sign up any time without losing your data.||Anda boleh mendaftar bila-bila masa tanpa kehilangan data.||Puedes registrarte cuando quieras sin perder tus datos.||データを失わずにいつでも登録できます。
-Lanjut sebagai tamu||Continue as guest||Teruskan sebagai tetamu||Continuar como invitado||ゲストとして続ける
-Berkomentar dan membalas||Commenting and replying||Mengulas dan membalas||Comentar y responder||コメントと返信
-Memberi like/dislike komentar||Liking/disliking comments||Memberi suka/tidak suka pada komen||Dar me gusta/no me gusta a comentarios||コメントへの高評価/低評価
-Mengubah nama, bio, username, dan foto||Changing name, bio, username and photo||Menukar nama, bio, nama pengguna dan foto||Cambiar nombre, bio, usuario y foto||名前・自己紹介・ユーザー名・写真の変更
-Sinkronisasi pustaka lintas perangkat||Syncing your library across devices||Segerak pustaka merentas peranti||Sincronizar tu biblioteca entre dispositivos||デバイス間のライブラリ同期
-Menampilkan bacaan di profil||Showing your reading on your profile||Memaparkan bacaan di profil||Mostrar tus lecturas en el perfil||プロフィールへの読書表示
-Mengumpulkan XP dan masuk papan peringkat||Earning XP and joining the leaderboard||Mengumpul XP dan masuk papan pendahulu||Ganar XP y entrar en el ranking||XPの獲得とランキング参加
-Khusus akun terdaftar||Registered accounts only||Khas untuk akaun berdaftar||Solo para cuentas registradas||登録済みアカウント専用
-Daftar atau masuk dulu untuk berkomentar.||Sign up or log in to comment.||Daftar atau log masuk dahulu untuk mengulas.||Regístrate o inicia sesión para comentar.||コメントするには登録またはログインしてください。
-Daftar atau masuk dulu untuk membalas komentar.||Sign up or log in to reply.||Daftar atau log masuk dahulu untuk membalas komen.||Regístrate o inicia sesión para responder.||返信するには登録またはログインしてください。
-Daftar atau masuk dulu untuk memberi like.||Sign up or log in to like.||Daftar atau log masuk dahulu untuk memberi suka.||Regístrate o inicia sesión para dar me gusta.||高評価するには登録またはログインしてください。
 Bookmark, riwayat, dan unduhanmu tetap tersimpan di perangkat ini.||Your bookmarks, history and downloads stay on this device.||Bookmark, sejarah dan muat turun anda kekal di peranti ini.||Tus favoritos, historial y descargas se quedan en este dispositivo.||ブックマーク・履歴・ダウンロードはこの端末に残ります。
-Daftar / Masuk||Sign up / Log in||Daftar / Log masuk||Registrarse / Entrar||登録 / ログイン
 Nanti||Later||Nanti||Luego||あとで
-Daftar akun||Create account||Daftar akaun||Crear cuenta||アカウント登録
-Datamu sebagai tamu ikut terbawa ke akun baru.||Your guest data carries over to the new account.||Data tetamu anda dibawa ke akaun baharu.||Tus datos de invitado pasan a la cuenta nueva.||ゲストのデータは新しいアカウントに引き継がれます。
 Email||Email||E-mel||Correo||メール
-Password (min. 8 karakter)||Password (min. 8 characters)||Kata laluan (min. 8 aksara)||Contraseña (mín. 8 caracteres)||パスワード(8文字以上)
 Daftar||Sign up||Daftar||Registrarse||登録
-Kamu masuk sebagai tamu||You're using guest mode||Anda masuk sebagai tetamu||Estás en modo invitado||ゲストモードです
-Daftar untuk berkomentar, memberi like, punya profil, mengumpulkan XP, dan menyinkronkan pustaka lintas perangkat. Data tamumu ikut terbawa.||Sign up to comment, like, have a profile, earn XP and sync your library across devices. Your guest data carries over.||Daftar untuk mengulas, memberi suka, memiliki profil, mengumpul XP dan menyegerak pustaka. Data tetamu anda dibawa bersama.||Regístrate para comentar, dar me gusta, tener perfil, ganar XP y sincronizar tu biblioteca. Tus datos de invitado se conservan.||登録するとコメント・高評価・プロフィール・XP獲得・ライブラリ同期が使えます。ゲストのデータは引き継がれます。
-Mode tamu: pustaka hanya tersimpan di perangkat ini.||Guest mode: your library is only saved on this device.||Mod tetamu: pustaka hanya disimpan di peranti ini.||Modo invitado: tu biblioteca solo se guarda en este dispositivo.||ゲストモード:ライブラリはこの端末にのみ保存されます。
-Daftar atau masuk untuk berkomentar||Sign up or log in to comment||Daftar atau log masuk untuk mengulas||Regístrate o inicia sesión para comentar||コメントするには登録またはログイン

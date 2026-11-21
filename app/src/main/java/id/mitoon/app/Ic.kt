@@ -12,7 +12,6 @@ import androidx.compose.ui.unit.dp
 private val Ink = SolidColor(Color.Black)
 private fun icon(name: String, mirror: Boolean = false, b: ImageVector.Builder.() -> Unit) = ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f, autoMirror = mirror).apply(b).build()
 private fun ImageVector.Builder.line(d: String, w: Float) = addPath(addPathNodes(d), stroke = Ink, strokeLineWidth = w, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round)
-private fun ImageVector.Builder.solid(d: String) = addPath(addPathNodes(d), fill = Ink)
 private fun ImageVector.Builder.eo(d: String) = addPath(addPathNodes(d), pathFillType = PathFillType.EvenOdd, fill = Ink)
 private fun ImageVector.Builder.both(d: String, w: Float) = addPath(addPathNodes(d), fill = Ink, stroke = Ink, strokeLineWidth = w, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round)
 

@@ -143,11 +143,7 @@ interface Api {
     @GET("v1/notifications/unread") suspend fun notifUnread(): Env<NotifCount>
     @POST("v1/notifications/read") suspend fun notifRead(@Query("kind") kind: String? = null): Env<Ok>
     @GET("v1/auth/config") suspend fun authConfig(): Env<AuthConfig>
-    @POST("v1/auth/login") suspend fun login(@Body b: LoginReq): Env<AuthRes>
-    @POST("v1/auth/register") suspend fun register(@Body b: RegisterReq): Env<AuthRes>
     @POST("v1/auth/google") suspend fun googleLogin(@Body b: GoogleReq): Env<AuthRes>
-    @POST("v1/auth/guest") suspend fun guestLogin(): Env<AuthRes>
-    @POST("v1/auth/guest/upgrade") suspend fun guestUpgrade(@Body b: RegisterReq): Env<AuthRes>
     @GET("v1/auth/me") suspend fun me(): Env<AuthUser>
     @PATCH("v1/auth/me") suspend fun updateProfile(@Body b: ProfileReq): Env<AuthUser>
     @PUT("v1/auth/me/avatar") suspend fun putAvatar(@Body jpeg: RequestBody): Env<AuthUser>

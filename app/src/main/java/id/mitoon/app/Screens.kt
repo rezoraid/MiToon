@@ -75,7 +75,7 @@ fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Uni
         } else {
             val feed = keyedVm("home-$s") { PagedVm("home-$s") { p -> Net.api.byGenre(s, p).data } }
             PullRefresh(feed.refreshing, feed::refresh, Modifier.weight(1f)) {
-                SeriesGrid(feed, onOpen, modifier = Modifier.fillMaxSize()) {
+                SeriesGrid(feed, onOpen, modifier = Modifier.fillMaxSize(), showRating = false) {
                     full { Pills(tabs, s) { sel = it } }
                     full { SectionTitle(tabs.firstOrNull { it.first == s }?.second ?: "") }
                 }

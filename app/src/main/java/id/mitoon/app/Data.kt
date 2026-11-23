@@ -91,12 +91,13 @@ import java.security.MessageDigest
     val detailFetchedAt: String? = null, val firstSeenAt: String? = null, val lastSeenAt: String? = null, val updatedAt: String? = null,
     val chapters: List<AdminChapter> = emptyList()
 )
-@Serializable data class AdminChapter(val id: Long = 0, val ref: String = "", val number: Double? = null, val numberText: String = "", val title: String = "", val releasedAt: String? = null)
+@Serializable data class AdminChapter(val id: Long = 0, val ref: String = "", val number: Double? = null, val numberText: String = "", val title: String = "", val releasedAt: String? = null, val fixed: Boolean = false)
 @Serializable data class AdminSeriesPatch(
     val title: String? = null, val cover: String? = null, val url: String? = null, val type: String? = null, val status: String? = null,
     val synopsis: String? = null, val author: String? = null, val artist: String? = null, val year: Int? = null, val rating: Double? = null,
     val chapterCount: Int? = null, val latestChapter: String? = null, val genres: List<String>? = null
 )
+@Serializable data class AdminFixResult(val status: String = "", val source: String? = null, val images: Int = 0, val bad: Int = 0, val reason: String? = null)
 @Serializable data class AdminChapterPatch(val title: String? = null, val numberText: String? = null, val number: Double? = null)
 @Serializable data class AdminUsersPage(val total: Int = 0, val items: List<AdminUser> = emptyList(), val page: Int = 1, val limit: Int = 30, val hasMore: Boolean = false)
 @Serializable data class AdminComment(
@@ -169,6 +170,7 @@ interface Api {
     @PATCH("v1/admin/series/{id}") suspend fun adminUpdateSeries(@Path("id") id: Long, @Body b: AdminSeriesPatch): Env<AdminSeries>
     @DELETE("v1/admin/series/{id}") suspend fun adminDeleteSeries(@Path("id") id: Long): Env<Ok>
     @PATCH("v1/admin/chapters/{id}") suspend fun adminUpdateChapter(@Path("id") id: Long, @Body b: AdminChapterPatch): Env<Ok>
+    @POST("v1/admin/chapters/{id}/fix") suspend fun adminFixChapter(@Path("id") id: Long): Env<AdminFixResult>
     @DELETE("v1/admin/chapters/{id}") suspend fun adminDeleteChapter(@Path("id") id: Long): Env<Ok>
     @GET("v1/admin/users") suspend fun adminUsers(@Query("q") q: String? = null, @Query("filter") filter: String? = null, @Query("page") page: Int = 1, @Query("limit") limit: Int = 30): Env<AdminUsersPage>
     @PATCH("v1/admin/users/{id}") suspend fun adminModerateUser(@Path("id") id: Long, @Body b: AdminUserPatch): Env<AdminUser>
@@ -185,6 +187,7 @@ interface Api {
 object Net {
     lateinit var client: OkHttpClient
     lateinit var api: Api
+    lateinit var slowApi: Api
     /** Header gambar per provider (referer), diisi sekali dari /v1/providers. */
     var hdr by mutableStateOf<Map<String, Map<String, String>>>(emptyMap())
 
@@ -579,6 +582,10 @@ object Net {
             }.build()
         val json = Json { ignoreUnknownKeys = true; coerceInputValues = true; explicitNulls = false }
         api = Retrofit.Builder().baseUrl(BuildConfig.API_BASE_URL).client(client)
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build().create(Api::class.java)
+        slowApi = Retrofit.Builder().baseUrl(BuildConfig.API_BASE_URL)
+            .client(client.newBuilder().readTimeout(110, TimeUnit.SECONDS).callTimeout(120, TimeUnit.SECONDS).build())
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build().create(Api::class.java)
     }

@@ -155,7 +155,7 @@ fun SeriesShelf(vm: PagedVm, onOpen: (Series) -> Unit, upCount: Int = 0) {
     LazyHorizontalGrid(GridCells.Fixed(SHELF_ROWS), Modifier.fillMaxWidth().height(cardH * SHELF_ROWS + ShelfGap * (SHELF_ROWS - 1)), st,
         PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(ShelfGap), verticalArrangement = Arrangement.spacedBy(ShelfGap)) {
         if (vm.items.isEmpty() && vm.loading) items(SHELF_ROWS * 3) { Box(Modifier.width(cardW).aspectRatio(COVER_RATIO).background(CardBg, R6)) }
-        itemsIndexed(vm.items, key = { _, s -> s.id }) { i, s -> Box(Modifier.width(cardW)) { SeriesCard(s, i < upCount) { onOpen(s) } } }
+        itemsIndexed(vm.items, key = { _, s -> s.id }) { i, s -> Box(Modifier.width(cardW)) { SeriesCard(s, i < upCount, showRating = false) { onOpen(s) } } }
         if (vm.loading && vm.items.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             Box(Modifier.width(88.dp).fillMaxHeight(), Alignment.Center) { MascotLoading(size = 72.dp) }
         }
@@ -173,7 +173,7 @@ fun SeriesShelf(vm: PagedVm, onOpen: (Series) -> Unit, upCount: Int = 0) {
 }
 
 @Composable
-fun SeriesCard(s: Series, up: Boolean, sub: String? = null, onClick: () -> Unit) {
+fun SeriesCard(s: Series, up: Boolean, sub: String? = null, showRating: Boolean = true, onClick: () -> Unit) {
     Box(Modifier.fillMaxWidth().aspectRatio(COVER_RATIO).clip(R6).clickable(onClick = onClick)) {
         // Cover dari daftar kosong / gagal dimuat -> pakai cover dari detail seri (diambil sekali dari server, bukan dari cache yang bisa kosong).
         var bad by remember(s.id, s.cover) { mutableStateOf(false) }
@@ -188,7 +188,7 @@ fun SeriesCard(s: Series, up: Boolean, sub: String? = null, onClick: () -> Unit)
         Img(url, s.provider, Modifier.fillMaxSize(), retries = 1, onFail = { bad = true; Net.dropCoverFix(s.id, url) }, maxW = 420)
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.38f)
             .background(Shade))
-        s.rating?.takeIf { it > 0 }?.let {
+        s.rating?.takeIf { showRating && it > 0 }?.let {
             Row(Modifier.align(Alignment.TopStart).padding(5.dp).background(Dim, RoundedCornerShape(2.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Icon(Ic.StarOn, null, tint = Star, modifier = Modifier.size(12.dp)); Spacer(Modifier.width(3.dp))
@@ -308,7 +308,7 @@ fun Spotlight(items: List<Series>, onOpen: (Series) -> Unit) {
 
 /** Grid 3 kolom (jarak 7dp seperti referensi) + infinite scroll. `header` = item full-width di atas grid. */
 @Composable
-fun SeriesGrid(vm: PagedVm, onOpen: (Series) -> Unit, upCount: Int = 0, modifier: Modifier = Modifier, warm: Boolean = false, header: LazyGridScope.() -> Unit = {}) {
+fun SeriesGrid(vm: PagedVm, onOpen: (Series) -> Unit, upCount: Int = 0, modifier: Modifier = Modifier, warm: Boolean = false, showRating: Boolean = true, header: LazyGridScope.() -> Unit = {}) {
     val st = rememberLazyGridState()
     if (warm) LaunchedEffect(st) {
         snapshotFlow { st.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String } }
@@ -326,7 +326,7 @@ fun SeriesGrid(vm: PagedVm, onOpen: (Series) -> Unit, upCount: Int = 0, modifier
         verticalArrangement = Arrangement.spacedBy(7.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
         header()
         if (vm.items.isEmpty() && vm.loading) items(9) { Box(Modifier.aspectRatio(COVER_RATIO).background(CardBg, R6)) }
-        itemsIndexed(vm.items, key = { _, s -> s.id }) { i, s -> SeriesCard(s, i < upCount) { onOpen(s) } }
+        itemsIndexed(vm.items, key = { _, s -> s.id }) { i, s -> SeriesCard(s, i < upCount, showRating = showRating) { onOpen(s) } }
         if (vm.loading && vm.items.isNotEmpty()) full {
             MascotLoading(Modifier.fillMaxWidth().padding(vertical = 8.dp), 84.dp)
         }

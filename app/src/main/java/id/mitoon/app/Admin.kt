@@ -169,6 +169,9 @@ fun AdminSeriesEditScreen(id: Long, onBack: () -> Unit) {
     var saving by remember { mutableStateOf(false) }
     var msg by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    var fixing by remember { mutableStateOf(false) }
+    var fixLog by remember { mutableStateOf<String?>(null) }
+    val broken = remember { mutableStateListOf<Long>() }
     var title by remember { mutableStateOf("") }
     var synopsis by remember { mutableStateOf("") }
     var author by remember { mutableStateOf("") }
@@ -212,6 +215,33 @@ fun AdminSeriesEditScreen(id: Long, onBack: () -> Unit) {
                 .onFailure { msg = it.friendly(); saving = false }
         }
     }
+    fun fixAll() {
+        val list = s?.chapters?.filter { !it.fixed } ?: return
+        if (list.isEmpty()) { fixLog = "Semua chapter sudah tersimpan"; return }
+        fixing = true; broken.clear()
+        scope.launch {
+            var ok = 0
+            var done = 0
+            val queue = java.util.concurrent.ConcurrentLinkedQueue(list)
+            fixLog = "Memeriksa 0/${list.size}…"
+            List(2) {
+                launch {
+                    while (true) {
+                        val ch = queue.poll() ?: break
+                        val r = runCatching { Net.slowApi.adminFixChapter(ch.id).data }.getOrNull()
+                        if (r?.status == "ok") {
+                            ok++
+                            s = s?.let { cur -> cur.copy(chapters = cur.chapters.map { if (it.id == ch.id) it.copy(fixed = true) else it }) }
+                        } else broken.add(ch.id)
+                        done++
+                        fixLog = "Memeriksa $done/${list.size} · tersimpan $ok · masih eror ${broken.size}"
+                    }
+                }
+            }.forEach { it.join() }
+            fixLog = "Selesai: $ok tersimpan ke DB & cache, ${broken.size} masih eror"
+            fixing = false
+        }
+    }
     fun delete() {
         scope.launch {
             runCatching { Net.api.adminDeleteSeries(id) }
@@ -243,8 +273,16 @@ fun AdminSeriesEditScreen(id: Long, onBack: () -> Unit) {
                 Field("Genre (pisah koma)", genres) { genres = it }
                 Spacer(Modifier.height(8.dp))
                 Text("Chapter (${s?.chapters?.size ?: 0})", color = Color.White, fontWeight = FontWeight.Bold)
+                TextButton({ fixAll() }, enabled = !fixing) {
+                    if (fixing) CircularProgressIndicator(color = Accent, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                    else Icon(Ic.Refresh, null, tint = Accent, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (fixing) "Memperbaiki…" else "Perbaiki chapter eror", color = Accent, fontWeight = FontWeight.Bold)
+                }
+                fixLog?.let { Text(it, color = Muted, fontSize = 12.sp) }
                 s?.chapters?.take(30)?.forEach { ch ->
-                    Text("• ${ch.numberText} ${ch.title}".trim(), color = Muted, fontSize = 12.sp)
+                    val mark = if (ch.fixed) "✓ " else if (ch.id in broken) "✗ " else "• "
+                    Text("$mark${ch.numberText} ${ch.title}".trim(), color = if (ch.fixed) Color(0xFF6BCB77) else if (ch.id in broken) Color(0xFFFF6B6B) else Muted, fontSize = 12.sp)
                 }
                 if ((s?.chapters?.size ?: 0) > 30) Text("… dan ${(s?.chapters?.size ?: 0) - 30} lainnya", color = Muted, fontSize = 11.sp)
                 Spacer(Modifier.height(16.dp))

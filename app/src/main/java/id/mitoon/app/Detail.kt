@@ -35,6 +35,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -256,7 +257,15 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
 
     Column(Modifier.fillMaxSize()) {
         Header(onSearch, onBack)
-        LazyColumn(Modifier.imePadding(), listState, contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 24.dp)) {
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+        val heroH = minOf(maxWidth * 1.25f, maxHeight * 0.8f)
+        val heroPx = with(LocalDensity.current) { heroH.toPx() }
+        if (cover.isNotBlank()) Box(Modifier.fillMaxWidth().height(heroH).graphicsLayer { translationY = -(if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else heroPx) }) {
+            Img(cover, provider, Modifier.fillMaxSize(), maxW = 900, q = 80, align = BiasAlignment(0f, -0.75f))
+            Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Bg.copy(alpha = 0.2f), 0.3f to Bg.copy(alpha = 0.3f), 0.55f to Bg.copy(alpha = 0.78f), 0.8f to Bg.copy(alpha = 0.96f), 1f to Bg)))
+        }
+        LazyColumn(Modifier.fillMaxSize().imePadding(), listState, contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 24.dp)) {
+            if (cover.isNotBlank()) item("hero-space") { Spacer(Modifier.height(heroH * 0.42f)) }
             // Kepala: cover kecil (2:3) di kiri, judul + info ringkas di kanan -> muat di layar HP tanpa scroll panjang.
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -357,6 +366,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
                 commentItems(feed)
             }
         }
+        }
     }
 }
 
@@ -420,6 +430,7 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     var lastSec by remember(chapterId) { mutableIntStateOf(0) }
     countdown?.let { if (it != lastSec) lastSec = it }
     val listState = rememberLazyListState()
+    val zoom = remember(chapterId) { ZoomState() }
     val scope = rememberCoroutineScope()
     // Geser jari ke atas (baca lanjut) -> bar tersembunyi; geser ke bawah (balik) -> bar muncul lagi.
     val barsByScroll = remember {
@@ -536,10 +547,12 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
             res == null -> Box(Modifier.fillMaxSize(), Alignment.Center) { MascotLoading(size = 150.dp) }
             c == null -> Failed { tick++ }
             c.images.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Chapter belum tersedia", color = Muted) }
-            else -> LazyColumn(Modifier.fillMaxSize().nestedScroll(barsByScroll).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { bars = !bars }, listState) {
-                itemsIndexed(c.images, key = { i, u -> "$i|$u" }) { i, url ->
-                    ReaderPage(url, imgHeaders, reloadNonce) {
-                        if (i == 0 && !autoTried && left > 0 && local == null && !refetching) { autoTried = true; doRefetch() }
+            else -> ZoomLayer(zoom, listState, onDoubleTap = { bars = !bars }) {
+                LazyColumn(Modifier.fillMaxSize().nestedScroll(barsByScroll).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { bars = !bars }, listState) {
+                    itemsIndexed(c.images, key = { i, u -> "$i|$u" }) { i, url ->
+                        ReaderPage(url, imgHeaders, reloadNonce) {
+                            if (i == 0 && !autoTried && left > 0 && local == null && !refetching) { autoTried = true; doRefetch() }
+                        }
                     }
                 }
             }
@@ -574,7 +587,7 @@ private fun ReaderPage(url: String, headers: Map<String, String>, nonce: Int, on
     val dead0 by rememberUpdatedState(onDead)
     key(nonce, round) {
         Box(Modifier.fillMaxWidth()) {
-            Img(url, "", Modifier.fillMaxWidth().heightIn(min = 240.dp), ContentScale.FillWidth, headers, onFail = { dead = true; dead0() }, maxH = 12000)
+            ReaderImage(url, headers) { dead = true; dead0() }
             if (dead) Column(Modifier.matchParentSize().clickable { dead = false; round++ }, Arrangement.Center, Alignment.CenterHorizontally) {
                 Text("Gagal memuat gambar", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 Text("Ketuk untuk coba lagi", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))

@@ -102,7 +102,7 @@ fun MiToonTheme(content: @Composable () -> Unit) = MaterialTheme(
 )
 
 @Composable
-fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale = ContentScale.Crop, extra: Map<String, String>? = null, retries: Int = 4, onFail: (() -> Unit)? = null, maxW: Int = 0, q: Int = 72, maxH: Int = 0) {
+fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale = ContentScale.Crop, extra: Map<String, String>? = null, retries: Int = 4, onFail: (() -> Unit)? = null, maxW: Int = 0, q: Int = 72, maxH: Int = 0, align: Alignment = Alignment.Center) {
     val ctx = LocalContext.current
     // Gagal muat (mis. header referer belum siap saat app baru dibuka, atau koneksi goyang) -> coba lagi sampai 2x
     // dengan header yang dibaca ulang saat itu juga (supaya tidak memakai header lama).
@@ -122,7 +122,7 @@ fun Img(url: String, provider: String, modifier: Modifier, scale: ContentScale =
             .apply { if (maxH > 0) size(ctx.resources.displayMetrics.widthPixels, maxH).scale(coil.size.Scale.FIT) }
             .apply { h.forEach { (k, v) -> addHeader(k, v) } }.build()
     }
-    AsyncImage(model = req, contentDescription = null, modifier = modifier.background(CardBg), contentScale = scale,
+    AsyncImage(model = req, contentDescription = null, modifier = modifier.background(CardBg), contentScale = scale, alignment = align,
         onError = { if (viaThumb) { Net.thumbFailed(url); direct = true } else if (url.isNotBlank()) failed = true })
 }
 

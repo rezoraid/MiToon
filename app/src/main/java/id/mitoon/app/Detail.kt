@@ -258,14 +258,14 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
     Column(Modifier.fillMaxSize()) {
         Header(onSearch, onBack)
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-        val heroH = minOf(maxWidth * 1.25f, maxHeight * 0.8f)
+        val heroH = minOf(maxWidth * 0.75f, maxHeight * 0.36f)
         val heroPx = with(LocalDensity.current) { heroH.toPx() }
         if (cover.isNotBlank()) Box(Modifier.fillMaxWidth().height(heroH).graphicsLayer { translationY = -(if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else heroPx) }) {
-            Img(cover, provider, Modifier.fillMaxSize(), maxW = 900, q = 80, align = BiasAlignment(0f, -0.75f))
-            Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Bg.copy(alpha = 0.2f), 0.3f to Bg.copy(alpha = 0.3f), 0.55f to Bg.copy(alpha = 0.78f), 0.8f to Bg.copy(alpha = 0.96f), 1f to Bg)))
+            Img(cover, provider, Modifier.fillMaxSize(), maxW = 900, q = 80, align = BiasAlignment(0f, -0.2f))
+            Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Bg.copy(alpha = 0.35f), 0.35f to Bg.copy(alpha = 0.55f), 0.6f to Bg.copy(alpha = 0.85f), 0.85f to Bg.copy(alpha = 0.98f), 1f to Bg)))
         }
         LazyColumn(Modifier.fillMaxSize().imePadding(), listState, contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 24.dp)) {
-            if (cover.isNotBlank()) item("hero-space") { Spacer(Modifier.height(heroH * 0.42f)) }
+            if (cover.isNotBlank()) item("hero-space") { Spacer(Modifier.height(heroH * 0.06f)) }
             // Kepala: cover kecil (2:3) di kiri, judul + info ringkas di kanan -> muat di layar HP tanpa scroll panjang.
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {

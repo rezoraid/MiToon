@@ -41,6 +41,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -133,7 +135,7 @@ private fun RetryBox(text: String, onRetry: () -> Unit) =
         Text(text, color = Muted); TextButton(onRetry) { Text("Coba lagi", color = Accent) }
     }
 
-/** Ikon ambil ulang: panah melingkar bergaris tipis (selaras ikon komentar & pengaturan); berputar saat memuat, redup bila jatah harian habis. */
+/** Ikon ambil ulang: dua panah melingkar (refresh); berputar saat memuat, redup bila jatah harian habis. */
 @Composable
 private fun RefetchIcon(busy: Boolean, left: Int, size: Dp, modifier: Modifier = Modifier) {
     val spin = if (busy) {
@@ -141,21 +143,7 @@ private fun RefetchIcon(busy: Boolean, left: Int, size: Dp, modifier: Modifier =
         t.animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Restart), label = "rot").value
     } else 0f
     val tint = if (left > 0 || busy) Color.White else Color(0xFF55585F)
-    androidx.compose.foundation.Canvas(modifier.size(size).graphicsLayer { rotationZ = spin }) {
-        val u = this.size.width / 24f
-        val c = androidx.compose.ui.geometry.Offset(12f * u, 12f * u)
-        val r = 7.2f * u
-        val w = 1.9.dp.toPx()
-        val st = androidx.compose.ui.graphics.drawscope.Stroke(w, cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
-        drawArc(tint, -40f, 280f, false, androidx.compose.ui.geometry.Offset(c.x - r, c.y - r), androidx.compose.ui.geometry.Size(2 * r, 2 * r), style = st)
-        val a = Math.toRadians(240.0)
-        val tip = androidx.compose.ui.geometry.Offset(c.x + r * kotlin.math.cos(a).toFloat(), c.y + r * kotlin.math.sin(a).toFloat())
-        val back = kotlin.math.atan2(-kotlin.math.cos(a), kotlin.math.sin(a))
-        for (d in doubleArrayOf(38.0, -38.0)) {
-            val ang = back + Math.toRadians(d)
-            drawLine(tint, tip, androidx.compose.ui.geometry.Offset(tip.x + kotlin.math.cos(ang).toFloat() * 4.8f * u, tip.y + kotlin.math.sin(ang).toFloat() * 4.8f * u), w, androidx.compose.ui.graphics.StrokeCap.Round)
-        }
-    }
+    Icon(Ic.Refetch, "Ambil ulang chapter", modifier.size(size).graphicsLayer { rotationZ = spin }, tint = tint)
 }
 
 /** Jumlah ReaderScreen yang sedang aktif; selama > 0 semua dialog/sheet ikut menyembunyikan bilah sistem. */
@@ -219,7 +207,12 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
     val pv = remember(id) { Net.previews[id] ?: Library.entries[id]?.toSeries() }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var newestFirst by rememberSaveable { mutableStateOf(true) }
-    val d = res?.getOrNull()
+    // Tarik ke bawah (seperti Chrome): ambil ulang detail + komentar tanpa mengosongkan layar; hasil terbaru menggantikan yang lama.
+    var fresh by remember(id) { mutableStateOf<Detail?>(null) }
+    var refreshing by remember(id) { mutableStateOf(false) }
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val d = fresh ?: res?.getOrNull()
     val failed = res != null && d == null
     val entry = Library.entries[id]
 
@@ -248,6 +241,22 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
     LaunchedEffect(id) { delay(700); feed.refresh() }
     LaunchedEffect(d) { d?.let { feed.origin = CommentOrigin(id, it.title, it.cover, it.provider) } }
     LaunchedEffect(tab) { if (tab == 1) feed.refresh() }
+    val refresh: () -> Unit = {
+        if (!refreshing) {
+            refreshing = true
+            scope.launch {
+                try {
+                    val r = runCatching { Net.detail(id) }
+                    val nd = r.getOrNull()
+                    if (nd != null) { Net.storeDetail(id, nd); Net.markFresh("detail:$id"); fresh = nd }
+                    else if (d == null) tick++
+                    else toast(ctx, "Gagal memuat ulang")
+                    feed.refresh(force = true)
+                    Library.syncNow()
+                } finally { refreshing = false }
+            }
+        }
+    }
     // Datang dari notifikasi komentar: buka tab Komentar, cari komentarnya, gulir dan sorot.
     val listState = rememberLazyListState()
     LaunchedEffect(id) { CommentFocus.take("s:$id")?.let { (cid, pid) -> tab = 1; feed.locate(cid, pid) } }
@@ -259,69 +268,77 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
         Header(onSearch, onBack)
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
         val heroH = minOf(maxWidth * 0.75f, maxHeight * 0.36f)
-        val heroPx = with(LocalDensity.current) { heroH.toPx() }
-        if (cover.isNotBlank()) Box(Modifier.fillMaxWidth().height(heroH).graphicsLayer { translationY = -(if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else heroPx) }) {
-            Img(cover, provider, Modifier.fillMaxSize(), maxW = 900, q = 80, align = BiasAlignment(0f, -0.2f))
-            Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Bg.copy(alpha = 0.35f), 0.35f to Bg.copy(alpha = 0.55f), 0.6f to Bg.copy(alpha = 0.85f), 0.85f to Bg.copy(alpha = 0.98f), 1f to Bg)))
-        }
+        val density = LocalDensity.current
+        val heroPx = with(density) { heroH.roundToPx() }
+        val padPx = with(density) { 12.dp.roundToPx() }
+        PullRefresh(refreshing, refresh, Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize().imePadding(), listState, contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 24.dp)) {
-            if (cover.isNotBlank()) item("hero-space") { Spacer(Modifier.height(heroH * 0.06f)) }
-            // Kepala: cover kecil (2:3) di kiri, judul + info ringkas di kanan -> muat di layar HP tanpa scroll panjang.
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Img(cover, provider, Modifier.width(140.dp).aspectRatio(2f / 3f).clip(R6), maxW = 480)
-                    Column(Modifier.weight(1f)) {
-                        Text(title, color = Color.White, fontSize = 20.sp, lineHeight = 25.sp, fontWeight = FontWeight.Bold, maxLines = 4, overflow = TextOverflow.Ellipsis)
-                        rating?.takeIf { it > 0 }?.let { r ->
-                            val five = if (r > 5) r / 2 else r
-                            Text(buildAnnotatedString {
-                                for (i in 1..5) withStyle(SpanStyle(color = if (i <= Math.round(five)) Star else Color(0xFF55585F))) { append("★") }
-                                withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) { append("  %.1f".format(r)) }
-                            }, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
+            // Kepala = SATU item: background hero ada di dalamnya (digambar di belakang, melebar penuh sampai ke tepi atas/kiri/kanan),
+            // jadi ikut bergulir bersama isi secara mulus. Dulu hero digeser manual lewat translationY dan melompat saat item pertama lewat.
+            item("head") {
+                Box(Modifier.fillMaxWidth()) {
+                    if (cover.isNotBlank()) Box(Modifier.layout { m, c ->
+                        val p = m.measure(Constraints.fixed(c.maxWidth + padPx * 2, heroPx))
+                        layout(c.maxWidth, 0) { p.place(-padPx, -padPx) }
+                    }) {
+                        Img(cover, provider, Modifier.fillMaxSize(), maxW = 900, q = 80, align = BiasAlignment(0f, -0.2f))
+                        Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Bg.copy(alpha = 0.35f), 0.35f to Bg.copy(alpha = 0.55f), 0.6f to Bg.copy(alpha = 0.85f), 0.85f to Bg.copy(alpha = 0.98f), 1f to Bg)))
+                    }
+                    Column {
+                        if (cover.isNotBlank()) Spacer(Modifier.height(heroH * 0.06f))
+                        // Kepala: cover kecil (2:3) di kiri, judul + info ringkas di kanan -> muat di layar HP tanpa scroll panjang.
+                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            Img(cover, provider, Modifier.width(140.dp).aspectRatio(2f / 3f).clip(R6), maxW = 480)
+                            Column(Modifier.weight(1f)) {
+                                Text(title, color = Color.White, fontSize = 20.sp, lineHeight = 25.sp, fontWeight = FontWeight.Bold, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                                rating?.takeIf { it > 0 }?.let { r ->
+                                    val five = if (r > 5) r / 2 else r
+                                    Text(buildAnnotatedString {
+                                        for (i in 1..5) withStyle(SpanStyle(color = if (i <= Math.round(five)) Star else Color(0xFF55585F))) { append("★") }
+                                        withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) { append("  %.1f".format(r)) }
+                                    }, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
+                                }
+                                val meta = listOfNotNull(
+                                    type?.replaceFirstChar { c -> c.uppercase() },
+                                    d?.status?.let { st -> when (st) { "ongoing" -> "OnGoing"; "completed" -> "Tamat"; "hiatus" -> "Hiatus"; else -> st } }
+                                ).joinToString("  ·  ")
+                                if (meta.isNotEmpty()) Text(meta, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+                                if (d != null && d.author.isNotBlank()) Text(d.author, color = Muted, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+                            }
                         }
-                        val meta = listOfNotNull(
-                            type?.replaceFirstChar { c -> c.uppercase() },
-                            d?.status?.let { st -> when (st) { "ongoing" -> "OnGoing"; "completed" -> "Tamat"; "hiatus" -> "Hiatus"; else -> st } }
-                        ).joinToString("  ·  ")
-                        if (meta.isNotEmpty()) Text(meta, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
-                        if (d != null && d.author.isNotBlank()) Text(d.author, color = Muted, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+                        // Detail (sinopsis) tepat di bawah cover, di atas genre. Ringkas 4 baris; ketuk untuk membuka penuh.
+                        if (d == null && !failed) {
+                            Column(Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Box(Modifier.fillMaxWidth().height(12.dp).background(Color(0xFF24262C), R6))
+                                Box(Modifier.fillMaxWidth().height(12.dp).background(Color(0xFF24262C), R6))
+                                Box(Modifier.fillMaxWidth(0.6f).height(12.dp).background(Color(0xFF24262C), R6))
+                            }
+                        } else if (d != null && d.synopsis.isNotBlank()) {
+                            Column(Modifier.padding(top = 14.dp).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { if (synopsisLong || synopsisOpen) synopsisOpen = !synopsisOpen }) {
+                                Text(d.synopsis, color = Color(0xFFD0D3DA), fontSize = 14.sp, lineHeight = 21.sp,
+                                    maxLines = if (synopsisOpen) Int.MAX_VALUE else 4, overflow = TextOverflow.Ellipsis,
+                                    onTextLayout = { if (!synopsisOpen) synopsisLong = it.hasVisualOverflow })
+                                if (synopsisLong || synopsisOpen) Text(if (synopsisOpen) "Tutup" else "Selengkapnya", color = Color.White, fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+                            }
+                        }
+                        if (genres.isNotEmpty()) FlowRow(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            genres.forEach { gn -> GenreBox(gn) { onGenre(genreSlug(gn)) } }
+                        }
+                        Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ActionButton(if (useResume) "Lanjutkan Ch. ${entry?.lastChapterNumber.orEmpty()}" else "Baca awal", true, Modifier.weight(1f),
+                                enabled = useResume || first != null) {
+                                if (useResume) { if (resume != null) open(resume) else resumeId?.let { onChapter(id, it) } } else first?.let { open(it) }
+                            }
+                            ActionButton("Baca akhir", true, Modifier.weight(1f), enabled = last != null) { last?.let { open(it) } }
+                        }
+                        Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ActionButton(if (saved) "Tersimpan" else "Tambah pustaka", false, Modifier.fillMaxWidth(),
+                                enabled = title.isNotBlank()) { Library.toggleBookmark(id, title, cover, provider) }
+                        }
                     }
                 }
             }
-            // Detail (sinopsis) tepat di bawah cover, di atas genre. Ringkas 4 baris; ketuk untuk membuka penuh.
-            if (d == null && !failed) item("synopsis-skel") {
-                Column(Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.fillMaxWidth().height(12.dp).background(Color(0xFF24262C), R6))
-                    Box(Modifier.fillMaxWidth().height(12.dp).background(Color(0xFF24262C), R6))
-                    Box(Modifier.fillMaxWidth(0.6f).height(12.dp).background(Color(0xFF24262C), R6))
-                }
-            } else if (d != null && d.synopsis.isNotBlank()) item("synopsis") {
-                Column(Modifier.padding(top = 14.dp).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { if (synopsisLong || synopsisOpen) synopsisOpen = !synopsisOpen }) {
-                    Text(d.synopsis, color = Color(0xFFD0D3DA), fontSize = 14.sp, lineHeight = 21.sp,
-                        maxLines = if (synopsisOpen) Int.MAX_VALUE else 4, overflow = TextOverflow.Ellipsis,
-                        onTextLayout = { if (!synopsisOpen) synopsisLong = it.hasVisualOverflow })
-                    if (synopsisLong || synopsisOpen) Text(if (synopsisOpen) "Tutup" else "Selengkapnya", color = Color.White, fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
-                }
-            }
-            if (genres.isNotEmpty()) item {
-                FlowRow(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    genres.forEach { gn -> GenreBox(gn) { onGenre(genreSlug(gn)) } }
-                }
-            }
-            item { Column {
-                Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ActionButton(if (useResume) "Lanjutkan Ch. ${entry?.lastChapterNumber.orEmpty()}" else "Baca awal", true, Modifier.weight(1f),
-                        enabled = useResume || first != null) {
-                        if (useResume) { if (resume != null) open(resume) else resumeId?.let { onChapter(id, it) } } else first?.let { open(it) }
-                    }
-                    ActionButton("Baca akhir", true, Modifier.weight(1f), enabled = last != null) { last?.let { open(it) } }
-                }
-                Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ActionButton(if (saved) "Tersimpan" else "Tambah pustaka", false, Modifier.fillMaxWidth(),
-                        enabled = title.isNotBlank()) { Library.toggleBookmark(id, title, cover, provider) }
-                }
-            } }
             item { Column {
                 DetailTabs(tab) { tab = it }
             } }
@@ -365,6 +382,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
                 }
                 commentItems(feed)
             }
+        }
         }
         }
     }
@@ -547,7 +565,7 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
             res == null -> Box(Modifier.fillMaxSize(), Alignment.Center) { MascotLoading(size = 150.dp) }
             c == null -> Failed { tick++ }
             c.images.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Chapter belum tersedia", color = Muted) }
-            else -> ZoomLayer(zoom, listState, onDoubleTap = { bars = !bars }) {
+            else -> ZoomLayer(zoom, listState) {
                 LazyColumn(Modifier.fillMaxSize().nestedScroll(barsByScroll).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { bars = !bars }, listState) {
                     itemsIndexed(c.images, key = { i, u -> "$i|$u" }) { i, url ->
                         ReaderPage(url, imgHeaders, reloadNonce) {

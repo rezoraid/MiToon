@@ -1,7 +1,6 @@
 package id.mitoon.app
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,7 +18,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -107,6 +105,23 @@ fun NotificationsScreen(onBack: () -> Unit, onOpen: (CommentOrigin) -> Unit) {
         NotifState.refresh()
     }
 
+    // Tarik ke bawah: segarkan Aktivitas & Informasi sekaligus. Sorotan "baru" yang sudah tampil tidak hilang saat disegarkan.
+    var refreshing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val pull: () -> Unit = {
+        if (!refreshing) {
+            refreshing = true
+            scope.launch {
+                try {
+                    val keep = page?.items?.filter { it.unread }?.mapTo(HashSet()) { it.id }.orEmpty()
+                    runCatching { Net.api.notifications().data }.onSuccess { p -> page = p.copy(items = p.items.map { if (it.id in keep) it.copy(unread = true) else it }) }
+                    runCatching { Net.api.announcements(50).data }.onSuccess { r -> notices = r; Net.writeSnap("info-notices", noticeSer, r) }
+                    NotifState.refresh()
+                } finally { refreshing = false }
+            }
+        }
+    }
+
     val newActivity = if (0 in viewed) 0 else page?.items?.count { it.unread } ?: 0
     val infoSeen = page?.infoSeenAt ?: Long.MAX_VALUE
     val newInfo = if (1 in viewed) 0 else notices?.count { it.createdAt > infoSeen } ?: 0
@@ -118,7 +133,9 @@ fun NotificationsScreen(onBack: () -> Unit, onOpen: (CommentOrigin) -> Unit) {
             NotifTab("Informasi", tab == 1, newInfo, Modifier.weight(1f)) { tab = 1 }
         }
         HorizontalDivider(color = Line)
-        if (tab == 0) ActivityList(page, err, onRetry = { reload++ }, onOpen) else InfoList(notices, page?.infoSeenAt ?: Long.MAX_VALUE)
+        PullRefresh(refreshing, pull, Modifier.weight(1f).fillMaxWidth()) {
+            if (tab == 0) ActivityList(page, err, onRetry = { reload++ }, onOpen) else InfoList(notices, page?.infoSeenAt ?: Long.MAX_VALUE)
+        }
     }
 }
 
@@ -191,28 +208,25 @@ private fun ActivityRow(n: NotifItem, onAvatar: () -> Unit, onClick: () -> Unit)
     val o = origin
     Column {
         Row(
-            Modifier.fillMaxWidth().background(if (n.unread) Unread else Color.Transparent).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
+            Modifier.fillMaxWidth().background(if (n.unread) Unread else Color.Transparent).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.Top
         ) {
-            Box(Modifier.size(48.dp)) {
-                Avatar(n.actor.id, n.actor.username, n.actor.avatarV, 44.dp, Modifier.clickable(onClick = onAvatar), CircleShape)
-                if (like) Box(
-                    Modifier.align(Alignment.BottomEnd).size(22.dp).clip(CircleShape).background(Red).border(2.dp, if (n.unread) Unread else Bg, CircleShape),
-                    Alignment.Center
-                ) {
-                    Icon(painterResource(R.drawable.ic_thumb_up_filled), null, tint = Color.White, modifier = Modifier.size(12.dp))
-                }
-            }
-            Column(Modifier.weight(1f).padding(start = 12.dp, end = 10.dp)) {
+            // Avatar polos tanpa ikon/badge tambahan.
+            Avatar(n.actor.id, n.actor.username, n.actor.avatarV, 52.dp, Modifier.clickable(onClick = onAvatar), CircleShape)
+            Column(Modifier.weight(1f).padding(start = 14.dp, end = 10.dp)) {
+                Text(
+                    if (like) "Komentarmu disukai! \uD83D\uDC4D" else "Komentarmu dibalas! \uD83D\uDCAC",
+                    color = Soft, fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis
+                )
                 Text(buildAnnotatedString {
                     withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color.White)) { append(n.actor.name) }
                     append(if (like) " menyukai komentarmu" else " membalas komentarmu")
-                }, color = Soft, fontSize = 14.sp, lineHeight = 20.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }, color = Soft, fontSize = 14.sp, lineHeight = 20.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
                 if (n.text.isNotBlank()) Row(Modifier.padding(top = 6.dp).height(IntrinsicSize.Min)) {
                     Box(Modifier.width(3.dp).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(CardLine))
                     Text(n.text, color = Muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp))
                 }
-                Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (n.unread) Box(Modifier.padding(end = 6.dp).size(7.dp).clip(CircleShape).background(Red))
                     val where = o?.let { it.title.ifBlank { "Seri" } + (it.chapterNumber?.let { c -> " · Ch. $c" } ?: "") }
                     Text(listOfNotNull(agoText(n.at), where).joinToString("  ·  "), color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -220,7 +234,7 @@ private fun ActivityRow(n: NotifItem, onAvatar: () -> Unit, onClick: () -> Unit)
             }
             if (o != null) Img(o.cover, o.provider, Modifier.width(38.dp).height(54.dp).clip(R6), maxW = 200)
         }
-        HorizontalDivider(color = Line, modifier = Modifier.padding(start = 76.dp))
+        HorizontalDivider(color = Line, modifier = Modifier.padding(start = 82.dp))
     }
 }
 

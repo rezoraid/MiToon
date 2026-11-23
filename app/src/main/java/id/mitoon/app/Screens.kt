@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -269,6 +270,9 @@ fun LibraryScreen(onOpen: (String) -> Unit, onContinue: (LibEntry) -> Unit, onSe
         Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Chip("Bookmark", tab == 0) { tab = 0 }; Chip("Riwayat", tab == 1) { tab = 1 }; Chip("Download", tab == 2) { tab = 2 }
         }
+        var syncing by remember { mutableStateOf(false) }
+        val sc = rememberCoroutineScope()
+        PullRefresh(syncing, { if (!syncing) { syncing = true; sc.launch { try { Library.syncNow() } finally { syncing = false } } } }, Modifier.weight(1f).fillMaxWidth()) {
         if (tab == 2) DownloadsContent(onRead, onOpen)
         else if (tab == 0) {
             val list = remember(entries) { entries.values.filter { it.bookmarked }.sortedByDescending { it.readAt } }
@@ -294,6 +298,7 @@ fun LibraryScreen(onOpen: (String) -> Unit, onContinue: (LibEntry) -> Unit, onSe
                     }
                 }
             }
+        }
         }
     }
 }

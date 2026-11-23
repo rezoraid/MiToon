@@ -82,18 +82,9 @@ fun Avatar(userId: Long, username: String, version: Int, size: Dp, modifier: Mod
     }
 }
 
-/** Ikon balon komentar (tidak ada di paket ikon inti). */
+/** Ikon balon komentar: balon bulat (bukan kotak) dengan ekor kecil & tiga titik. */
 @Composable
-fun CommentIcon(tint: Color = Color.White, dp: Dp = 22.dp) = Canvas(Modifier.size(dp)) {
-    val w = this.size.width
-    val h = this.size.height
-    val p = Path().apply {
-        moveTo(w * 0.14f, h * 0.16f); lineTo(w * 0.86f, h * 0.16f); lineTo(w * 0.86f, h * 0.68f)
-        lineTo(w * 0.46f, h * 0.68f); lineTo(w * 0.26f, h * 0.88f); lineTo(w * 0.26f, h * 0.68f)
-        lineTo(w * 0.14f, h * 0.68f); close()
-    }
-    drawPath(p, tint, style = Stroke(2.dp.toPx(), join = StrokeJoin.Round))
-}
+fun CommentIcon(tint: Color = Color.White, dp: Dp = 22.dp) = Icon(Ic.Comment, null, Modifier.size(dp), tint = tint)
 
 private fun ago(ms: Long): String {
     val s = (System.currentTimeMillis() - ms) / 1000

@@ -6,7 +6,15 @@ plugins {
 }
 
 // ---- konfigurasi dari gradle.properties / -P / environment ----
-val apiBase = project.property("API_BASE_URL").toString().trim()
+// Jika -PAPI_BASE_URL dikirim kosong (mis. repository variable GitHub Actions belum diisi),
+// jatuh kembali ke nilai di gradle.properties alih-alih gagal dengan nilai "".
+val apiBase: String = run {
+    val fromProject = (findProperty("API_BASE_URL") as String?)?.trim().orEmpty()
+    if (fromProject.isNotEmpty()) fromProject
+    else java.util.Properties().apply {
+        rootProject.file("gradle.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+    }.getProperty("API_BASE_URL")?.trim().orEmpty()
+}
 require(Regex("^https?://\\S+/$").matches(apiBase)) {
     "API_BASE_URL harus diawali http:// atau https:// dan diakhiri '/' (sekarang: \"$apiBase\")"
 }

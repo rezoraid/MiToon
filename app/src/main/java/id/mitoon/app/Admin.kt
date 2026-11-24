@@ -377,6 +377,8 @@ private sealed interface UserDialog {
     data class Photo(val u: AdminUser) : UserDialog
     data class Comments(val u: AdminUser) : UserDialog
     data class Delete(val u: AdminUser) : UserDialog
+    data class Logout(val u: AdminUser) : UserDialog
+    data object LogoutAll : UserDialog
 }
 
 private fun commentTargetLabel(t: String): String = when {
@@ -512,6 +514,30 @@ private fun AdminUsersTab() {
             is UserDialog.Comments -> AdminConfirm("Hapus semua komentar?", "Semua komentar dan balasan @${d.u.username} (${d.u.commentCount}) dihapus permanen.", "Hapus semua", {
                 close(); act("Komentar @${d.u.username} dihapus") { Net.api.adminDeleteUserComments(d.u.id); d.u.copy(commentCount = 0) }
             }, close)
+            is UserDialog.Logout -> AdminConfirm("Paksa keluar?", "@${d.u.username} akan keluar dari semua perangkat dan harus masuk lagi.", "Keluarkan", {
+                close()
+                if (!busy) {
+                    busy = true; info = null
+                    scope.launch {
+                        runCatching { Net.api.adminLogoutUser(d.u.id) }
+                            .onSuccess { info = "@${d.u.username} dikeluarkan dari semua perangkat"; infoBad = false }
+                            .onFailure { info = it.friendly(); infoBad = true }
+                        busy = false
+                    }
+                }
+            }, close)
+            is UserDialog.LogoutAll -> AdminConfirm("Keluarkan semua pengguna?", "Semua akun (kecuali akun admin yang sedang dipakai) keluar dari semua perangkat dan harus masuk lagi.", "Keluarkan semua", {
+                close()
+                if (!busy) {
+                    busy = true; info = null
+                    scope.launch {
+                        runCatching { Net.api.adminLogoutAll().data }
+                            .onSuccess { info = "${it.revoked} akun dikeluarkan dari semua perangkat"; infoBad = false }
+                            .onFailure { info = it.friendly(); infoBad = true }
+                        busy = false
+                    }
+                }
+            }, close)
             is UserDialog.Delete -> AdminConfirm("Hapus akun?", "Akun @${d.u.username} beserta komentar, XP, dan datanya dihapus permanen. Tidak bisa dibatalkan.", "Hapus akun", {
                 close()
                 busy = true
@@ -539,6 +565,7 @@ private fun AdminUsersTab() {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             UserFilters.forEach { (key, label) -> AdminChip(label, filter == key) { filter = key } }
         }
+        TextButton({ dialog = UserDialog.LogoutAll }, enabled = !busy, modifier = Modifier.padding(horizontal = 8.dp)) { Text("Keluarkan semua pengguna (logout semua sesi)", color = AmberText, fontSize = 13.sp) }
         info?.let { Text(it, color = if (infoBad) RedText else Color(0xFF6BCB77), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
         if (loading) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Accent) }
         else if (err != null) Text(err!!, color = RedText, modifier = Modifier.padding(16.dp))
@@ -585,6 +612,7 @@ private fun AdminUsersTab() {
                                     if (u.banned) ActionRow("Buka blokir", Color(0xFF6BCB77)) { act("Blokir @${u.username} dibuka") { Net.api.adminModerateUser(u.id, AdminUserPatch(banned = false)).data } }
                                     else ActionRow("Blokir akun", RedText) { dialog = UserDialog.Ban(u) }
                                     if (u.commentCount > 0) ActionRow("Hapus semua komentar", RedText) { dialog = UserDialog.Comments(u) }
+                                    ActionRow("Paksa keluar dari semua perangkat", AmberText) { dialog = UserDialog.Logout(u) }
                                     ActionRow("Hapus akun permanen", RedText) { dialog = UserDialog.Delete(u) }
                                 }
                                 Text("Bergabung: ${u.createdAt?.take(10) ?: "-"} · ID ${u.id}", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(vertical = 6.dp))

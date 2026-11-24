@@ -121,6 +121,8 @@ import java.security.MessageDigest
     val clearBio: Boolean? = null, val clearName: Boolean? = null
 )
 @Serializable data class AdminDeletedCount(val deleted: Int = 0)
+@Serializable data class AdminRevoked(val revoked: Boolean = true)
+@Serializable data class AdminRevokedCount(val revoked: Int = 0)
 @Serializable data class AdminAnnounceReq(
     val title: String, val body: String? = null, val url: String? = null, val expiresAt: String? = null
 )
@@ -183,6 +185,8 @@ interface Api {
     @DELETE("v1/admin/users/{id}/avatar") suspend fun adminClearUserAvatar(@Path("id") id: Long): Env<AdminUser>
     @DELETE("v1/admin/users/{id}/comments") suspend fun adminDeleteUserComments(@Path("id") id: Long): Env<AdminDeletedCount>
     @DELETE("v1/admin/users/{id}") suspend fun adminDeleteUser(@Path("id") id: Long): Env<Ok>
+    @POST("v1/admin/users/{id}/logout") suspend fun adminLogoutUser(@Path("id") id: Long): Env<AdminRevoked>
+    @POST("v1/admin/logout-all") suspend fun adminLogoutAll(): Env<AdminRevokedCount>
     @GET("v1/admin/comments") suspend fun adminComments(@Query("q") q: String? = null, @Query("page") page: Int = 1, @Query("limit") limit: Int = 30): Env<AdminCommentsPage>
     @DELETE("v1/admin/comments/{id}") suspend fun adminDeleteComment(@Path("id") id: Long): Env<Ok>
     @GET("v1/admin/push") suspend fun adminPush(): Env<AdminPush>

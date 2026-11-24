@@ -61,6 +61,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.profileinstaller:profileinstaller:1.3.1") // pasang baseline profile (Compose) -> start & scroll pertama lebih lancar
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+    implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
+    implementation("com.google.firebase:firebase-messaging")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("io.coil-kt:coil-gif:2.7.0") // mascot loading (GIF animasi)
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
@@ -72,3 +75,6 @@ dependencies {
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 }
+
+// Firebase aktif hanya bila google-services.json ada di folder app/ (tanpa itu build tetap jalan, push realtime nonaktif).
+if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")

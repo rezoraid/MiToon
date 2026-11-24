@@ -30,8 +30,17 @@ import androidx.navigation.compose.*
 private data class Tab(val route: String, val label: String, val icon: ImageVector, val on: ImageVector = icon)
 
 class MainActivity : ComponentActivity() {
+    private val notifPerm = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) {}
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra("series")?.let { Updates.pendingOpen = it }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        intent?.getStringExtra("series")?.let { Updates.pendingOpen = it }
+        Updates.askNotif = { if (android.os.Build.VERSION.SDK_INT >= 33) notifPerm.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
         // Aplikasi selalu gelap: ikon status/navigasi harus terang, apa pun mode sistem perangkat.
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
@@ -92,6 +101,10 @@ private fun AppScaffold() {
     LaunchedEffect(uid) { if (uid == null) NotifState.clear() else while (true) { NotifState.refresh(); kotlinx.coroutines.delay(60_000) } }
     LaunchedEffect(route) { if (uid != null && route != "notifications") NotifState.refresh() }
     // Ikon akun di header membuka halaman profil.
+    val appCtx = androidx.compose.ui.platform.LocalContext.current
+    val bookmarkCount = Library.entries.values.count { it.bookmarked }
+    LaunchedEffect(bookmarkCount > 0) { if (bookmarkCount > 0) Updates.ensurePermission(appCtx) }
+    LaunchedEffect(Updates.pendingOpen) { Updates.pendingOpen?.let { Updates.pendingOpen = null; nav.detail(it) } }
     LaunchedEffect(Auth.menuOpen) { if (Auth.menuOpen) { Auth.menuOpen = false; nav.navigate("profile") { launchSingleTop = true } } }
     val openUser: (Long) -> Unit = { id -> if (id == Auth.user?.id) nav.navigate("profile") { launchSingleTop = true } else nav.navigate("user/$id") { launchSingleTop = true } }
     Auth.roleUnlocked?.let { r ->

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "921013187415",
+    "project_id": "mitoonz",
+    "storage_bucket": "mitoonz.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:921013187415:android:37ac295cff5632a211c412",
+        "android_client_info": {
+          "package_name": "id.mitoon.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDBfqesCnrO_OMQiIQ-wPGK2AKcDk5zGcY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

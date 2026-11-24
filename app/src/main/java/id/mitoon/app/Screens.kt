@@ -272,14 +272,16 @@ fun LibraryScreen(onOpen: (String) -> Unit, onContinue: (LibEntry) -> Unit, onSe
         }
         var syncing by remember { mutableStateOf(false) }
         val sc = rememberCoroutineScope()
-        PullRefresh(syncing, { if (!syncing) { syncing = true; sc.launch { try { Library.syncNow() } finally { syncing = false } } } }, Modifier.weight(1f).fillMaxWidth()) {
+        val appCtx = androidx.compose.ui.platform.LocalContext.current.applicationContext
+        LaunchedEffect(Unit) { Updates.checkIfStale(appCtx) }
+        PullRefresh(syncing, { if (!syncing) { syncing = true; sc.launch { try { Library.syncNow(); Updates.check(appCtx, notify = false) } finally { syncing = false } } } }, Modifier.weight(1f).fillMaxWidth()) {
         if (tab == 2) DownloadsContent(onRead, onOpen)
         else if (tab == 0) {
             val list = remember(entries) { entries.values.filter { it.bookmarked }.sortedByDescending { it.readAt } }
             if (list.isEmpty()) Empty("Belum ada bookmark. Buka detail komik lalu tekan Bookmark.")
             else LazyVerticalGrid(GridCells.Fixed(3), Modifier.fillMaxSize(), contentPadding = PaddingValues(12.dp),
                 verticalArrangement = Arrangement.spacedBy(7.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                gridItems(list, key = { it.id }) { e -> SeriesCard(e.toSeries(), false, sub = e.lastChapterNumber?.let { "Ch. $it" }) { onOpen(e.id) } }
+                gridItems(list, key = { it.id }) { e -> SeriesCard(e.toSeries(), false, sub = e.lastChapterNumber?.let { "Ch. $it" }, badge = Updates.fresh[e.id] ?: 0) { onOpen(e.id) } }
             }
         } else {
             val list = remember(entries) { entries.values.filter { it.readAt > 0 }.sortedByDescending { it.readAt } }

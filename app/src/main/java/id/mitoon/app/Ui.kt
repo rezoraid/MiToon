@@ -173,7 +173,7 @@ fun SeriesShelf(vm: PagedVm, onOpen: (Series) -> Unit, upCount: Int = 0) {
 }
 
 @Composable
-fun SeriesCard(s: Series, up: Boolean, sub: String? = null, showRating: Boolean = true, onClick: () -> Unit) {
+fun SeriesCard(s: Series, up: Boolean, sub: String? = null, showRating: Boolean = true, badge: Int = 0, onClick: () -> Unit) {
     Box(Modifier.fillMaxWidth().aspectRatio(COVER_RATIO).clip(R6).clickable(onClick = onClick)) {
         // Cover dari daftar kosong / gagal dimuat -> pakai cover dari detail seri (diambil sekali dari server, bukan dari cache yang bisa kosong).
         var bad by remember(s.id, s.cover) { mutableStateOf(false) }
@@ -195,7 +195,9 @@ fun SeriesCard(s: Series, up: Boolean, sub: String? = null, showRating: Boolean 
                 Text(remember(it) { "%.1f".format(it) }, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
-        if (up) Text("UP", color = OnAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+        if (badge > 0) Text("$badge BARU", color = OnAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.TopEnd).padding(5.dp).background(Accent, RoundedCornerShape(2.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
+        else if (up) Text("UP", color = OnAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.TopEnd).padding(5.dp).background(Accent, RoundedCornerShape(2.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 6.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(s.title, color = Color.White, fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,

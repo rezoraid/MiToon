@@ -349,12 +349,33 @@ object Net {
     suspend fun readComments(target: String): CommentPage? = withContext(Dispatchers.IO) { readIn(commentDir, target, CommentPage.serializer()) }
     fun storeComments(target: String, p: CommentPage) = writeIn(commentDir, target, CommentPage.serializer(), p, 40)
 
-    /** Unduh gambar ke cache disk di belakang layar (tanpa memakai memori) supaya saat di-scroll sudah siap. */
-    fun preloadImages(urls: List<String>, headers: Map<String, String>) {
+    private val viewGate = Semaphore(3)
+    private val bgGate = Semaphore(1)
+
+    /**
+     * Pastikan gambar ada di cache disk. Unduhan URL yang sama digabung (preload + halaman yang sedang dibaca tidak lagi
+     * mengunduh dua kali) dan lanjut walau pemanggil dibatalkan karena di-scroll lewat. Error diteruskan ke penunggu.
+     */
+    suspend fun ensureImage(url: String, headers: Map<String, String>) {
+        val key = url.trim()
         val loader = appCtx.imageLoader
-        urls.forEach { u ->
-            loader.enqueue(ImageRequest.Builder(appCtx).data(u).apply { headers.forEach { (k, v) -> addHeader(k, v) } }
+        loader.diskCache?.openSnapshot(key)?.let { it.close(); return }
+        shared("img:$key") {
+            if (loader.diskCache?.openSnapshot(key)?.also { it.close() } != null) return@shared
+            val res = loader.execute(ImageRequest.Builder(appCtx).data(key).apply { headers.forEach { (k, v) -> addHeader(k, v) } }
                 .memoryCachePolicy(CachePolicy.DISABLED).size(1, 1).build())
+            if (res is coil.request.ErrorResult) throw res.throwable
+        }
+    }
+
+    /**
+     * Unduh gambar ke cache disk di belakang layar supaya saat di-scroll sudah siap. Berurutan dan dibatasi (3 sekaligus,
+     * background 1 sekaligus) supaya halaman yang sedang dilihat tidak berebut bandwidth dengan puluhan unduhan lain.
+     */
+    fun preloadImages(urls: List<String>, headers: Map<String, String>, background: Boolean = false) {
+        val gate = if (background) bgGate else viewGate
+        urls.forEach { u ->
+            netScope.launch { gate.withPermit { runCatching { ensureImage(u, headers) } } }
         }
     }
 
@@ -369,7 +390,7 @@ object Net {
             val wait = QUIET_MS - (System.currentTimeMillis() - bootAt)
             if (wait > 0) delay(wait)
             todo.chunked(3).forEach { chunk ->
-                chunk.groupBy { it.provider }.forEach { (p, items) -> preloadImages(items.map { it.cover }, hdr[p].orEmpty()) }
+                chunk.groupBy { it.provider }.forEach { (p, items) -> preloadImages(items.map { it.cover }, hdr[p].orEmpty(), background = true) }
                 delay(1500)
             }
         }
@@ -379,13 +400,13 @@ object Net {
     fun prefetchChapter(id: String) {
         if (Downloads.has(id)) return // sudah ada di perangkat
         if (chapterCache.containsKey(id)) {
-            chapterCache[id]?.let { preloadImages(it.images.take(8), hdr[id.substringBefore(':')].orEmpty() + it.imageHeaders) }
+            chapterCache[id]?.let { preloadImages(it.images.take(if (metered()) 4 else 8), hdr[id.substringBefore(':')].orEmpty() + it.imageHeaders, background = true) }
             return
         }
         MainScope().launch {
             val wait = QUIET_MS - (System.currentTimeMillis() - bootAt)
             if (wait > 0) delay(wait)
-            runCatching { chapter(id) }.onSuccess { storeChapter(id, it); preloadImages(it.images.take(8), hdr[id.substringBefore(':')].orEmpty() + it.imageHeaders) }
+            runCatching { chapter(id) }.onSuccess { storeChapter(id, it); preloadImages(it.images.take(if (metered()) 4 else 8), hdr[id.substringBefore(':')].orEmpty() + it.imageHeaders, background = true) }
         }
     }
 
@@ -442,7 +463,7 @@ object Net {
         }
     }
 
-    private fun metered() = runCatching {
+    fun metered() = runCatching {
         (appCtx.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager).isActiveNetworkMetered
     }.getOrDefault(true)
     private val seriesWarm = HashSet<String>()
@@ -461,7 +482,7 @@ object Net {
             if (Downloads.has(cid)) return@launch
             chapterGate.withPermit {
                 val c = chapterCache[cid] ?: runCatching { chapter(cid) }.getOrNull()?.also { storeChapter(cid, it) }
-                c?.let { preloadImages(it.images.take(if (metered()) 1 else 4), hdr[cid.substringBefore(':')].orEmpty() + it.imageHeaders) }
+                c?.let { preloadImages(it.images.take(if (metered()) 1 else 4), hdr[cid.substringBefore(':')].orEmpty() + it.imageHeaders, background = true) }
             }
         }
     }
@@ -599,6 +620,9 @@ class MiToonApp : Application(), ImageLoaderFactory {
         Downloads.init(this)
         Auth.init(this)
         CommentHistory.init(this)
+        Updates.init(this)
+        Updates.schedule(this)
+        Push.init(this)
         // Urutan penting: header gambar dulu (kecil, sekaligus membuka koneksi pertama), lalu data layar utama.
         // Prefetch spekulatif (detail/chapter lanjutan) menunggu beberapa detik di dalam Net supaya tidak berebut dengan layar yang terlihat.
         MainScope().launch { runCatching { Net.loadProviders() } }
@@ -615,6 +639,7 @@ class MiToonApp : Application(), ImageLoaderFactory {
             // Gambar punya antrean sendiri (maks. 8 paralel per host) dan timeout lebih longgar: puluhan cover paralel di jaringan lambat
             // saling berebut bandwidth sampai kena timeout 25 dtk -> kotak kosong.
             .dispatcher(Dispatcher().apply { maxRequests = 32; maxRequestsPerHost = 8 })
+            .connectTimeout(12, TimeUnit.SECONDS) // handshake TLS di data seluler yang lambat sering >5 dtk
             .readTimeout(40, TimeUnit.SECONDS).callTimeout(90, TimeUnit.SECONDS).build())
         .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.30).build() }
         .respectCacheHeaders(false) // gambar yang sudah ada di disk dipakai langsung, tanpa cek ulang ke server

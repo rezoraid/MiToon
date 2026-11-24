@@ -14,3 +14,4 @@
 -dontwarn okio.**
 -dontwarn javax.annotation.**
 -dontwarn org.codehaus.mojo.animal_sniffer.IgnoreJRERequirement
+-keep class id.mitoon.app.MiToonMessaging { *; }

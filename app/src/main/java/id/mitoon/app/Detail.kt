@@ -235,6 +235,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
     if (dlSheet && d != null) DownloadSheet(d, resumeId) { dlSheet = false }
     // Chapter yang kemungkinan dibuka ("Lanjutkan" / "Baca awal") disiapkan lebih dulu supaya terbuka instan.
     LaunchedEffect(d) { if (d != null) (resumeId ?: first?.id)?.let { Net.prefetchChapter(it) } }
+    LaunchedEffect(d, saved) { if (d != null && saved) Updates.markSeen(id, d) }
     // Komentar seri disiapkan diam-diam sesaat setelah halaman tampil (1 request kecil, tidak berebut dengan cover/chapter),
     // jadi saat tab Komentar dibuka isinya sudah ada. Membuka tab hanya menyegarkan bila data > 30 dtk.
     val feed = remember(id) { Comments.of("s:$id") }
@@ -404,11 +405,19 @@ object ReaderPrefs {
     var speed by mutableIntStateOf(1); private set
     var pause by mutableIntStateOf(1); private set
     var autoNext by mutableStateOf(true); private set
+    var brightness by mutableStateOf(-1f); private set
+    var keepOn by mutableStateOf(true); private set
+    var saver by mutableStateOf(false); private set
     fun init(ctx: Context) {
         if (prefs != null) return
         val p = ctx.getSharedPreferences("reader", Context.MODE_PRIVATE).also { prefs = it }
         speed = p.getInt("s", 1).coerceIn(0, 2); pause = p.getInt("p", 1).coerceIn(0, 2); autoNext = p.getBoolean("a", true)
+        brightness = p.getFloat("b", -1f); keepOn = p.getBoolean("k", true); saver = p.getBoolean("d", false)
     }
+    @JvmName("applyBrightness") fun setBrightness(v: Float) { brightness = v }
+    fun saveBrightness() { prefs?.edit()?.putFloat("b", brightness)?.apply() }
+    @JvmName("applyKeepOn") fun setKeepOn(v: Boolean) { keepOn = v; prefs?.edit()?.putBoolean("k", v)?.apply() }
+    @JvmName("applySaver") fun setSaver(v: Boolean) { saver = v; prefs?.edit()?.putBoolean("d", v)?.apply() }
     @JvmName("applySpeed") fun setSpeed(i: Int) { speed = i; prefs?.edit()?.putInt("s", i)?.apply() }
     @JvmName("applyPause") fun setPause(i: Int) { pause = i; prefs?.edit()?.putInt("p", i)?.apply() }
     @JvmName("applyAutoNext") fun setAutoNext(v: Boolean) { autoNext = v; prefs?.edit()?.putBoolean("a", v)?.apply() }
@@ -498,24 +507,40 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
             view.post { if (Immersive.readers <= 0) ctl?.show(WindowInsetsCompat.Type.systemBars()) }
         }
     }
+    DisposableEffect(view) {
+        var a = view.context
+        while (a is ContextWrapper && a !is Activity) a = a.baseContext
+        val window = (a as? Activity)?.window
+        onDispose { window?.let { w -> w.attributes = w.attributes.also { it.screenBrightness = android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE } } }
+    }
+    LaunchedEffect(ReaderPrefs.brightness) {
+        var a = view.context
+        while (a is ContextWrapper && a !is Activity) a = a.baseContext
+        (a as? Activity)?.window?.let { w -> w.attributes = w.attributes.also { it.screenBrightness = if (ReaderPrefs.brightness < 0f) android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE else ReaderPrefs.brightness } }
+    }
+    DisposableEffect(view, ReaderPrefs.keepOn) {
+        view.keepScreenOn = ReaderPrefs.keepOn
+        onDispose { view.keepScreenOn = false }
+    }
     LaunchedEffect(c) { if (c != null) Library.advance(seriesId, chapterId, c.number) }
     LaunchedEffect(chapterId, c != null) { if (c != null) { delay(8000); Xp.event("read", chapterId) } }
-    LaunchedEffect(c?.next) { c?.next?.let { Net.prefetchChapter(it) } }
-    LaunchedEffect(c?.prev) { c?.prev?.let { Net.prefetchChapter(it) } }
+    LaunchedEffect(c?.next) { c?.next?.let { if (!(ReaderPrefs.saver && Net.metered())) Net.prefetchChapter(it) } }
+    LaunchedEffect(c?.prev) { c?.prev?.let { if (!(ReaderPrefs.saver && Net.metered())) Net.prefetchChapter(it) } }
     LaunchedEffect(chapterId, c != null) { if (c != null) { delay(1200); Comments.prefetch("c:$chapterId") } }
     val preloaded = remember(chapterId) { mutableIntStateOf(0) }
     val firstVisible = listState.firstVisibleItemIndex
     LaunchedEffect(c) {
         val cc = c ?: return@LaunchedEffect
         if (cc.images.firstOrNull()?.startsWith("file:") == true) return@LaunchedEffect // gambar lokal tidak perlu diunduh dulu
-        val to = minOf(10, cc.images.size)
+        val to = minOf(if (ReaderPrefs.saver && Net.metered()) 4 else 10, cc.images.size)
         if (to > 0) { Net.preloadImages(cc.images.subList(0, to), imgHeaders); preloaded.intValue = to }
     }
     LaunchedEffect(c, firstVisible) {
         val cc = c ?: return@LaunchedEffect
         if (cc.images.firstOrNull()?.startsWith("file:") == true) return@LaunchedEffect
+        val ahead = if (ReaderPrefs.saver && Net.metered()) 3 else 10
         val from = maxOf(preloaded.intValue, firstVisible + 2)
-        val to = minOf(firstVisible + 10, cc.images.size)
+        val to = minOf(firstVisible + ahead, cc.images.size)
         if (from < to) { Net.preloadImages(cc.images.subList(from, to), imgHeaders); preloaded.intValue = to }
     }
     LaunchedEffect(playing, ReaderPrefs.speed, c != null) {
@@ -787,6 +812,34 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
                 }
                 Text("Jeda sebelum lanjut", color = Color(0xFFD7D9DF), fontSize = 15.sp, modifier = Modifier.alpha(if (ReaderPrefs.autoNext) 1f else 0.4f))
                 Segmented(pauses.map { it.first }, ReaderPrefs.pause, ReaderPrefs.autoNext, ReaderPrefs::setPause)
+            }
+            SettingCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconTile(Color(0xFFFF9F0A)) { LineIcon(Color.White, 20.dp, floatArrayOf(0.5f, 0.2f, 0.5f, 0.8f), floatArrayOf(0.2f, 0.5f, 0.8f, 0.5f)) }
+                    Text("Kecerahan layar", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 12.dp).weight(1f))
+                    Text(if (ReaderPrefs.brightness < 0f) "Sistem" else "${(ReaderPrefs.brightness * 100).toInt()}%", color = Muted, fontSize = 14.sp)
+                }
+                Slider(if (ReaderPrefs.brightness < 0f) 0.5f else ReaderPrefs.brightness, { ReaderPrefs.setBrightness(it.coerceAtLeast(0.02f)) },
+                    valueRange = 0.02f..1f, onValueChangeFinished = ReaderPrefs::saveBrightness,
+                    colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Green, inactiveTrackColor = Color(0xFF45464C)))
+                Text("Ikuti pengaturan sistem", color = Blue, fontSize = 14.sp, modifier = Modifier.clickable { ReaderPrefs.setBrightness(-1f); ReaderPrefs.saveBrightness() }.padding(vertical = 4.dp))
+            }
+            SettingCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Layar tetap menyala saat membaca", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                    Switch(ReaderPrefs.keepOn, ReaderPrefs::setKeepOn, colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White, checkedTrackColor = Green, checkedBorderColor = Color.Transparent,
+                        uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFF45464C), uncheckedBorderColor = Color.Transparent))
+                }
+            }
+            SettingCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Hemat data", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                    Switch(ReaderPrefs.saver, ReaderPrefs::setSaver, colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White, checkedTrackColor = Green, checkedBorderColor = Color.Transparent,
+                        uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFF45464C), uncheckedBorderColor = Color.Transparent))
+                }
+                Text("Di data seluler, gambar yang diunduh lebih dulu dikurangi dan chapter berikutnya tidak diunduh di muka. Di wifi tetap penuh.", color = Muted, fontSize = 13.sp, lineHeight = 18.sp)
             }
             Text("Saat scroll sampai akhir, chapter berikutnya dibuka sendiri. Bisa dibatalkan sebelum hitungan habis.", color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(horizontal = 4.dp))
             Spacer(Modifier.height(24.dp))

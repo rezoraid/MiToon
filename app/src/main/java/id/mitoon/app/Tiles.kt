@@ -31,9 +31,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import coil.imageLoader
-import coil.request.CachePolicy
-import coil.request.ErrorResult
-import coil.request.ImageRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -51,11 +48,9 @@ private class Unsupported(msg: String) : Exception(msg)
 
 private suspend fun <T> withFile(ctx: Context, url: String, headers: Map<String, String>, block: suspend (File) -> T): T {
     if (url.startsWith("file:")) return block(File(Uri.parse(url).path.orEmpty()))
-    val loader = ctx.imageLoader
     val key = url.trim()
-    loader.diskCache?.openSnapshot(key)?.use { return block(it.data.toFile()) }
-    val res = loader.execute(ImageRequest.Builder(ctx).data(key).apply { headers.forEach { (k, v) -> addHeader(k, v) } }.memoryCachePolicy(CachePolicy.DISABLED).size(1, 1).build())
-    val snap = loader.diskCache?.openSnapshot(key) ?: throw ((res as? ErrorResult)?.throwable ?: IOException("Gambar tidak tersimpan"))
+    Net.ensureImage(key, headers)
+    val snap = ctx.imageLoader.diskCache?.openSnapshot(key) ?: throw IOException("Gambar tidak tersimpan")
     return snap.use { block(it.data.toFile()) }
 }
 

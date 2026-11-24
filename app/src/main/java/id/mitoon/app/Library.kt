@@ -67,7 +67,7 @@ object Library {
         prefs.edit().putString("v", json.encodeToString(all.values.toList())).putLong("owner", owner).putLong("cursor", cursor).putLong("push", lastPush).apply()
     }
 
-    private fun publish() { entries = all.filterValues { it.live } }
+    private fun publish() { entries = all.filterValues { it.live }; Push.sync(all.values.filter { it.bookmarked }.map { it.id }.toSet()) }
 
     private fun put(e: LibEntry) {
         all = all + (e.id to e.copy(updatedAt = System.currentTimeMillis()))
@@ -155,14 +155,14 @@ object Library {
         val e = all[d.id] ?: LibEntry(d.id, d.title, d.cover, d.provider)
         val n = e.copy(title = d.title, cover = d.cover, lastChapterId = c.id, lastChapterNumber = c.number,
             readAt = System.currentTimeMillis(), read = (e.read + c.id).distinct(), cleared = false)
-        put(n); sync(n)
+        put(n); sync(n); Updates.clear(d.id)
     }
 
     fun advance(seriesId: String, chapterId: String, number: String) {
         val e = entries[seriesId] ?: return
         val n = e.copy(lastChapterId = chapterId, lastChapterNumber = number,
             readAt = System.currentTimeMillis(), read = (e.read + chapterId).distinct(), cleared = false)
-        put(n); sync(n)
+        put(n); sync(n); Updates.clear(seriesId)
     }
 
     fun removeHistory(id: String) {

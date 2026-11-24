@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -11,7 +13,7 @@ plugins {
 val apiBase: String = run {
     val fromProject = (findProperty("API_BASE_URL") as String?)?.trim().orEmpty()
     if (fromProject.isNotEmpty()) fromProject
-    else java.util.Properties().apply {
+    else Properties().apply {
         rootProject.file("gradle.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
     }.getProperty("API_BASE_URL")?.trim().orEmpty()
 }

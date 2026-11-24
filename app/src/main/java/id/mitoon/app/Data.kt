@@ -125,6 +125,12 @@ import java.security.MessageDigest
     val title: String, val body: String? = null, val url: String? = null, val expiresAt: String? = null
 )
 @Serializable data class Ok(val ok: Boolean = true)
+@Serializable data class PushSettings(val enabled: Boolean = true, val newChapter: Boolean = true)
+@Serializable data class PushLogItem(val kind: String = "", val title: String = "", val body: String = "", val seriesId: String? = null, val ok: Boolean = true, val error: String? = null, val createdAt: Long = 0)
+@Serializable data class AdminPush(val configured: Boolean = false, val settings: PushSettings = PushSettings(), val log: List<PushLogItem> = emptyList())
+@Serializable data class AdminPushPatch(val enabled: Boolean? = null, val newChapter: Boolean? = null)
+@Serializable data class AdminPushSend(val title: String, val body: String? = null, val seriesId: String? = null)
+@Serializable data class AdminPushSent(val sent: Boolean = true, val log: List<PushLogItem> = emptyList())
 
 interface Api {
     @GET("v1/latest") suspend fun latest(@Query("page") page: Int = 1, @Query("limit") limit: Int = 12, @Query("type") type: String? = null): Env<List<Series>>
@@ -179,6 +185,9 @@ interface Api {
     @DELETE("v1/admin/users/{id}") suspend fun adminDeleteUser(@Path("id") id: Long): Env<Ok>
     @GET("v1/admin/comments") suspend fun adminComments(@Query("q") q: String? = null, @Query("page") page: Int = 1, @Query("limit") limit: Int = 30): Env<AdminCommentsPage>
     @DELETE("v1/admin/comments/{id}") suspend fun adminDeleteComment(@Path("id") id: Long): Env<Ok>
+    @GET("v1/admin/push") suspend fun adminPush(): Env<AdminPush>
+    @PUT("v1/admin/push") suspend fun adminPushSave(@Body b: AdminPushPatch): Env<AdminPush>
+    @POST("v1/admin/push/send") suspend fun adminPushSend(@Body b: AdminPushSend): Env<AdminPushSent>
     @GET("v1/admin/announcements") suspend fun adminAnnouncements(): Env<List<Notice>>
     @POST("v1/admin/announcements") suspend fun adminCreateAnnouncement(@Body b: AdminAnnounceReq): Env<Notice>
     @DELETE("v1/admin/announcements/{id}") suspend fun adminDeleteAnnouncement(@Path("id") id: Long): Env<Ok>

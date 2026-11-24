@@ -24,7 +24,10 @@ object Push {
         appCtx = ctx.applicationContext
         prefs = appCtx.getSharedPreferences("push", Context.MODE_PRIVATE)
         ready = runCatching { FirebaseApp.getApps(appCtx).isNotEmpty() || FirebaseApp.initializeApp(appCtx) != null }.getOrDefault(false)
-        if (ready) sync(Library.entries.values.filter { it.bookmarked }.map { it.id }.toSet())
+        if (ready) {
+            if (!prefs.getBoolean("all", false)) runCatching { FirebaseMessaging.getInstance().subscribeToTopic("all").addOnSuccessListener { prefs.edit().putBoolean("all", true).apply() } }
+            sync(Library.entries.values.filter { it.bookmarked }.map { it.id }.toSet())
+        }
     }
 
     @Synchronized
@@ -45,6 +48,7 @@ object Push {
 class MiToonMessaging : FirebaseMessagingService() {
     override fun onMessageReceived(m: RemoteMessage) {
         val d = m.data
+        if (d["type"] == "broadcast") { Updates.onBroadcast(applicationContext, d["title"].orEmpty(), d["body"].orEmpty(), d["seriesId"]); return }
         val sid = d["seriesId"] ?: return
         Updates.onPush(applicationContext, sid, d["title"] ?: m.notification?.title.orEmpty(), d["chapter"].orEmpty(), d["chapterId"].orEmpty())
     }

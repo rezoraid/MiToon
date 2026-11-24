@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun AdminScreen(onBack: () -> Unit) {
     var tab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Ringkasan", "Komik", "User", "Komentar", "Informasi")
+    val tabs = listOf("Ringkasan", "Komik", "User", "Komentar", "Informasi", "Push")
     Column(Modifier.fillMaxSize().background(Bg)) {
         Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) }
@@ -42,6 +42,7 @@ fun AdminScreen(onBack: () -> Unit) {
             2 -> AdminUsersTab()
             3 -> AdminCommentsTab()
             4 -> AdminAnnounceTab()
+            5 -> AdminPushTab()
         }
     }
 }
@@ -724,5 +725,87 @@ private fun AdminAnnounceTab() {
             delete = null
             scope.launch { if (n.id > 0) runCatching { Net.api.adminDeleteAnnouncement(n.id) }.onSuccess { load() }.onFailure { err = it.friendly() } }
         }, { delete = null })
+    }
+}
+
+/** Tab Push: hidup/mati notifikasi, kirim notifikasi manual ke semua perangkat, dan riwayat. */
+@Composable
+private fun AdminPushTab() {
+    var data by remember { mutableStateOf<AdminPush?>(null) }
+    var err by remember { mutableStateOf<String?>(null) }
+    var title by remember { mutableStateOf("") }
+    var body by remember { mutableStateOf("") }
+    var seriesId by remember { mutableStateOf("") }
+    var sending by remember { mutableStateOf(false) }
+    var done by remember { mutableStateOf(false) }
+    var confirm by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) { runCatching { Net.api.adminPush().data }.onSuccess { data = it; err = null }.onFailure { err = it.friendly() } }
+    LaunchedEffect(done) { if (done) { kotlinx.coroutines.delay(2500); done = false } }
+    fun save(p: AdminPushPatch) {
+        scope.launch { runCatching { Net.api.adminPushSave(p).data }.onSuccess { data = it; err = null }.onFailure { err = it.friendly() } }
+    }
+    val d = data
+    val idBad = seriesId.isNotBlank() && !Regex("^[A-Za-z]+:\\S+$").matches(seriesId.trim())
+    val ready = d != null && d.configured && d.settings.enabled
+    val valid = title.isNotBlank() && !idBad && !sending && ready
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        Column(Modifier.fillMaxWidth().clip(R6).border(1.dp, CardLine, R6).background(CardBg).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Pengaturan", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+            if (d == null) {
+                if (err == null) Box(Modifier.fillMaxWidth().padding(8.dp), Alignment.Center) { CircularProgressIndicator(Modifier.size(22.dp), Accent, strokeWidth = 2.dp) }
+            } else {
+                if (!d.configured) Text("FIREBASE_SERVICE_ACCOUNT belum diisi di server, jadi push belum aktif.", color = AmberText, fontSize = 12.sp, lineHeight = 17.sp)
+                PushSwitch("Push aktif", "Saklar utama. Mati = tidak ada notifikasi push sama sekali.", d.settings.enabled) { save(AdminPushPatch(enabled = it)) }
+                PushSwitch("Notifikasi chapter baru", "Kirim ke pembaca yang mem-bookmark komiknya.", d.settings.newChapter, d.settings.enabled) { save(AdminPushPatch(newChapter = it)) }
+            }
+        }
+
+        Column(Modifier.fillMaxWidth().clip(R6).border(1.dp, CardLine, R6).background(CardBg).padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Kirim notifikasi", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                Text("Dikirim ke semua perangkat yang memasang aplikasi. Tautan komik (opsional) membuka halaman komik itu saat diketuk.", color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
+            }
+            Field("Judul", title, supporting = "${title.length}/65") { title = it.take(65) }
+            Field("Isi (opsional)", body, single = false, supporting = "${body.length}/240") { body = it.take(240) }
+            Field("ID komik (opsional)", seriesId, supporting = if (idBad) "Format: provider:id, mis. lumos:solo-leveling" else null, isError = idBad) { seriesId = it }
+            PublishButton(valid, sending, done, "Kirim ke semua") { confirm = true }
+            if (err != null) Text(err!!, color = RedText, fontSize = 13.sp)
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Riwayat", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            val log = d?.log.orEmpty()
+            if (log.isEmpty()) Text("Belum ada pengiriman manual atau kegagalan.", color = Muted, fontSize = 13.sp)
+            log.forEach { l ->
+                Column(Modifier.fillMaxWidth().clip(R6).border(1.dp, CardLine, R6).background(CardBg).padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(l.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    if (l.body.isNotBlank()) Text(l.body, color = Muted, fontSize = 12.sp, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    val st = if (l.ok) "Terkirim" else "Gagal: ${l.error.orEmpty()}"
+                    Text("${if (l.kind == "broadcast") "Manual" else "Chapter baru"} · $st · ${agoText(l.createdAt)}", color = if (l.ok) Muted else RedText, fontSize = 11.sp)
+                }
+            }
+        }
+    }
+    if (confirm) AdminConfirm("Kirim ke semua perangkat?", "\"${title.trim()}\" akan langsung muncul sebagai notifikasi di semua pengguna. Tidak bisa ditarik kembali.", "Kirim", {
+        confirm = false; sending = true; err = null
+        scope.launch {
+            runCatching { Net.api.adminPushSend(AdminPushSend(title.trim(), body.trim().ifBlank { null }, seriesId.trim().ifBlank { null })).data }
+                .onSuccess { title = ""; body = ""; seriesId = ""; done = true; data = data?.copy(log = it.log) }
+                .onFailure { err = it.friendly() }
+            sending = false
+        }
+    }, { confirm = false })
+}
+
+@Composable
+private fun PushSwitch(label: String, hint: String, on: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(hint, color = Muted, fontSize = 12.sp, lineHeight = 16.sp)
+        }
+        Switch(on, onChange, enabled = enabled, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Accent, uncheckedThumbColor = Color.White, uncheckedTrackColor = CardLine))
     }
 }

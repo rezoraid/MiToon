@@ -131,6 +131,21 @@ object Updates {
         runCatching { nm.notify(seriesId.hashCode(), n) }
     }
 
+    /** Notifikasi manual dari admin (topic "all"). */
+    fun onBroadcast(ctx: Context, title: String, body: String, seriesId: String?) {
+        if (!::prefs.isInitialized) init(ctx)
+        val nm = NotificationManagerCompat.from(ctx)
+        if (!nm.areNotificationsEnabled() || title.isBlank()) return
+        val open = Intent(ctx, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            if (!seriesId.isNullOrBlank()) putExtra("series", seriesId)
+        }
+        val pi = PendingIntent.getActivity(ctx, (title + body).hashCode(), open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val n = NotificationCompat.Builder(ctx, CHANNEL).setSmallIcon(R.drawable.ic_notif).setAutoCancel(true).setContentIntent(pi)
+            .setContentTitle(title).setContentText(body).setStyle(NotificationCompat.BigTextStyle().bigText(body)).build()
+        runCatching { nm.notify((title + body).hashCode(), n) }
+    }
+
     private fun notifyNew(ctx: Context, found: List<Pair<LibEntry, String>>) {
         val nm = NotificationManagerCompat.from(ctx)
         if (!nm.areNotificationsEnabled()) return

@@ -14,8 +14,13 @@ if (apiBase.contains("GANTI")) logger.warn("PERINGATAN: API_BASE_URL masih place
 val versionCodeProp = (findProperty("VERSION_CODE") as String?)?.toIntOrNull() ?: 1
 val versionNameProp = (findProperty("VERSION_NAME") as String?) ?: "1.0"
 // Keystore rilis (opsional). Tanpa ini, APK rilis ditandatangani dengan debug key supaya tetap bisa dipasang.
+// Password TIDAK boleh ditulis di repo: isi lewat environment (KEYSTORE_PASSWORD, KEY_PASSWORD, KEY_ALIAS, KEYSTORE_PATH) atau GitHub Secrets.
 fun env(name: String, default: String): String = System.getenv(name)?.takeIf { it.isNotBlank() } ?: default
+fun envOrNull(name: String): String? = System.getenv(name)?.takeIf { it.isNotBlank() }
 val keystoreFile: File? = file(env("KEYSTORE_PATH", "mitoon.jks")).takeIf { it.exists() }
+val keystorePassword: String? = envOrNull("KEYSTORE_PASSWORD")
+val keyPasswordValue: String? = envOrNull("KEY_PASSWORD") ?: keystorePassword
+if (keystoreFile != null && keystorePassword == null) logger.warn("PERINGATAN: keystore ditemukan tetapi KEYSTORE_PASSWORD kosong; APK rilis ditandatangani debug key.")
 
 android {
     namespace = "id.mitoon.app"
@@ -27,12 +32,12 @@ android {
         manifestPlaceholders["usesCleartext"] = apiBase.startsWith("http://").toString()
     }
     signingConfigs {
-        if (keystoreFile != null) {
+        if (keystoreFile != null && keystorePassword != null) {
             create("release") {
                 storeFile = keystoreFile
-                storePassword = env("KEYSTORE_PASSWORD", "f96dc0eb585cca0a")
+                storePassword = keystorePassword
                 keyAlias = env("KEY_ALIAS", "mitoon")
-                keyPassword = env("KEY_PASSWORD", "f96dc0eb585cca0a")
+                keyPassword = keyPasswordValue
             }
         }
     }

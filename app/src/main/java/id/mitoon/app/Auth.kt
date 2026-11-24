@@ -3,6 +3,9 @@ package id.mitoon.app
 import android.app.Activity
 import android.content.Context
 import android.content.SharedPreferences
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.util.Base64
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -19,6 +22,11 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import retrofit2.HttpException
+import java.security.KeyStore
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 
 @Serializable data class AuthUser(
     val id: Long = 0, val username: String = "", val avatarV: Int = 0,
@@ -47,6 +55,41 @@ import retrofit2.HttpException
 @Serializable data class GoogleReq(val idToken: String)
 @Serializable data class ProfileReq(val displayName: String? = null, val username: String? = null, val bio: String? = null, val verifiedHidden: Boolean? = null, val readingHidden: Boolean? = null)
 
+/** Token login dienkripsi AES-256-GCM dengan kunci Android Keystore (tidak bisa diekstrak) sebelum ditulis ke SharedPreferences. */
+private object Vault {
+    private const val ALIAS = "mitoon_session"
+    private const val PREFIX = "v1:"
+
+    private fun key(): SecretKey {
+        val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        (ks.getKey(ALIAS, null) as? SecretKey)?.let { return it }
+        val gen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+        gen.init(
+            KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setKeySize(256)
+                .build()
+        )
+        return gen.generateKey()
+    }
+
+    fun isSealed(v: String) = v.startsWith(PREFIX)
+
+    fun seal(plain: String): String? = runCatching {
+        val c = Cipher.getInstance("AES/GCM/NoPadding")
+        c.init(Cipher.ENCRYPT_MODE, key())
+        PREFIX + Base64.encodeToString(c.iv + c.doFinal(plain.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
+    }.getOrNull()
+
+    fun unseal(sealed: String): String? = runCatching {
+        val b = Base64.decode(sealed.removePrefix(PREFIX), Base64.NO_WRAP)
+        val c = Cipher.getInstance("AES/GCM/NoPadding")
+        c.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, b, 0, 12))
+        String(c.doFinal(b, 12, b.size - 12), Charsets.UTF_8)
+    }.getOrNull()
+}
+
 /** Sesi login. Token disimpan hanya bila "Ingat saya" dicentang; kalau tidak, hilang saat aplikasi ditutup. */
 object Auth {
     private lateinit var prefs: SharedPreferences
@@ -66,7 +109,13 @@ object Auth {
 
     fun init(ctx: Context) {
         prefs = ctx.getSharedPreferences("auth", Context.MODE_PRIVATE)
-        token = prefs.getString("t", null)
+        val stored = prefs.getString("t", null)
+        token = when {
+            stored == null -> null
+            Vault.isSealed(stored) -> Vault.unseal(stored)
+            else -> stored.also { legacy -> Vault.seal(legacy)?.let { prefs.edit().putString("t", it).apply() } } // migrasi token lama (teks biasa) -> terenkripsi
+        }
+        if (stored != null && token == null) prefs.edit().clear().apply() // kunci Keystore hilang/rusak: sesi tak bisa dipulihkan, minta masuk lagi
         visitor = token == null && prefs.getBoolean("visitor", false)
         user = if (token != null) AuthUser(
             id = prefs.getLong("i", 0), username = prefs.getString("u", "").orEmpty(), avatarV = prefs.getInt("v", 0),
@@ -87,8 +136,9 @@ object Auth {
         token = r.token
         user = r.user
         usernameUnlockAt = unlockAt(r.user)
+        val sealed = if (remember) Vault.seal(r.token) else null
         prefs.edit().clear().apply {
-            if (remember) { putString("t", r.token); putString("u", r.user.username); putLong("i", r.user.id); putInt("v", r.user.avatarV); putString("n", r.user.displayName); putString("b", r.user.bio); putLong("x", usernameUnlockAt); putXp(r.user) }
+            if (sealed != null) { putString("t", sealed); putString("u", r.user.username); putLong("i", r.user.id); putInt("v", r.user.avatarV); putString("n", r.user.displayName); putString("b", r.user.bio); putLong("x", usernameUnlockAt); putXp(r.user) }
         }.apply()
         pendingEntrance = true
         Xp.event("daily")

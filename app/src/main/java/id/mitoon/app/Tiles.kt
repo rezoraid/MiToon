@@ -47,7 +47,11 @@ private class Tile(val top: Int, val bottom: Int, val bmp: ImageBitmap)
 private class Unsupported(msg: String) : Exception(msg)
 
 private suspend fun <T> withFile(ctx: Context, url: String, headers: Map<String, String>, block: suspend (File) -> T): T {
-    if (url.startsWith("file:")) return block(File(Uri.parse(url).path.orEmpty()))
+    if (url.startsWith("file:")) {
+        val f = File(Uri.parse(url).path.orEmpty()).canonicalFile
+        if (!f.path.startsWith(File(ctx.filesDir, "downloads").canonicalPath + File.separator)) throw IOException("Berkas di luar folder unduhan")
+        return block(f)
+    }
     val key = url.trim()
     Net.ensureImage(key, headers)
     val snap = ctx.imageLoader.diskCache?.openSnapshot(key) ?: throw IOException("Gambar tidak tersimpan")

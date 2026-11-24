@@ -29,17 +29,21 @@ import androidx.navigation.compose.*
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector, val on: ImageVector = icon)
 
+/** Activity ini exported: id seri dari Intent luar hanya diterima bila berbentuk "<provider>:<id>" tanpa pemisah path. */
+private val SERIES_ID = Regex("^[a-z0-9_-]{2,20}:[^\\s/\\\\?#]{1,300}$", RegexOption.IGNORE_CASE)
+private fun safeSeriesId(s: String?): String? = s?.takeIf { SERIES_ID.matches(it) }
+
 class MainActivity : ComponentActivity() {
     private val notifPerm = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) {}
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
-        intent.getStringExtra("series")?.let { Updates.pendingOpen = it }
+        safeSeriesId(intent.getStringExtra("series"))?.let { Updates.pendingOpen = it }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        intent?.getStringExtra("series")?.let { Updates.pendingOpen = it }
+        safeSeriesId(intent?.getStringExtra("series"))?.let { Updates.pendingOpen = it }
         Updates.askNotif = { if (android.os.Build.VERSION.SDK_INT >= 33) notifPerm.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
         // Aplikasi selalu gelap: ikon status/navigasi harus terang, apa pun mode sistem perangkat.
         enableEdgeToEdge(

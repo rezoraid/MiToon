@@ -262,7 +262,7 @@ private fun InfoList(notices: List<Notice>?, seenAt: Long) {
                 Text(plainText(n.title), color = Color.White, fontSize = 19.sp, lineHeight = 25.sp, fontWeight = FontWeight.ExtraBold)
                 if (n.createdAt > 0) Text(dateText(n.createdAt), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
                 if (n.body.isNotBlank()) Text(boldText(n.body), color = Soft, fontSize = 14.sp, lineHeight = 22.sp)
-                if (!n.url.isNullOrBlank()) Button({ runCatching { uri.openUri(n.url) } }, Modifier.fillMaxWidth().padding(top = 20.dp), shape = R6,
+                if (!n.url.isNullOrBlank()) Button({ if (n.url.startsWith("https://", true) || n.url.startsWith("http://", true)) runCatching { uri.openUri(n.url) } }, Modifier.fillMaxWidth().padding(top = 20.dp), shape = R6,
                     colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = OnAccent)) { Text("Buka tautan", fontWeight = FontWeight.Bold) }
             }
         }

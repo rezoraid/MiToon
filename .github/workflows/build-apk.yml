@@ -2,12 +2,13 @@ name: Build APK
 
 on:
   push:
-    branches: [main]
-    tags: ['v*']
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # perlu untuk melampirkan APK ke Releases
 
 concurrency:
   group: build-${{ github.ref }}
@@ -16,52 +17,79 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
+    timeout-minutes: 30
+    env:
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - uses: actions/setup-java@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
-      - uses: gradle/actions/setup-gradle@v4
+      - name: Setup Gradle (cache)
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Siapkan keystore rilis (hanya jika secret ada)
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      - name: Izinkan gradlew dieksekusi
+        run: chmod +x ./gradlew
+
+      - name: Siapkan keystore (opsional)
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
-            echo "KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/mitoon.jks"
+            echo "KEYSTORE_PATH=$RUNNER_TEMP/mitoon.jks" >> "$GITHUB_ENV"
+            echo "Keystore rilis dipakai."
           else
-            echo "::warning::KEYSTORE_BASE64 kosong: APK ditandatangani debug key, JANGAN dirilis ke publik."
+            echo "Tidak ada KEYSTORE_BASE64, APK ditandatangani debug key."
           fi
 
-      - name: Build release
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      - name: Tentukan versi & API URL
         run: |
-          chmod +x gradlew
-          ./gradlew --no-daemon assembleRelease \
-            -PAPI_BASE_URL="${{ vars.API_BASE_URL }}" \
-            -PVERSION_CODE="${{ github.run_number }}"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "VERSION_NAME=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION_NAME=1.0.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          fi
+          echo "VERSION_CODE=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          # Pakai nilai default di gradle.properties kalau variable kosong
+          if [ -n "$API_BASE_URL" ]; then
+            case "$API_BASE_URL" in */) ;; *) API_BASE_URL="$API_BASE_URL/" ;; esac
+            echo "GRADLE_API_ARG=-PAPI_BASE_URL=$API_BASE_URL" >> "$GITHUB_ENV"
+          else
+            echo "GRADLE_API_ARG=" >> "$GITHUB_ENV"
+          fi
 
-      - name: Hapus keystore dari runner
-        if: always()
-        run: rm -f "$RUNNER_TEMP/release.jks"
+      - name: Build APK release
+        run: >
+          ./gradlew assembleRelease --stacktrace --no-daemon
+          -PVERSION_CODE="$VERSION_CODE"
+          -PVERSION_NAME="$VERSION_NAME"
+          $GRADLE_API_ARG
 
-      - uses: actions/upload-artifact@v4
+      - name: Rename APK
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/MiToon-${VERSION_NAME}.apk"
+          ls -lh dist
+
+      - name: Upload APK (Artifacts)
+        uses: actions/upload-artifact@v4
         with:
           name: MiToon-apk
-          path: app/build/outputs/apk/release/*.apk
+          path: dist/*.apk
+          if-no-files-found: error
 
-      - name: Lampirkan ke Release (tag v*)
+      - name: Lampirkan ke GitHub Release (tag v*)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: app/build/outputs/apk/release/*.apk
-          
+          files: dist/*.apk
+          generate_release_notes: true

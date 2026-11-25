@@ -49,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -394,7 +395,7 @@ private fun ChatBackdrop() {
             val x = c * cell + if (r % 2 == 0) 0f else cell / 2f
             val y = r * cell
             val rot = ((k * 53) % 60 - 30).toFloat()
-            androidx.compose.ui.graphics.drawscope.withTransform({
+            withTransform({
                 translate(x + cell / 2f - icon / 2f, y + cell / 2f - icon / 2f)
                 rotate(rot, androidx.compose.ui.geometry.Offset(icon / 2f, icon / 2f))
             }) {

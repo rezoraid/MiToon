@@ -41,7 +41,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
 @Serializable data class XpReq(val type: String, val ref: String? = null)
-@Serializable data class XpRes(val gained: Int = 0, val user: AuthUser = AuthUser())
+@Serializable data class XpRes(val gained: Int = 0, val user: AuthUser = AuthUser(), val streak: StreakRes? = null)
 
 /**
  * Lapor aktivitas ke server untuk XP. Server yang menentukan: tiap chapter/seri hanya dihitung sekali dan ada batas harian.
@@ -62,6 +62,7 @@ object Xp {
             try {
                 val r = Net.api.xpEvent(XpReq(type, ref)).data
                 if (r.gained > 0) Auth.update(r.user)
+                r.streak?.let { Streak.set(it) } // naik walau XP 0 (chapter lama / kuota harian habis)
             } catch (e: CancellationException) { throw e } catch (_: Exception) { sent.remove(key) }
         }
     }

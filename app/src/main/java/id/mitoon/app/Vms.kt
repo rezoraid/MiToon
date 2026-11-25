@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.serialization.builtins.ListSerializer
 
@@ -89,14 +91,39 @@ class PagedVm(private val snapKey: String? = null, private val loader: suspend (
     }
 }
 
+/**
+ * Rak Beranda (Rekomendasi, Populer) dan sorotan tidak lagi menampilkan urutan yang sama terus: tiap Beranda dibuka / ditarik-segarkan,
+ * kumpulan teratas (hingga [POOL_PAGES] x [POOL_LIMIT] seri) diacak ulang. Halaman berikutnya diambil dari kumpulan yang sama,
+ * jadi menggulir ke samping konsisten (tanpa duplikat) dan tetap hemat request.
+ */
+object HomeMix {
+    const val POOL_LIMIT = 50 // batas maksimum server per request
+    private const val POOL_PAGES = 2
+    private val pools = HashMap<String, List<Series>>()
+
+    suspend fun page(kind: String, p: Int, size: Int, fetch: suspend (page: Int, limit: Int) -> List<Series>): List<Series> {
+        if (p > 1) return synchronized(pools) { pools[kind] }.orEmpty().drop((p - 1) * size).take(size)
+        val all = kotlinx.coroutines.coroutineScope {
+            val rest = (2..POOL_PAGES).map { pg -> async { runCatching { fetch(pg, POOL_LIMIT) }.getOrDefault(emptyList()) } }
+            val first = fetch(1, POOL_LIMIT) // gagal -> dilempar supaya rak menampilkan "Gagal memuat" seperti biasa
+            first + rest.awaitAll().flatten()
+        }.distinctBy { it.id }.shuffled()
+        if (all.isNotEmpty()) synchronized(pools) { pools[kind] = all }
+        return all.take(size)
+    }
+
+    /** Sorotan: 6 acak dari 20 terpopuler (request-nya sama dengan rak Populer, jadi digabung jadi satu). */
+    suspend fun hot(): List<Series> = Net.popular(1, POOL_LIMIT).take(20).shuffled().take(6)
+}
+
 class HomeVm : ViewModel() {
     // Diisi dulu dari snapshot disk (instan), lalu disegarkan dari server.
     var spotlight by mutableStateOf(Net.readSnap("home-spotlight", seriesListSer).orEmpty()); private set
     var genres by mutableStateOf(Net.genresSnap().sortedByDescending { it.count }.take(20)); private set
 
     init {
-        // Sama dengan request tab Populer & warm-up (limit 12) -> digabung jadi satu; sorotan = 6 teratas.
-        viewModelScope.launch { runCatching { Net.popular(1, 12).take(6) }.onSuccess { spotlight = it; Net.writeSnap("home-spotlight", seriesListSer, it) } }
+        // Sorotan = 6 acak dari yang terpopuler; request sama dengan rak Populer -> digabung jadi satu.
+        viewModelScope.launch { runCatching { HomeMix.hot() }.onSuccess { spotlight = it; Net.writeSnap("home-spotlight", seriesListSer, it) } }
         viewModelScope.launch { runCatching { Net.genres().sortedByDescending { it.count }.take(20) }.onSuccess { genres = it } }
     }
 
@@ -105,8 +132,9 @@ class HomeVm : ViewModel() {
         viewModelScope.launch {
             Net.forceNet.incrementAndGet()
             try {
-                runCatching { Net.popular(1, 12).take(6) }.onSuccess { if (it.isNotEmpty()) { spotlight = it; Net.writeSnap("home-spotlight", seriesListSer, it) } }
+                runCatching { HomeMix.hot() }.onSuccess { if (it.isNotEmpty()) { spotlight = it; Net.writeSnap("home-spotlight", seriesListSer, it) } }
                 runCatching { Net.genres().sortedByDescending { it.count }.take(20) }.onSuccess { if (it.isNotEmpty()) genres = it }
+                if (!Auth.isGuest) runCatching { Net.api.streak().data }.onSuccess { Streak.set(it) }
             } finally { Net.forceNet.decrementAndGet() }
         }
     }

@@ -54,12 +54,15 @@ fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Uni
         Header(onSearch)
         if (s == "beranda") {
             // Kunci snapshot "home-sorotan" / "home-populer" sama seperti sebelumnya, jadi cache lama tetap terpakai.
+            // Rekomendasi & Populer diacak dari kumpulan teratas (lihat HomeMix) supaya isi Beranda berbeda tiap dibuka.
             val rec = keyedVm("home-rec") { PagedVm("home-rec") { p ->
-                // Server belum punya data rekomendasi (mis. belum ada rating) -> jangan kosong, pakai urutan populer.
-                Net.recommended(p, SHELF_PAGE).ifEmpty { if (p == 1) Net.popular(p, SHELF_PAGE) else emptyList() }
+                HomeMix.page("rec", p, SHELF_PAGE) { pg, lim ->
+                    // Server belum punya data rekomendasi (mis. belum ada rating) -> jangan kosong, pakai urutan populer.
+                    Net.recommended(pg, lim).ifEmpty { if (pg == 1) Net.popular(pg, lim) else emptyList() }
+                }
             } }
             val upd = keyedVm("home-sorotan") { PagedVm("home-sorotan") { p -> Net.latest(p, SHELF_PAGE) } }
-            val pop = keyedVm("home-populer") { PagedVm("home-populer") { p -> Net.popular(p, SHELF_PAGE) } }
+            val pop = keyedVm("home-populer") { PagedVm("home-populer") { p -> HomeMix.page("pop", p, SHELF_PAGE) { pg, lim -> Net.popular(pg, lim) } } }
             PullRefresh(rec.refreshing || upd.refreshing || pop.refreshing, { rec.refresh(); upd.refresh(); pop.refresh(); hv.refresh() }, Modifier.weight(1f).fillMaxWidth()) {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                 item("pills", "pills") { Box(Modifier.padding(horizontal = 12.dp)) { Pills(tabs, s) { sel = it } } }

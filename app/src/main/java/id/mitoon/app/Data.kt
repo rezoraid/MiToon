@@ -162,6 +162,7 @@ interface Api {
     @POST("v1/comments") suspend fun addComment(@Body b: CommentReq): CommentRes
     @PUT("v1/comments/{id}/vote") suspend fun voteComment(@Path("id") id: Long, @Body b: VoteReq): Env<VoteRes>
     @POST("v1/xp/event") suspend fun xpEvent(@Body b: XpReq): Env<XpRes>
+    @GET("v1/xp/streak") suspend fun streak(): Env<StreakRes>
     @GET("v1/xp/leaderboard") suspend fun leaderboard(@Query("limit") limit: Int = 50): Env<RankBoard>
     @DELETE("v1/auth/me") suspend fun deleteAccount(@Query("confirm") confirm: String): Env<Ok>
     @GET("v1/users/{id}") suspend fun user(@Path("id") id: Long): Env<PublicUser>
@@ -632,6 +633,7 @@ class MiToonApp : Application(), ImageLoaderFactory {
         Library.init(this)
         Downloads.init(this)
         Auth.init(this)
+        Streak.init(this)
         CommentHistory.init(this)
         Updates.init(this)
         Updates.schedule(this)

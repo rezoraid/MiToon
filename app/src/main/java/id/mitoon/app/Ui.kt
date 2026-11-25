@@ -242,6 +242,7 @@ fun Header(onSearch: () -> Unit, onBack: (() -> Unit)? = null) = Column {
         Image(painterResource(R.drawable.logo), "MiToon", Modifier.size(34.dp).clip(R6))
         Spacer(Modifier.width(8.dp))
         Text(LogoText, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+        if (onBack == null) StreakChip() // header detail sudah penuh (tombol kembali), streak cukup di layar utama
         IconButton(onSearch) { Icon(Ic.Search, "Cari", tint = Muted, modifier = Modifier.size(26.dp)) }
         val openNotif = LocalOpenNotif.current
         IconButton(openNotif) {

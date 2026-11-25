@@ -51,6 +51,7 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
                 }
                 if (user.bio.isNotBlank()) Text(user.bio, color = Color(0xFFD7D9DE), fontSize = 13.sp, lineHeight = 19.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 12.dp))
                 XpBar(user, Modifier.padding(top = 14.dp))
+                ProfileStreak(Modifier.padding(top = 14.dp))
             }
 
             Spacer(Modifier.height(14.dp))
@@ -71,6 +72,24 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
             Spacer(Modifier.height(14.dp))
             MenuGroup { MenuRow(Ic.Logout, "Keluar") { Auth.logout() } }
             Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+/** Baris streak membaca di kartu profil: api (menyala bila sudah membaca hari ini) + keterangan singkat. */
+@Composable
+private fun ProfileStreak(modifier: Modifier = Modifier) {
+    LaunchedEffect(Unit) { while (true) { Streak.refreshDay(); kotlinx.coroutines.delay(60_000) } }
+    val n = Streak.current
+    val hot = Streak.hot
+    Row(modifier.fillMaxWidth().clip(R6).background(Bg).border(1.dp, Line, R6).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Flame(36.dp, hot)
+        Column(Modifier.padding(start = 10.dp)) {
+            Text(if (n > 0) "Streak membaca $n hari" else "Belum ada streak", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(
+                when { hot -> "Sudah membaca hari ini"; n > 0 -> "Baca hari ini supaya apimu tidak padam"; else -> "Baca satu chapter untuk menyalakan api" },
+                color = Muted, fontSize = 12.sp
+            )
         }
     }
 }

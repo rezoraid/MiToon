@@ -141,6 +141,7 @@ object Auth {
             if (sealed != null) { putString("t", sealed); putString("u", r.user.username); putLong("i", r.user.id); putInt("v", r.user.avatarV); putString("n", r.user.displayName); putString("b", r.user.bio); putLong("x", usernameUnlockAt); putXp(r.user) }
         }.apply()
         pendingEntrance = true
+        Streak.clear()
         Xp.event("daily")
         Library.scheduleSync()
     }
@@ -190,7 +191,7 @@ object Auth {
     private fun unlockAt(u: AuthUser): Long = if (u.usernameCooldownSec > 0) System.currentTimeMillis() + u.usernameCooldownSec * 1000 else 0L
 
     fun logout() {
-        visitor = false; token = null; user = null; menuOpen = false; roleUnlocked = null; usernameUnlockAt = 0L; Xp.reset(); Library.onLogout()
+        visitor = false; token = null; user = null; menuOpen = false; roleUnlocked = null; usernameUnlockAt = 0L; Xp.reset(); Streak.clear(); Library.onLogout()
         prefs.edit().clear().apply()
     }
 

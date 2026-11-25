@@ -43,6 +43,18 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.shape.RoundedCornerShape
 import kotlin.math.abs
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.util.lerp
+import kotlin.math.PI
+import kotlin.math.sin
 import coil.request.ImageRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -63,6 +75,21 @@ internal fun Throwable.googleError(): String? = when (this) {
     is GetCredentialCancellationException -> null
     is GetCredentialException -> "Masuk dengan Google gagal. Pastikan ada akun Google di perangkat. (${message ?: type})"
     else -> friendly()
+}
+
+private val Ink = Color(0xFF0C0D11)
+private val Violet = Color(0xFF7C5CFF)
+private val Cyan = Color(0xFF3CD6FF)
+private val Rose = Color(0xFFFF4D8D)
+
+/** Interpolasi tiga titik (halaman 0, 1, 2) dari posisi pager yang kontinu. */
+private fun seg(t: Float, a: Float, b: Float, c: Float) = if (t <= 1f) lerp(a, b, t) else lerp(b, c, (t - 1f).coerceAtMost(1f))
+
+/** Muncul bertahap: item ke-[i] dari [n] baru terlihat penuh setelah item sebelumnya. [v] = keterlihatan halaman 0..1 (ikut gestur geser). */
+private fun Modifier.reveal(v: () -> Float, i: Int, n: Int = 4): Modifier = graphicsLayer {
+    val a = ((v() - 0.1f * i) / (1f - 0.1f * (n - 1))).coerceIn(0f, 1f)
+    alpha = a
+    translationY = (1f - a) * 36.dp.toPx()
 }
 
 @Composable
@@ -87,32 +114,93 @@ fun AuthScreen() {
 
     val pages = 3
     val pager = rememberPagerState(pageCount = { pages })
-    val last = pager.currentPage == pages - 1
+    // Posisi kontinu (mis. 0.4 = 40% menuju halaman berikutnya). Hanya dibaca di fase draw/layer, jadi geseran tidak memicu recompose.
+    val pos: () -> Float = { (pager.currentPage + pager.currentPageOffsetFraction).coerceIn(0f, (pages - 1).toFloat()) }
+    val intro = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { intro.animateTo(1f, tween(1100, easing = FastOutSlowInEasing)) }
+    fun go(page: Int, ms: Int = 760) { scope.launch { pager.animateScrollToPage(page, animationSpec = tween(ms, easing = FastOutSlowInEasing)) } }
+    val onLast by remember { derivedStateOf { pager.currentPage == pages - 1 } }
 
-    Box(Modifier.fillMaxSize().background(Bg).systemBarsPadding()) {
-        Box(Modifier.align(Alignment.TopCenter).offset(y = (-140).dp).size(460.dp).background(Brush.radialGradient(listOf(Color(0x22FFFFFF), Color.Transparent)), CircleShape))
-        VerticalPager(pager, Modifier.fillMaxSize()) { p ->
-            Box(Modifier.fillMaxSize().graphicsLayer {
-                val o = abs((pager.currentPage - p) + pager.currentPageOffsetFraction).coerceIn(0f, 1f)
-                alpha = 1f - o; scaleX = 1f - 0.06f * o; scaleY = scaleX
-            }) {
-                when (p) {
-                    0 -> WelcomePage()
-                    1 -> FeaturesPage()
-                    else -> LoginPage(busy, msg, keep, { keep = it }, { Auth.startVisitor() }) { google() }
+    Box(Modifier.fillMaxSize().background(Ink)) {
+        Aurora(pos)
+        BoxWithConstraints(Modifier.fillMaxSize().systemBarsPadding()) {
+            // Maskot satu-satunya yang berpindah antar tahap: besar di tahap 1, mengecil & naik ke atas di tahap 2-3.
+            val base = minOf(230.dp, maxHeight * 0.30f)
+            val topY = listOf(72.dp, 58.dp, 58.dp)
+            val hs = listOf(base, minOf(104.dp, base), minOf(118.dp, base))
+            val inset = { p: Int -> topY[p] + hs[p] + 16.dp } // ruang di atas isi tiap halaman
+
+            HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { p ->
+                val vis: () -> Float = { minOf(1f - abs(p - pos()).coerceIn(0f, 1f), intro.value) }
+                Box(Modifier.fillMaxSize().graphicsLayer {
+                    // parallax: isi bergeser lebih lambat dari pager (75% kecepatan) lalu memudar saat keluar
+                    val d = p - (pager.currentPage + pager.currentPageOffsetFraction)
+                    translationX = -d * size.width * 0.25f
+                }) {
+                    when (p) {
+                        0 -> StageHello(inset(0), vis)
+                        1 -> StageFeatures(inset(1), vis)
+                        else -> StageLogin(inset(2), vis, busy, msg, keep, { keep = it }, { Auth.startVisitor() }) { google() }
+                    }
                 }
             }
-        }
-        Text("v${BuildConfig.VERSION_NAME}  ·  build ${BuildConfig.VERSION_CODE}", color = Color(0xFF8A8E9A), fontSize = 12.sp, fontWeight = FontWeight.Medium,
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp).clip(CircleShape).background(CardBg).padding(horizontal = 12.dp, vertical = 5.dp))
-        Column(Modifier.align(Alignment.CenterEnd).padding(end = 10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            repeat(pages) { i ->
-                val on = pager.currentPage == i
-                val h by animateDpAsState(if (on) 20.dp else 6.dp, tween(220), label = "dot")
-                Box(Modifier.width(5.dp).height(h).clip(CircleShape).background(if (on) Color.White else Color(0x40FFFFFF)))
+
+            Box(Modifier.align(Alignment.TopCenter).graphicsLayer {
+                val t = pos()
+                val s = seg(t, 1f, hs[1] / base, hs[2] / base)
+                scaleX = s; scaleY = s
+                transformOrigin = TransformOrigin(0.5f, 0f)
+                translationY = seg(t, topY[0].toPx(), topY[1].toPx(), topY[2].toPx()) + (1f - intro.value) * 24.dp.toPx()
+                alpha = intro.value
+            }) { MascotGif(R.raw.mascot_welcome, base, 405f / 512f) }
+
+            // progres tahap (gaya story) + Lewati
+            val showSkip by remember { derivedStateOf { pager.currentPage < pages - 1 } }
+            val skipA by animateFloatAsState(if (showSkip) 1f else 0f, tween(240), label = "skip")
+            Row(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(start = 24.dp, end = 12.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    repeat(pages) { i ->
+                        Canvas(Modifier.weight(1f).height(4.dp)) {
+                            val r = CornerRadius(size.height / 2)
+                            drawRoundRect(Color(0x26FFFFFF), size = size, cornerRadius = r)
+                            val fill = (pos() - i + 1f).coerceIn(0f, 1f)
+                            if (fill > 0f) drawRoundRect(Color.White, size = Size(size.width * fill, size.height), cornerRadius = r)
+                        }
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+                Text("Lewati", color = Color(0xFFB9BCC6), fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.graphicsLayer { alpha = skipA }.clip(CircleShape).clickable(enabled = showSkip) { go(pages - 1, 900) }.padding(horizontal = 12.dp, vertical = 8.dp))
+            }
+
+            // tombol Lanjut: memudar saat menuju halaman login (tombol login ada di halamannya sendiri)
+            Button(
+                { go(pager.currentPage + 1) }, Modifier.align(Alignment.BottomCenter).padding(horizontal = 24.dp, vertical = 24.dp).widthIn(max = 420.dp).fillMaxWidth().height(56.dp)
+                    .graphicsLayer { alpha = (1f - (pos() - 1f)).coerceIn(0f, 1f) * intro.value; translationY = (1f - intro.value) * 30.dp.toPx() },
+                enabled = !onLast, shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black, disabledContainerColor = Color.White, disabledContentColor = Color.Black)
+            ) {
+                Text("Lanjut", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(8.dp))
+                Icon(Ic.Right, null, Modifier.size(20.dp))
             }
         }
-        if (!last) SwipeHint(Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp)) { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }
+    }
+}
+
+/** Latar: tiga bola cahaya (ungu, cyan, merah muda) yang melayang pelan dan bergeser mengikuti tahap. */
+@Composable
+private fun Aurora(pos: () -> Float) {
+    val drift = rememberInfiniteTransition(label = "aurora").animateFloat(0f, 1f, infiniteRepeatable(tween(16000, easing = LinearEasing), RepeatMode.Restart), label = "d")
+    Canvas(Modifier.fillMaxSize()) {
+        val w = size.width; val h = size.height
+        val t = pos() / 2f
+        val d = drift.value * 2f * PI.toFloat()
+        fun blob(c: Color, cx: Float, cy: Float, r: Float, a: Float) =
+            drawCircle(Brush.radialGradient(listOf(c.copy(alpha = a), Color.Transparent), Offset(cx, cy), r), r, Offset(cx, cy))
+        blob(Violet, w * lerp(0.20f, 0.88f, t) + sin(d) * w * 0.05f, h * (0.20f + 0.03f * sin(d + 1f)) + h * 0.10f * t, w * 1.05f, 0.34f)
+        blob(Cyan, w * lerp(0.95f, 0.10f, t) + sin(d + 2f) * w * 0.05f, h * lerp(0.58f, 0.30f, t) + sin(d) * h * 0.02f, w * 0.95f, 0.20f)
+        blob(Rose, w * lerp(0.35f, 0.65f, t) + sin(d + 4f) * w * 0.06f, h * lerp(1.02f, 0.92f, t), w * 0.9f, 0.14f)
     }
 }
 
@@ -123,58 +211,70 @@ private fun MascotGif(res: Int, height: Dp, ratio: Float) {
     AsyncImage(req, "Mascot MiToon", Modifier.height(height).aspectRatio(ratio), contentScale = ContentScale.Fit)
 }
 
+// ------------------------------------------------------------------ tahap 1
 @Composable
-private fun Mascot(height: Dp) = Box(Modifier.size(height + 40.dp), Alignment.Center) {
-    Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0x1FFFFFFF), Color.Transparent)), CircleShape))
-    MascotGif(R.raw.mascot_welcome, height, 405f / 512f)
-}
-
-@Composable
-private fun WelcomePage() =
-    Column(Modifier.fillMaxSize().padding(horizontal = 32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Mascot(210.dp)
-        Spacer(Modifier.height(10.dp))
-        Text("Selamat datang di", color = Muted, fontSize = 17.sp, fontWeight = FontWeight.Medium)
-        Text("MiToon", color = Color.White, fontSize = 56.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1.5).sp, maxLines = 1)
-        Text("Platform baca komik & novel untuk komunitas Indonesia.", color = Muted, fontSize = 17.sp, lineHeight = 24.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp, start = 12.dp, end = 12.dp))
-    }
-
-@Composable
-private fun FeaturesPage() =
-    Column(Modifier.fillMaxSize().padding(horizontal = 24.dp), verticalArrangement = Arrangement.Center) {
-        Text("Semua dalam\nsatu aplikasi", color = Color.White, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp, modifier = Modifier.padding(horizontal = 8.dp))
-        Spacer(Modifier.height(24.dp))
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardBg)) {
-            Feature(Ic.Search, Color(0xFF0A84FF), "Cari & jelajahi", "Temukan komik dari berbagai sumber, lengkap dengan genre.")
-            Box(Modifier.padding(start = 74.dp).fillMaxWidth().height(0.5.dp).background(Line))
-            Feature(Ic.Heart, Color(0xFFFF375F), "Pustaka pribadi", "Simpan favoritmu dan lanjutkan baca dari chapter terakhir.")
-            Box(Modifier.padding(start = 74.dp).fillMaxWidth().height(0.5.dp).background(Line))
-            Feature(Ic.Bell, Color(0xFFFF9F0A), "Komentar & notifikasi", "Ngobrol di tiap komik dan terima kabar terbaru.")
+private fun StageHello(top: Dp, v: () -> Float) =
+    Column(Modifier.fillMaxSize().padding(top = top, start = 28.dp, end = 28.dp, bottom = 112.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("SELAMAT DATANG DI", color = Color(0xFFB7A9FF), fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp, modifier = Modifier.reveal(v, 0))
+        Text("MiToon", fontSize = 64.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-2).sp, maxLines = 1,
+            style = LocalTextStyle.current.copy(brush = Brush.linearGradient(listOf(Color.White, Color(0xFFD3C8FF), Color(0xFF9BE7FF)))),
+            modifier = Modifier.reveal(v, 1))
+        Text("Platform baca komik & novel untuk komunitas Indonesia.", color = Color(0xFFB9BCC6), fontSize = 17.sp, lineHeight = 25.sp, textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp, start = 8.dp, end = 8.dp).reveal(v, 2))
+        Row(Modifier.padding(top = 22.dp).reveal(v, 3), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Manhwa", "Manga", "Manhua").forEach { Pill(it) }
         }
     }
 
 @Composable
-private fun Feature(icon: ImageVector, tint: Color, title: String, desc: String) =
-    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(42.dp).clip(RoundedCornerShape(11.dp)).background(tint), Alignment.Center) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
-        Column(Modifier.padding(start = 16.dp)) {
-            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            Text(desc, color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 2.dp))
+private fun Pill(text: String) =
+    Text(text, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.clip(CircleShape).background(Color(0x14FFFFFF)).border(1.dp, Color(0x26FFFFFF), CircleShape).padding(horizontal = 14.dp, vertical = 7.dp))
+
+// ------------------------------------------------------------------ tahap 2
+@Composable
+private fun StageFeatures(top: Dp, v: () -> Float) =
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = top, start = 24.dp, end = 24.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("Semua ada di sini", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp,
+            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp).reveal(v, 0, 5))
+        FeatureCard(Brush.linearGradient(listOf(Color(0xFF3B82FF), Color(0xFF3CD6FF))), "Cari & jelajahi", "Temukan komik dari berbagai sumber, lengkap dengan genre.", Modifier.reveal(v, 1, 5)) {
+            Icon(Ic.Search, null, tint = Color.White, modifier = Modifier.size(22.dp))
+        }
+        FeatureCard(Brush.linearGradient(listOf(Color(0xFFFF4D8D), Color(0xFFFF7A59))), "Pustaka pribadi", "Simpan favoritmu dan lanjutkan dari chapter terakhir.", Modifier.reveal(v, 2, 5)) {
+            Icon(Ic.Heart, null, tint = Color.White, modifier = Modifier.size(22.dp))
+        }
+        FeatureCard(Brush.linearGradient(listOf(Color(0xFF3A2410), Color(0xFF5A2E10))), "Streak & ranking", "Baca tiap hari, naikkan level, dan panjat papan peringkat.", Modifier.reveal(v, 3, 5)) {
+            Flame(28.dp, true)
+        }
+        FeatureCard(Brush.linearGradient(listOf(Color(0xFF7C5CFF), Color(0xFFB07CFF))), "Global Chat & komentar", "Ngobrol bareng pembaca lain, di tiap komik atau obrolan global.", Modifier.reveal(v, 4, 5)) {
+            Icon(Ic.Comment, null, tint = Color.White, modifier = Modifier.size(22.dp))
         }
     }
 
 @Composable
-private fun LoginPage(busy: Boolean, msg: String?, keep: Boolean, onKeep: (Boolean) -> Unit, onGuest: () -> Unit, onGoogle: () -> Unit) =
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Mascot(130.dp)
-        Text("Mulai membaca", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp, modifier = Modifier.padding(top = 4.dp))
-        Text("Masuk dengan akun Google untuk mulai membaca komik favoritmu.", color = Muted, fontSize = 16.sp, textAlign = TextAlign.Center, lineHeight = 22.sp, modifier = Modifier.padding(top = 8.dp, start = 12.dp, end = 12.dp))
-        Spacer(Modifier.height(28.dp))
+private fun FeatureCard(tile: Brush, title: String, desc: String, modifier: Modifier = Modifier, icon: @Composable () -> Unit) =
+    Row(modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color(0x12FFFFFF)).border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(20.dp)).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(tile), Alignment.Center) { icon() }
+        Column(Modifier.padding(start = 14.dp)) {
+            Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text(desc, color = Color(0xFFB0B3BE), fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 2.dp))
+        }
+    }
+
+// ------------------------------------------------------------------ tahap 3
+@Composable
+private fun StageLogin(top: Dp, v: () -> Float, busy: Boolean, msg: String?, keep: Boolean, onKeep: (Boolean) -> Unit, onGuest: () -> Unit, onGoogle: () -> Unit) =
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = top, start = 24.dp, end = 24.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("Mulai membaca", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp, modifier = Modifier.reveal(v, 0, 5))
+        Text("Masuk dengan akun Google untuk mulai membaca komik favoritmu.", color = Color(0xFFB9BCC6), fontSize = 15.sp, textAlign = TextAlign.Center, lineHeight = 22.sp,
+            modifier = Modifier.padding(top = 8.dp, start = 12.dp, end = 12.dp).reveal(v, 1, 5))
+        Spacer(Modifier.height(26.dp))
         msg?.let {
             Text(it, color = Color.White, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.widthIn(max = 420.dp).fillMaxWidth().padding(bottom = 14.dp).clip(RoundedCornerShape(14.dp)).background(Color(0x33FF453A)).padding(14.dp))
         }
         Button(
-            onGoogle, Modifier.widthIn(max = 420.dp).fillMaxWidth().height(56.dp), enabled = !busy, shape = RoundedCornerShape(16.dp),
+            onGoogle, Modifier.widthIn(max = 420.dp).fillMaxWidth().height(56.dp).reveal(v, 2, 5), enabled = !busy, shape = RoundedCornerShape(18.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF1F1F1F), disabledContainerColor = Color.White, disabledContentColor = Color(0xFF1F1F1F)),
             contentPadding = PaddingValues(horizontal = 16.dp)
         ) {
@@ -185,22 +285,14 @@ private fun LoginPage(busy: Boolean, msg: String?, keep: Boolean, onKeep: (Boole
                 Text("Masuk dengan Google", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
         }
-        OutlinedButton(onGuest, Modifier.padding(top = 12.dp).widthIn(max = 420.dp).fillMaxWidth().height(52.dp), enabled = !busy, shape = RoundedCornerShape(16.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF45464C))) {
+        OutlinedButton(onGuest, Modifier.padding(top = 12.dp).widthIn(max = 420.dp).fillMaxWidth().height(52.dp).reveal(v, 3, 5), enabled = !busy, shape = RoundedCornerShape(18.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x33FFFFFF))) {
             Text("Lanjut tanpa masuk", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         }
-        Row(Modifier.padding(top = 14.dp).widthIn(max = 420.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardBg).clickable { onKeep(!keep) }.padding(start = 18.dp, end = 12.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(top = 14.dp).widthIn(max = 420.dp).fillMaxWidth().reveal(v, 4, 5).clip(RoundedCornerShape(18.dp)).background(Color(0x12FFFFFF)).border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(18.dp))
+            .clickable { onKeep(!keep) }.padding(start = 18.dp, end = 12.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Ingat saya", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
             Switch(keep, onKeep, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Color(0xFF30D158), checkedBorderColor = Color.Transparent, uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFF45464C), uncheckedBorderColor = Color.Transparent))
         }
+        Text("v${BuildConfig.VERSION_NAME}  ·  build ${BuildConfig.VERSION_CODE}", color = Color(0xFF6E717C), fontSize = 12.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 22.dp))
     }
-
-@Composable
-private fun SwipeHint(modifier: Modifier, onClick: () -> Unit) {
-    val inf = rememberInfiniteTransition(label = "hint")
-    val dy by inf.animateFloat(0f, -6f, infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "dy")
-    Column(modifier.clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(Ic.Up, null, tint = Color(0xFF8A8E9A), modifier = Modifier.size(28.dp).offset(y = dy.dp))
-        Text("Geser ke atas", color = Color(0xFF8A8E9A), fontSize = 14.sp, fontWeight = FontWeight.Medium)
-    }
-}

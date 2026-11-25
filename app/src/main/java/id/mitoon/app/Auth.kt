@@ -191,7 +191,7 @@ object Auth {
     private fun unlockAt(u: AuthUser): Long = if (u.usernameCooldownSec > 0) System.currentTimeMillis() + u.usernameCooldownSec * 1000 else 0L
 
     fun logout() {
-        visitor = false; token = null; user = null; menuOpen = false; roleUnlocked = null; usernameUnlockAt = 0L; Xp.reset(); Streak.clear(); Library.onLogout()
+        visitor = false; token = null; user = null; menuOpen = false; roleUnlocked = null; usernameUnlockAt = 0L; Xp.reset(); Streak.clear(); ChatState.clear(); Library.onLogout()
         prefs.edit().clear().apply()
     }
 

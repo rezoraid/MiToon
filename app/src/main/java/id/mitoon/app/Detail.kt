@@ -459,15 +459,15 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     val listState = rememberLazyListState()
     val zoom = remember(chapterId) { ZoomState() }
     val scope = rememberCoroutineScope()
-    // Geser jari ke atas (baca lanjut) -> bar tersembunyi; geser ke bawah (balik) -> bar muncul lagi.
+    // Bar navigasi hanya dimunculkan dengan ketuk 1x. Menggulir (ke arah mana pun, termasuk balik ke atas) tidak pernah memunculkannya,
+    // dan bila sedang tampil, menggulir cukup jauh akan menyembunyikannya lagi supaya tidak mengganggu bacaan.
     val barsByScroll = remember {
         object : NestedScrollConnection {
             var acc = 0f
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (source != NestedScrollSource.UserInput) return Offset.Zero
-                if (acc * available.y < 0f) acc = 0f
+                if (source != NestedScrollSource.UserInput || !bars) { acc = 0f; return Offset.Zero }
                 acc += available.y
-                if (acc < -48f) { bars = false; acc = 0f } else if (acc > 48f) { bars = true; acc = 0f }
+                if (kotlin.math.abs(acc) > 48f) { bars = false; acc = 0f }
                 return Offset.Zero
             }
         }
@@ -779,69 +779,95 @@ private fun Segmented(options: List<String>, selected: Int, enabled: Boolean = t
     }
 
 @Composable
+private fun SectionLabel(text: String) =
+    Text(text, color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp, top = 6.dp))
+
+@Composable
 private fun SettingCard(content: @Composable ColumnScope.() -> Unit) =
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(SheetCard).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp), content = content)
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(SheetCard), content = content)
+
+@Composable
+private fun CardDivider() = HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = SheetChip)
 
 @Composable
 private fun IconTile(color: Color, icon: @Composable () -> Unit) = Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(color), Alignment.Center) { icon() }
+
+@Composable
+private fun SettingSwitch(checked: Boolean, onChange: (Boolean) -> Unit) = Switch(checked, onChange, colors = SwitchDefaults.colors(
+    checkedThumbColor = Color.White, checkedTrackColor = Green, checkedBorderColor = Color.Transparent,
+    uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFF45464C), uncheckedBorderColor = Color.Transparent))
+
+/** Satu baris pengaturan: ikon, judul + keterangan singkat, kontrol di kanan ([trailing]); kontrol lebar (slider, pilihan) di [below]. */
+@Composable
+private fun SettingRow(
+    title: String, desc: String?, color: Color, icon: @Composable () -> Unit,
+    trailing: @Composable () -> Unit = {}, below: @Composable ColumnScope.() -> Unit = {}
+) = Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconTile(color, icon)
+        Column(Modifier.padding(start = 12.dp, end = 8.dp).weight(1f)) {
+            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            if (desc != null) Text(desc, color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 2.dp))
+        }
+        trailing()
+    }
+    below()
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsSheet(onDismiss: () -> Unit) {
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), containerColor = SheetBg, contentColor = Color.White) {
         KeepBarsHidden()
-        Column(Modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Row(Modifier.fillMaxWidth().padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Pengaturan baca", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Column(Modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth().padding(start = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Pengaturan baca", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 Box(Modifier.size(38.dp).clip(CircleShape).background(SheetChip).clickable(onClick = onDismiss), Alignment.Center) { Icon(Ic.Close, "Tutup", tint = Color(0xFFD7D9DF), modifier = Modifier.size(20.dp)) }
             }
+
+            SectionLabel("Auto-scroll")
             SettingCard {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconTile(Blue) { LineIcon(Color.White, 20.dp, floatArrayOf(0.5f, 0.2f, 0.5f, 0.8f), floatArrayOf(0.28f, 0.58f, 0.5f, 0.8f, 0.72f, 0.58f)) }
-                    Text("Kecepatan auto-scroll", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 12.dp))
+                SettingRow("Kecepatan", "Seberapa cepat halaman bergulir sendiri saat tombol putar ditekan.", Blue,
+                    { LineIcon(Color.White, 20.dp, floatArrayOf(0.5f, 0.2f, 0.5f, 0.8f), floatArrayOf(0.28f, 0.58f, 0.5f, 0.8f, 0.72f, 0.58f)) }) {
+                    Segmented(speeds.map { it.first }, ReaderPrefs.speed, onSelect = ReaderPrefs::setSpeed)
                 }
-                Segmented(speeds.map { it.first }, ReaderPrefs.speed, onSelect = ReaderPrefs::setSpeed)
-            }
-            SettingCard {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconTile(Green) { LineIcon(Color.White, 20.dp, floatArrayOf(0.26f, 0.2f, 0.5f, 0.44f, 0.74f, 0.2f), floatArrayOf(0.26f, 0.5f, 0.5f, 0.74f, 0.74f, 0.5f)) }
-                    Text("Lanjut chapter otomatis", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 12.dp).weight(1f))
-                    Switch(ReaderPrefs.autoNext, ReaderPrefs::setAutoNext, colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White, checkedTrackColor = Green, checkedBorderColor = Color.Transparent,
-                        uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFF45464C), uncheckedBorderColor = Color.Transparent))
-                }
-                Text("Jeda sebelum lanjut", color = Color(0xFFD7D9DF), fontSize = 15.sp, modifier = Modifier.alpha(if (ReaderPrefs.autoNext) 1f else 0.4f))
-                Segmented(pauses.map { it.first }, ReaderPrefs.pause, ReaderPrefs.autoNext, ReaderPrefs::setPause)
-            }
-            SettingCard {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconTile(Color(0xFFFF9F0A)) { LineIcon(Color.White, 20.dp, floatArrayOf(0.5f, 0.2f, 0.5f, 0.8f), floatArrayOf(0.2f, 0.5f, 0.8f, 0.5f)) }
-                    Text("Kecerahan layar", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 12.dp).weight(1f))
-                    Text(if (ReaderPrefs.brightness < 0f) "Sistem" else "${(ReaderPrefs.brightness * 100).toInt()}%", color = Muted, fontSize = 14.sp)
-                }
-                Slider(if (ReaderPrefs.brightness < 0f) 0.5f else ReaderPrefs.brightness, { ReaderPrefs.setBrightness(it.coerceAtLeast(0.02f)) },
-                    valueRange = 0.02f..1f, onValueChangeFinished = ReaderPrefs::saveBrightness,
-                    colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Green, inactiveTrackColor = Color(0xFF45464C)))
-                Text("Ikuti pengaturan sistem", color = Blue, fontSize = 14.sp, modifier = Modifier.clickable { ReaderPrefs.setBrightness(-1f); ReaderPrefs.saveBrightness() }.padding(vertical = 4.dp))
-            }
-            SettingCard {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Layar tetap menyala saat membaca", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                    Switch(ReaderPrefs.keepOn, ReaderPrefs::setKeepOn, colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White, checkedTrackColor = Green, checkedBorderColor = Color.Transparent,
-                        uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFF45464C), uncheckedBorderColor = Color.Transparent))
+                CardDivider()
+                SettingRow("Lanjut chapter otomatis", "Chapter berikutnya dibuka sendiri saat kamu sampai di akhir. Bisa dibatalkan sebelum hitungan habis.", Green,
+                    { LineIcon(Color.White, 20.dp, floatArrayOf(0.26f, 0.2f, 0.5f, 0.44f, 0.74f, 0.2f), floatArrayOf(0.26f, 0.5f, 0.5f, 0.74f, 0.74f, 0.5f)) },
+                    trailing = { SettingSwitch(ReaderPrefs.autoNext, ReaderPrefs::setAutoNext) }) {
+                    if (ReaderPrefs.autoNext) {
+                        Text("Jeda sebelum lanjut", color = Color(0xFFD7D9DF), fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.offset(y = (-4).dp))
+                        Segmented(pauses.map { it.first }, ReaderPrefs.pause, true, ReaderPrefs::setPause)
+                    }
                 }
             }
+
+            SectionLabel("Layar")
             SettingCard {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Hemat data", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                    Switch(ReaderPrefs.saver, ReaderPrefs::setSaver, colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White, checkedTrackColor = Green, checkedBorderColor = Color.Transparent,
-                        uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFF45464C), uncheckedBorderColor = Color.Transparent))
+                val sys = ReaderPrefs.brightness < 0f
+                SettingRow("Kecerahan", "Geser untuk mengatur sendiri, atau ikuti kecerahan HP.", Color(0xFFFF9F0A),
+                    { LineIcon(Color.White, 20.dp, floatArrayOf(0.5f, 0.2f, 0.5f, 0.8f), floatArrayOf(0.2f, 0.5f, 0.8f, 0.5f)) },
+                    trailing = { Text(if (sys) "Sistem" else "${(ReaderPrefs.brightness * 100).toInt()}%", color = if (sys) Muted else Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }) {
+                    Slider(if (sys) 0.5f else ReaderPrefs.brightness, { ReaderPrefs.setBrightness(it.coerceAtLeast(0.02f)) },
+                        Modifier.alpha(if (sys) 0.45f else 1f), valueRange = 0.02f..1f, onValueChangeFinished = ReaderPrefs::saveBrightness,
+                        colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Green, inactiveTrackColor = Color(0xFF45464C)))
+                    Box(Modifier.clip(CircleShape).background(if (sys) Color.White else SheetChip)
+                        .clickable { ReaderPrefs.setBrightness(-1f); ReaderPrefs.saveBrightness() }.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        Text("Ikuti sistem", color = if (sys) Color.Black else Color(0xFFD7D9DF), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
-                Text("Di data seluler, gambar yang diunduh lebih dulu dikurangi dan chapter berikutnya tidak diunduh di muka. Di wifi tetap penuh.", color = Muted, fontSize = 13.sp, lineHeight = 18.sp)
+                CardDivider()
+                SettingRow("Layar tetap menyala", "Layar tidak padam sendiri selama kamu membaca.", Color(0xFFAF52DE),
+                    { LineIcon(Color.White, 20.dp, floatArrayOf(0.3f, 0.12f, 0.7f, 0.12f, 0.7f, 0.88f, 0.3f, 0.88f, 0.3f, 0.12f), floatArrayOf(0.44f, 0.76f, 0.56f, 0.76f)) },
+                    trailing = { SettingSwitch(ReaderPrefs.keepOn, ReaderPrefs::setKeepOn) })
             }
-            Text("Saat scroll sampai akhir, chapter berikutnya dibuka sendiri. Bisa dibatalkan sebelum hitungan habis.", color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(horizontal = 4.dp))
+
+            SectionLabel("Data")
+            SettingCard {
+                SettingRow("Hemat data", "Khusus data seluler: gambar yang diunduh dikurangi dan chapter berikutnya tidak diunduh duluan. Di wifi tetap penuh.", Color(0xFF30B0C7),
+                    { LineIcon(Color.White, 20.dp, floatArrayOf(0.5f, 0.15f, 0.5f, 0.62f), floatArrayOf(0.3f, 0.44f, 0.5f, 0.64f, 0.7f, 0.44f), floatArrayOf(0.2f, 0.86f, 0.8f, 0.86f)) },
+                    trailing = { SettingSwitch(ReaderPrefs.saver, ReaderPrefs::setSaver) })
+            }
             Spacer(Modifier.height(24.dp))
         }
     }

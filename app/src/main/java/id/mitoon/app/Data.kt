@@ -172,6 +172,10 @@ interface Api {
     @GET("v1/users/{id}/comments") suspend fun userComments(@Path("id") id: Long, @Query("limit") limit: Int = 20, @Query("before") before: Long? = null): Env<MyCommentPage>
     @GET("v1/comments/mine") suspend fun myComments(@Query("limit") limit: Int = 20, @Query("before") before: Long? = null): Env<MyCommentPage>
     @DELETE("v1/comments/{id}") suspend fun deleteComment(@Path("id") id: Long): Env<Ok>
+    // ---- Global Chat: server hanya menyimpan CHAT_LIMIT (50) pesan terakhir ----
+    @Headers("Cache-Control: no-cache") @GET("v1/chat") suspend fun chat(): Env<List<ChatMsg>>
+    @POST("v1/chat") suspend fun sendChat(@Body b: ChatReq): Env<ChatMsg>
+    @DELETE("v1/chat/{id}") suspend fun deleteChat(@Path("id") id: Long): Env<Ok>
     // ---- Admin (owner only) ----
     @GET("v1/admin/stats") suspend fun adminStats(): Env<AdminStats>
     @GET("v1/admin/series") suspend fun adminSeries(@Query("q") q: String? = null, @Query("provider") provider: String? = null, @Query("page") page: Int = 1, @Query("limit") limit: Int = 30): Env<AdminSeriesPage>

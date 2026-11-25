@@ -402,3 +402,24 @@ Kamu sudah membaca hari ini. Kembali besok untuk melanjutkan streak!||You've rea
 Baca satu chapter hari ini sebelum tengah malam (WIB) supaya apimu tidak padam.||Read one chapter today before midnight (WIB) to keep your flame alive.||Baca satu bab hari ini sebelum tengah malam (WIB) supaya api anda tidak padam.||Lee un capítulo hoy antes de la medianoche (WIB) para que tu llama no se apague.||炎を消さないよう、今日の深夜0時(WIB)までに1話読みましょう。
 Baca satu chapter hari ini untuk menyalakan api. Setiap hari berturut-turut menambah streak-mu.||Read one chapter today to light the flame. Every consecutive day adds to your streak.||Baca satu bab hari ini untuk menyalakan api. Setiap hari berturut-turut menambah streak anda.||Lee un capítulo hoy para encender la llama. Cada día consecutivo suma a tu racha.||今日1話読んで炎を灯しましょう。連続した日ごとにストリークが増えます。
 Streak||Streak||Streak||Racha||ストリーク
+Global Chat||Global Chat||Sembang Global||Chat global||グローバルチャット
+Menampilkan 50 pesan terakhir||Showing the last 50 messages||Memaparkan 50 mesej terakhir||Mostrando los últimos 50 mensajes||直近50件のメッセージを表示
+Belum ada pesan. Jadi yang pertama menyapa!||No messages yet. Be the first to say hi!||Belum ada mesej. Jadilah yang pertama menyapa!||Aún no hay mensajes. ¡Sé el primero en saludar!||まだメッセージがありません。最初に挨拶しましょう！
+Masuk dengan Google untuk ikut ngobrol||Sign in with Google to join the chat||Log masuk dengan Google untuk menyertai sembang||Inicia sesión con Google para unirte al chat||Googleでログインしてチャットに参加
+Masuk dengan Google dulu untuk ikut ngobrol.||Sign in with Google first to join the chat.||Log masuk dengan Google dahulu untuk menyertai sembang.||Inicia sesión con Google primero para unirte al chat.||チャットに参加するには、まずGoogleでログインしてください。
+Tulis pesan…||Write a message…||Tulis mesej…||Escribe un mensaje…||メッセージを入力…
+Kamu dibisukan {} dan tidak bisa mengirim pesan.||You are muted {} and cannot send messages.||Anda dibisukan {} dan tidak boleh menghantar mesej.||Estás silenciado {} y no puedes enviar mensajes.||{}までミュートされているため、メッセージを送信できません。
+hari berturut-turut||days in a row||hari berturut-turut||días seguidos||日連続
+belum ada streak||no streak yet||belum ada streak||aún sin racha||連続記録なし
+Belum membaca hari ini||Not read today||Belum membaca hari ini||Aún no has leído hoy||今日はまだ読んでいません
+Kembali besok untuk melanjutkan streak!||Come back tomorrow to keep your streak going!||Kembali esok untuk meneruskan streak!||¡Vuelve mañana para mantener tu racha!||明日また来て連続記録を続けましょう！
+Baca satu chapter sebelum tengah malam (WIB) supaya apimu tidak padam.||Read one chapter before midnight (WIB) so your flame doesn't go out.||Baca satu bab sebelum tengah malam (WIB) supaya api anda tidak padam.||Lee un capítulo antes de la medianoche (WIB) para que tu llama no se apague.||炎を消さないよう、深夜0時（WIB）までに1話読みましょう。
+Baca satu chapter hari ini untuk menyalakan api. Tiap hari berturut-turut menambah streak-mu.||Read one chapter today to light the flame. Every consecutive day adds to your streak.||Baca satu bab hari ini untuk menyalakan api. Setiap hari berturut-turut menambah streak anda.||Lee un capítulo hoy para encender la llama. Cada día seguido suma a tu racha.||今日1話読んで炎を灯しましょう。毎日続けるほど連続記録が伸びます。
+SELAMAT DATANG DI||WELCOME TO||SELAMAT DATANG KE||BIENVENIDO A||ようこそ
+Lewati||Skip||Langkau||Omitir||スキップ
+Semua ada di sini||Everything is here||Semuanya ada di sini||Todo está aquí||すべてここに
+Simpan favoritmu dan lanjutkan dari chapter terakhir.||Save your favorites and continue from your last chapter.||Simpan kegemaran anda dan sambung dari bab terakhir.||Guarda tus favoritos y continúa desde el último capítulo.||お気に入りを保存して、最後に読んだ話から再開できます。
+Streak & ranking||Streaks & ranking||Streak & kedudukan||Rachas y ranking||連続記録とランキング
+Baca tiap hari, naikkan level, dan panjat papan peringkat.||Read daily, level up, and climb the leaderboard.||Baca setiap hari, naikkan tahap dan panjat papan kedudukan.||Lee a diario, sube de nivel y escala en la clasificación.||毎日読んでレベルアップし、ランキングを駆け上がろう。
+Global Chat & komentar||Global Chat & comments||Sembang Global & komen||Chat global y comentarios||グローバルチャットとコメント
+Ngobrol bareng pembaca lain, di tiap komik atau obrolan global.||Chat with other readers, on every comic or in the global chat.||Berbual dengan pembaca lain, di setiap komik atau sembang global.||Charla con otros lectores, en cada cómic o en el chat global.||他の読者と、各コミックでもグローバルチャットでも交流できます。

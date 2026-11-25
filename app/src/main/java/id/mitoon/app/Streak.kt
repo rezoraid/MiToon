@@ -2,21 +2,39 @@ package id.mitoon.app
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -77,6 +95,18 @@ object Streak {
     val current: Int get() = if (lastDay >= 0 && today - lastDay <= 1) count else 0
     /** Api menyala: sudah membaca hari ini. */
     val hot: Boolean get() = current > 0 && today == lastDay
+
+    /**
+     * Penanda hari Senin..Minggu pada pekan WIB ini: true = hari itu masuk rentang streak.
+     * Rentang streak = [lastDay - count + 1 .. lastDay]; epoch day 0 (1 Jan 1970) jatuh pada Kamis, jadi indeks Senin = (hari + 3) % 7.
+     */
+    fun weekMarks(): List<Boolean> {
+        val start = today - ((today + 3) % 7)
+        val n = current
+        return (0..6).map { i -> val d = start + i; n > 0 && d <= lastDay && d > lastDay - n }
+    }
+    /** Indeks hari ini dalam pekan (0 = Senin .. 6 = Minggu). */
+    fun todayIndex(): Int = ((today + 3) % 7).toInt()
 
     fun set(r: StreakRes) {
         val t = wibDay()
@@ -171,24 +201,79 @@ fun StreakChip(modifier: Modifier = Modifier) {
     if (open) StreakDialog(n, hot) { open = false }
 }
 
+private val DayLabels = listOf("S", "S", "R", "K", "J", "S", "M") // Senin Selasa Rabu Kamis Jumat Sabtu Minggu
+
 @Composable
-private fun StreakDialog(n: Int, hot: Boolean, onDismiss: () -> Unit) = AlertDialog(
-    onDismissRequest = onDismiss, containerColor = CardBg, shape = R6,
-    title = {
-        Column(Modifier.padding(top = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Flame(84.dp, hot)
-            Text(if (n > 0) "Streak membaca $n hari" else "Streak membaca", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, textAlign = TextAlign.Center)
+private fun StreakDialog(n: Int, hot: Boolean, onDismiss: () -> Unit) {
+    // Masuk: kartu membesar pelan + memudar; api "melompat" sedikit dengan pegas.
+    val enter = remember { Animatable(0f) }
+    val pop = remember { Animatable(0.6f) }
+    LaunchedEffect(Unit) {
+        enter.animateTo(1f, androidx.compose.animation.core.tween(260, easing = FastOutSlowInEasing))
+    }
+    LaunchedEffect(Unit) {
+        delay(80)
+        pop.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
+    }
+    val accent = if (hot) Color(0xFFFFB02E) else Muted
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(
+            Modifier.padding(horizontal = 28.dp).fillMaxWidth()
+                .graphicsLayer { val e = enter.value; alpha = e; scaleX = 0.92f + 0.08f * e; scaleY = scaleX }
+                .clip(RoundedCornerShape(28.dp)).background(CardBg)
+                .border(BorderStroke(1.dp, Color(0x1AFFFFFF)), RoundedCornerShape(28.dp))
+                .padding(start = 22.dp, end = 22.dp, top = 28.dp, bottom = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // api di tengah lingkaran cahaya
+            Box(Modifier.size(132.dp), Alignment.Center) {
+                Box(Modifier.fillMaxSize().background(
+                    Brush.radialGradient(listOf(if (hot) Color(0x33FF8A1F) else Color(0x14FFFFFF), Color.Transparent)), CircleShape))
+                Flame(92.dp, hot, Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value })
+            }
+            Spacer(Modifier.height(6.dp))
+            Text("$n", color = accent, fontSize = 52.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 56.sp)
+            Text(if (n > 0) "hari berturut-turut" else "belum ada streak",
+                color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(14.dp))
+            // status hari ini
+            Text(
+                if (hot) "Sudah membaca hari ini" else "Belum membaca hari ini",
+                color = if (hot) Color(0xFF30D158) else Color(0xFFFFB86B), fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.3.sp,
+                modifier = Modifier.clip(CircleShape).background(if (hot) Color(0x2230D158) else Color(0x22FFB86B)).padding(horizontal = 12.dp, vertical = 5.dp)
+            )
+            Spacer(Modifier.height(20.dp))
+            // pekan ini (Senin..Minggu)
+            val marks = remember(n, hot) { Streak.weekMarks() }
+            val todayI = remember(n, hot) { Streak.todayIndex() }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                marks.forEachIndexed { i, on ->
+                    val isToday = i == todayI
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(DayLabels[i], color = if (isToday) Color.White else Muted, fontSize = 11.sp, fontWeight = if (isToday) FontWeight.ExtraBold else FontWeight.Medium)
+                        Box(
+                            Modifier.size(32.dp).clip(CircleShape)
+                                .background(if (on) Color(0xFFFF8A1F) else Color(0xFF2A2C33))
+                                .then(if (isToday) Modifier.border(1.5.dp, if (on) Color(0xFFFFE27A) else Color(0xFF6A6D78), CircleShape) else Modifier),
+                            Alignment.Center
+                        ) { if (on) Icon(Ic.Check, null, tint = Color.White, modifier = Modifier.size(16.dp)) }
+                    }
+                }
+            }
+            Spacer(Modifier.height(20.dp))
+            Text(
+                when {
+                    hot -> "Kembali besok untuk melanjutkan streak!"
+                    n > 0 -> "Baca satu chapter sebelum tengah malam (WIB) supaya apimu tidak padam."
+                    else -> "Baca satu chapter hari ini untuk menyalakan api. Tiap hari berturut-turut menambah streak-mu."
+                },
+                color = Muted, fontSize = 13.sp, lineHeight = 19.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 6.dp)
+            )
+            Spacer(Modifier.height(20.dp))
+            Button(onDismiss, Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)) {
+                Text("Tutup", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            }
         }
-    },
-    text = {
-        Text(
-            when {
-                hot -> "Kamu sudah membaca hari ini. Kembali besok untuk melanjutkan streak!"
-                n > 0 -> "Baca satu chapter hari ini sebelum tengah malam (WIB) supaya apimu tidak padam."
-                else -> "Baca satu chapter hari ini untuk menyalakan api. Setiap hari berturut-turut menambah streak-mu."
-            },
-            color = Muted, fontSize = 14.sp, lineHeight = 20.sp, textAlign = TextAlign.Center
-        )
-    },
-    confirmButton = { TextButton(onDismiss) { Text("Tutup", color = Color.White, fontWeight = FontWeight.Bold) } }
-)
+    }
+}

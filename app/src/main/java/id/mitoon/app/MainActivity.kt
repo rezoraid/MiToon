@@ -65,7 +65,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private val tabRoutes = setOf("home", "explore", "library", "ranking")
+private val tabRoutes = setOf("home", "explore", "library", "chat", "ranking")
 private fun NavBackStackEntry.isTab() = destination.route in tabRoutes
 private fun NavBackStackEntry.isReader() = destination.route?.startsWith("reader") == true
 
@@ -98,7 +98,7 @@ private fun AppScaffold() {
     val nav = rememberNavController()
     LvClock.Run()
     val tabs = listOf(Tab("home", "Home", Ic.Home, Ic.HomeOn), Tab("explore", "Explore", Ic.Search), Tab("library", "Library", Ic.Heart, Ic.HeartOn),
-        Tab("ranking", "Ranking", Ic.Trophy, Ic.TrophyOn))
+        Tab("chat", "Chat", Ic.Comment), Tab("ranking", "Ranking", Ic.Trophy, Ic.TrophyOn))
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
     // Pil merah notifikasi (lonceng di header): cek tiap menit selama login, dan setiap kali pindah layar (kecuali saat sedang membuka halaman Notifikasi).
     val uid = Auth.user?.id
@@ -118,7 +118,9 @@ private fun AppScaffold() {
     val openNotif: () -> Unit = { if (Auth.isGuest) GuestGate.ask(GUEST_NOTIF) else nav.navigate("notifications") { launchSingleTop = true } }
     CompositionLocalProvider(LocalOpenUser provides openUser, LocalOpenNotif provides openNotif) {
     Scaffold(containerColor = Bg, bottomBar = {
-        if (tabs.any { it.route == route }) NavigationBar(containerColor = CardBg) {
+        // Saat keyboard terbuka (mis. mengetik di Global Chat) bilah bawah disembunyikan supaya kolom tulis tepat di atas keyboard.
+        val imeOpen = androidx.compose.foundation.layout.WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
+        if (tabs.any { it.route == route } && !imeOpen) NavigationBar(containerColor = CardBg) {
             tabs.forEach { t ->
                 NavigationBarItem(route == t.route, {
                     nav.navigate(t.route) { popUpTo("home"); launchSingleTop = true; restoreState = true }
@@ -143,6 +145,7 @@ private fun AppScaffold() {
             composable("library") {
                 LibraryScreen({ nav.detail(it) }, { e -> e.lastChapterId?.let { nav.reader(e.id, it) } ?: nav.detail(e.id) }, { nav.navigate("search") }, { sid, cid -> nav.reader(sid, cid) })
             }
+            composable("chat") { ChatScreen() }
             composable("ranking") { LeaderboardScreen { nav.navigate("search") } }
             composable("notifications") {
                 NotificationsScreen(nav::popBackStack) { o -> if (o.chapterId != null) nav.reader(o.seriesId, o.chapterId) else nav.detail(o.seriesId) }

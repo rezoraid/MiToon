@@ -273,8 +273,7 @@ fun LvPill(level: Int, text: String, modifier: Modifier = Modifier, size: Int = 
         modifier = modifier
             .drawBehind {
                 val ms = LvClock.ms
-                val w = size.width
-                val h = size.height
+                val w = this.size.width; val h = this.size.height
                 // aura di luar pill (sebelum clip) supaya tidak terpotong
                 if (t.aura > 0f) {
                     val pulse = 0.65f + 0.35f * (0.5f - 0.5f * cos(TAU * cycle(ms, 3000)))

@@ -320,7 +320,7 @@ private fun BubbleBody(m: ChatMsg, mine: Boolean, head: Boolean, whenText: Strin
             LevelChip(m.user.level, size = 8)
         }
         m.replyTo?.let { ReplyQuote(it, onLight = mine) }
-        Text(text, inlineContent = inline, color = fg, fontSize = 14.sp, lineHeight = 19.sp)
+        androidx.compose.foundation.text.BasicText(text, style = androidx.compose.ui.text.TextStyle(color = fg, fontSize = 14.sp, lineHeight = 19.sp), inlineContent = inline)
     }
 }
 
@@ -335,6 +335,56 @@ private fun ReplyQuote(r: ChatReply, onLight: Boolean) {
             Text(r.body, color = if (onLight) Color(0xFF55575F) else Muted, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
+}
+
+@Composable
+private fun ChatComposer(modifier: Modifier = Modifier) {
+    var text by rememberSaveable { mutableStateOf("") }
+    Column(modifier) {
+        if (Auth.isGuest) {
+            Text("Masuk dengan Google untuk ikut ngobrol", color = Muted, fontSize = 14.sp, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).border(1.dp, Color(0xFF4A4C53), RoundedCornerShape(14.dp))
+                    .clickable { GuestGate.ask(GUEST_CHAT) }.padding(14.dp))
+            return@Column
+        }
+        val mutedUntil = Auth.user?.mutedUntil ?: 0L
+        val muted = mutedUntil > System.currentTimeMillis()
+        if (muted) Text("Kamu dibisukan ${muteUntilText(mutedUntil)} dan tidak bisa mengirim pesan.", color = Color(0xFFFFB86B), fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
+        ChatState.sendError?.let { Text(it, color = Color(0xFFFF8A80), fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp)) }
+        val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+        val target = ChatState.replying
+        LaunchedEffect(target?.id) { if (target != null) runCatching { focus.requestFocus() } }
+        if (target != null) Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(R6).background(Bg).border(1.dp, Line, R6).padding(start = 12.dp, top = 6.dp, bottom = 6.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Icon(Ic.Reply, null, tint = Muted, modifier = Modifier.size(16.dp))
+            Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                Text("Membalas ${target.user.name}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(target.body.replace('\n', ' '), color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            IconButton({ ChatState.replying = null }, Modifier.size(32.dp)) { Icon(Ic.Close, "Batal membalas", tint = Muted, modifier = Modifier.size(16.dp)) }
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(text, { if (it.length <= CHAT_MAX_LEN) text = it }, Modifier.weight(1f).focusRequester(focus), maxLines = 4, shape = RoundedCornerShape(22.dp), enabled = !muted,
+                placeholder = { Text("Tulis pesan…", color = Muted) },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.White, unfocusedBorderColor = Color(0xFF4A4C53),
+                    focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Color.White,
+                    focusedContainerColor = Bg, unfocusedContainerColor = Bg))
+            val ready = text.isNotBlank() && !muted
+            IconButton({ val t = text; text = ""; ChatState.send(t) { failed -> if (text.isBlank()) text = failed } }, Modifier.size(56.dp).clip(CircleShape)
+                .background(if (ready) Color.White else Color(0xFF3A3C42)), enabled = ready) {
+                Icon(Ic.Right, "Kirim", tint = if (ready) Color.Black else Muted, modifier = Modifier.size(24.dp))
+            }
+        }
+    }
+}
+
+private fun clock(ms: Long): String {
+    if (ms <= 0) return ""
+    val f = java.text.SimpleDateFormat("HH.mm", java.util.Locale("id"))
+    val d = java.util.Date(ms)
+    val sameDay = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).let { it.format(d) == it.format(java.util.Date()) }
+    return if (sameDay) f.format(d) else java.text.SimpleDateFormat("d MMM HH.mm", java.util.Locale("id")).format(d)
 }
 
 /**

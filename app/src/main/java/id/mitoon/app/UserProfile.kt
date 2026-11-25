@@ -80,16 +80,27 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
                             LevelChip(u.level, size = 12)
                             RoleTag(u.level, Modifier.padding(start = 10.dp), iconSize = 24.dp)
                         }
-                        u.streak?.takeIf { it.current > 0 }?.let { StreakPill(it.current, it.readToday, Modifier.padding(top = 14.dp)) }
                         if (u.bio.isNotBlank()) Text(u.bio, color = Color(0xFFD7D9DE), fontSize = 14.sp, lineHeight = 20.sp, textAlign = TextAlign.Center, maxLines = 4, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(top = 14.dp, start = 16.dp, end = 16.dp))
-                        Row(Modifier.padding(top = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Stat("${u.xp}", "Total XP")
-                            Box(Modifier.padding(horizontal = 22.dp).width(1.dp).height(28.dp).background(Line))
-                            Stat("${u.commentCount}", "Komentar")
+                        // Ringkasan sejajar: setiap kolom sama lebar; streak (api kecil + angka) hanya tampil bila ada, tanpa kapsul besar.
+                        val streak = u.streak?.takeIf { it.current > 0 }
+                        Row(Modifier.padding(top = 20.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            if (streak != null) {
+                                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Flame(22.dp, streak.readToday)
+                                        Text("${streak.current}", color = if (streak.readToday) Color(0xFFFFB02E) else Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                                    }
+                                    Text("Streak", color = Muted, fontSize = 12.sp)
+                                }
+                                StatDivider()
+                            }
+                            Stat("${u.xp}", "Total XP", Modifier.weight(1f))
+                            StatDivider()
+                            Stat("${u.commentCount}", "Komentar", Modifier.weight(1f))
                             if (u.joinedAt > 0) {
-                                Box(Modifier.padding(horizontal = 22.dp).width(1.dp).height(28.dp).background(Line))
-                                Stat(remember(u.joinedAt) { SimpleDateFormat("MMM yyyy", Locale("id", "ID")).format(Date(u.joinedAt)) }, "Bergabung")
+                                StatDivider()
+                                Stat(remember(u.joinedAt) { SimpleDateFormat("MMM yyyy", Locale("id", "ID")).format(Date(u.joinedAt)) }, "Bergabung", Modifier.weight(1f))
                             }
                         }
                     }
@@ -132,7 +143,10 @@ private fun ReadRow(r: ReadItem, onOpen: (ReadItem) -> Unit) {
 }
 
 @Composable
-private fun Stat(value: String, label: String) = Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun StatDivider() = Box(Modifier.width(1.dp).height(28.dp).background(Line))
+
+@Composable
+private fun Stat(value: String, label: String, modifier: Modifier = Modifier) = Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
     Text(value, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
     Text(label, color = Muted, fontSize = 12.sp)
 }

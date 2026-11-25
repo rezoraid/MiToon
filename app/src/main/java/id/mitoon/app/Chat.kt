@@ -199,7 +199,7 @@ fun ChatScreen() {
                     }
                 }
             }
-            AnimatedVisibility(showJump, Modifier.align(Alignment.BottomEnd).padding(14.dp), enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
+            androidx.compose.animation.AnimatedVisibility(showJump, Modifier.align(Alignment.BottomEnd).padding(14.dp), enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
                 Box(Modifier.size(40.dp).clip(CircleShape).background(Color.White).clickable { scope.launch { listState.animateScrollToItem(0) } }, Alignment.Center) {
                     Icon(Ic.Down, "Ke pesan terbaru", tint = Color.Black, modifier = Modifier.size(22.dp))
                 }

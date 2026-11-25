@@ -16,7 +16,9 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.tween
 import androidx.navigation.NavBackStackEntry
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -119,7 +121,7 @@ private fun AppScaffold() {
     CompositionLocalProvider(LocalOpenUser provides openUser, LocalOpenNotif provides openNotif) {
     Scaffold(containerColor = Bg, bottomBar = {
         // Saat keyboard terbuka (mis. mengetik di Global Chat) bilah bawah disembunyikan supaya kolom tulis tepat di atas keyboard.
-        val imeOpen = androidx.compose.foundation.layout.WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
+        val imeOpen = WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
         if (tabs.any { it.route == route } && !imeOpen) NavigationBar(containerColor = CardBg) {
             tabs.forEach { t ->
                 NavigationBarItem(route == t.route, {

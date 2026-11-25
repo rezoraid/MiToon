@@ -9,6 +9,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,7 +27,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun AdminScreen(onBack: () -> Unit) {
     var tab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Ringkasan", "Komik", "User", "Komentar", "Informasi", "Push")
+    val tabs = listOf("Ringkasan", "Komik", "User", "Komentar", "Chat", "Informasi", "Push")
     Column(Modifier.fillMaxSize().background(Bg)) {
         Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) }
@@ -42,8 +44,9 @@ fun AdminScreen(onBack: () -> Unit) {
             1 -> AdminSeriesTab()
             2 -> AdminUsersTab()
             3 -> AdminCommentsTab()
-            4 -> AdminAnnounceTab()
-            5 -> AdminPushTab()
+            4 -> AdminChatTab()
+            5 -> AdminAnnounceTab()
+            6 -> AdminPushTab()
         }
     }
 }
@@ -317,7 +320,7 @@ private fun Field(label: String, value: String, single: Boolean = true, supporti
     )
 }
 
-private val UserFilters = listOf("" to "Semua", "banned" to "Diblokir", "muted" to "Dibisukan", "verified" to "Verified", "premium" to "Premium", "avatar" to "Berfoto")
+private val UserFilters = listOf("" to "Semua", "banned" to "Diblokir", "muted" to "Dibisukan", "verified" to "Verified", "premium" to "Premium", "avatar" to "Berfoto", "owner" to "Owner")
 private val RedText = Color(0xFFFF6B6B)
 private val AmberText = Color(0xFFFFB86B)
 
@@ -376,6 +379,8 @@ private sealed interface UserDialog {
     data class Ban(val u: AdminUser) : UserDialog
     data class Mute(val u: AdminUser) : UserDialog
     data class Photo(val u: AdminUser) : UserDialog
+    data class Xp(val u: AdminUser) : UserDialog
+    data class Chat(val u: AdminUser) : UserDialog
     data class Comments(val u: AdminUser) : UserDialog
     data class Delete(val u: AdminUser) : UserDialog
     data class Logout(val u: AdminUser) : UserDialog
@@ -467,6 +472,7 @@ private fun AdminUsersTab() {
     val openUser = LocalOpenUser.current
     var q by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf("") }
+    var sort by remember { mutableStateOf("") }
     var page by remember { mutableIntStateOf(1) }
     var data by remember { mutableStateOf<AdminUsersPage?>(null) }
     var items by remember { mutableStateOf<List<AdminUser>>(emptyList()) }
@@ -481,7 +487,7 @@ private fun AdminUsersTab() {
     fun load(p: Int = 1) {
         loading = true; err = null; page = p
         scope.launch {
-            runCatching { Net.api.adminUsers(q = q.ifBlank { null }, filter = filter.ifBlank { null }, page = p).data }
+            runCatching { Net.api.adminUsers(q = q.ifBlank { null }, filter = filter.ifBlank { null }, sort = sort.ifBlank { null }, page = p).data }
                 .onSuccess { data = it; items = it.items; loading = false }
                 .onFailure { err = it.friendly(); loading = false }
         }
@@ -497,7 +503,7 @@ private fun AdminUsersTab() {
             busy = false
         }
     }
-    LaunchedEffect(filter) { load() }
+    LaunchedEffect(filter, sort) { load() }
 
     dialog?.let { d ->
         val close = { dialog = null }
@@ -508,6 +514,12 @@ private fun AdminUsersTab() {
             is UserDialog.Mute -> AdminReasonDialog("Bisukan @${d.u.username}?", "Bisukan",
                 listOf("1 hari" to 1, "7 hari" to 7, "30 hari" to 30, "Permanen" to null), { r, days ->
                 close(); act("@${d.u.username} dibisukan") { Net.api.adminModerateUser(d.u.id, AdminUserPatch(muted = true, muteDays = days, muteReason = r.ifBlank { null })).data }
+            }, close)
+            is UserDialog.Xp -> AdminXpDialog(d.u, { patch ->
+                close(); act("Level/EXP @${d.u.username} diperbarui") { Net.api.adminSetXp(d.u.id, patch).data }
+            }, close)
+            is UserDialog.Chat -> AdminConfirm("Hapus semua chat user?", "Semua pesan Global Chat @${d.u.username} dihapus.", "Hapus", {
+                close(); act("Chat @${d.u.username} dihapus") { Net.api.adminDeleteUserChat(d.u.id); d.u }
             }, close)
             is UserDialog.Photo -> AdminConfirm("Hapus foto profil?", "Foto @${d.u.username} dihapus dan kembali ke inisial.", "Hapus", {
                 close(); act("Foto @${d.u.username} dihapus") { Net.api.adminClearUserAvatar(d.u.id).data }
@@ -566,6 +578,11 @@ private fun AdminUsersTab() {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             UserFilters.forEach { (key, label) -> AdminChip(label, filter == key) { filter = key } }
         }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Urutkan:", color = Muted, fontSize = 12.sp)
+            AdminChip("Terbaru", sort == "") { sort = "" }
+            AdminChip("EXP tertinggi", sort == "xp") { sort = "xp" }
+        }
         TextButton({ dialog = UserDialog.LogoutAll }, enabled = !busy, modifier = Modifier.padding(horizontal = 8.dp)) { Text("Keluarkan semua pengguna (logout semua sesi)", color = AmberText, fontSize = 13.sp) }
         info?.let { Text(it, color = if (infoBad) RedText else Color(0xFF6BCB77), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
         if (loading) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Accent) }
@@ -584,7 +601,7 @@ private fun AdminUsersTab() {
                                     Text(u.displayName.ifBlank { u.username }, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                                     StatusBadges(u.verified, u.isOwner, u.premium, size = 14.dp)
                                 }
-                                Text("@${u.username} · XP ${u.xp} · ${u.commentCount} komentar", color = Muted, fontSize = 12.sp)
+                                Text("@${u.username} · Lv ${u.level} · XP ${u.xp} · ${u.commentCount} komentar", color = Muted, fontSize = 12.sp)
                                 if (u.email != null) Text(u.email, color = Muted, fontSize = 11.sp)
                                 if (u.banned) Text("DIBLOKIR" + if (u.banReason.isNotBlank()) ": ${u.banReason}" else "", color = RedText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 if (mutedNow) Text("DIBISUKAN ${muteUntilText(u.mutedUntil)}" + if (u.muteReason.isNotBlank()) " · ${u.muteReason}" else "", color = AmberText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -604,6 +621,7 @@ private fun AdminUsersTab() {
                                         enabled = !busy, colors = SwitchDefaults.colors(checkedTrackColor = Accent))
                                 }
                                 ActionRow("Lihat profil") { openUser(u.id) }
+                                ActionRow("Atur level / EXP (Lv ${u.level} · ${u.xp} XP)", Accent) { dialog = UserDialog.Xp(u) }
                                 if (u.hasAvatar) ActionRow("Hapus foto profil") { dialog = UserDialog.Photo(u) }
                                 if (u.displayName.isNotBlank()) ActionRow("Reset nama tampilan") { act("Nama @${u.username} direset") { Net.api.adminModerateUser(u.id, AdminUserPatch(clearName = true)).data } }
                                 if (u.bio.isNotBlank()) ActionRow("Hapus bio") { act("Bio @${u.username} dihapus") { Net.api.adminModerateUser(u.id, AdminUserPatch(clearBio = true)).data } }
@@ -612,6 +630,7 @@ private fun AdminUsersTab() {
                                     else ActionRow("Bisukan (tidak bisa komentar)", AmberText) { dialog = UserDialog.Mute(u) }
                                     if (u.banned) ActionRow("Buka blokir", Color(0xFF6BCB77)) { act("Blokir @${u.username} dibuka") { Net.api.adminModerateUser(u.id, AdminUserPatch(banned = false)).data } }
                                     else ActionRow("Blokir akun", RedText) { dialog = UserDialog.Ban(u) }
+                                    ActionRow("Hapus semua pesan chat", RedText) { dialog = UserDialog.Chat(u) }
                                     if (u.commentCount > 0) ActionRow("Hapus semua komentar", RedText) { dialog = UserDialog.Comments(u) }
                                     ActionRow("Paksa keluar dari semua perangkat", AmberText) { dialog = UserDialog.Logout(u) }
                                     ActionRow("Hapus akun permanen", RedText) { dialog = UserDialog.Delete(u) }
@@ -836,5 +855,114 @@ private fun PushSwitch(label: String, hint: String, on: Boolean, enabled: Boolea
             Text(hint, color = Muted, fontSize = 12.sp, lineHeight = 16.sp)
         }
         Switch(on, onChange, enabled = enabled, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Accent, uncheckedThumbColor = Color.White, uncheckedTrackColor = CardLine))
+    }
+}
+
+
+// ---------------------------------------------------------------- level / EXP
+
+private fun adminLevelCost(level: Int): Long = 40L + 15L * (level - 1) + (level - 1).toLong() * (level - 1)
+private fun adminXpForLevel(level: Int): Long { var t = 0L; for (l in 1 until level.coerceIn(1, 10000)) t += adminLevelCost(l); return t }
+private fun adminLevelOf(xp: Long): Int { var lv = 1; var left = xp.coerceAtLeast(0); while (left >= adminLevelCost(lv) && lv < 10000) { left -= adminLevelCost(lv); lv++ }; return lv }
+
+/** Dialog atur level / EXP: pilih mode, isi angka, lihat pratinjau hasil, lalu terapkan. */
+@Composable
+private fun AdminXpDialog(u: AdminUser, onApply: (AdminXpPatch) -> Unit, onCancel: () -> Unit) {
+    var mode by remember { mutableIntStateOf(0) } // 0 level, 1 EXP total, 2 tambah/kurangi
+    var text by remember { mutableStateOf("") }
+    val n = text.toLongOrNull()
+    val result: Long? = when (mode) {
+        0 -> n?.takeIf { it in 1..10000 }?.let { adminXpForLevel(it.toInt()) }
+        1 -> n?.takeIf { it in 0..100_000_000 }
+        else -> n?.takeIf { it in -100_000_000..100_000_000 }?.let { (u.xp + it).coerceIn(0, 100_000_000) }
+    }
+    AlertDialog(
+        onDismissRequest = onCancel, containerColor = CardBg, shape = RoundedCornerShape(20.dp),
+        title = { Text("Level & EXP @${u.username}", color = Color.White, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Sekarang: Level ${u.level} · ${u.xp} XP", color = Muted, fontSize = 13.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    AdminChip("Level", mode == 0) { mode = 0; text = "" }
+                    AdminChip("EXP total", mode == 1) { mode = 1; text = "" }
+                    AdminChip("+/- EXP", mode == 2) { mode = 2; text = "" }
+                }
+                OutlinedTextField(
+                    text, { v -> text = v.filter { it.isDigit() || (it == '-' && mode == 2 && v.indexOf('-') == 0) }.take(10) },
+                    singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = { Text(when (mode) { 0 -> "Level baru (1–10000)"; 1 -> "EXP total baru"; else -> "Tambah / kurangi (mis. 500 atau -200)" }, color = Muted) },
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Accent, unfocusedBorderColor = CardLine, focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                )
+                if (result != null) Text("Hasil: Level ${adminLevelOf(result)} · $result XP", color = Color(0xFF6BCB77), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                else if (text.isNotEmpty()) Text("Angka tidak valid", color = RedText, fontSize = 12.sp)
+                Text("Level dihitung dari total EXP; mengubah level berarti mengatur EXP ke batas bawah level itu. Papan peringkat mingguan tidak berubah.", color = Muted, fontSize = 11.sp, lineHeight = 15.sp)
+            }
+        },
+        confirmButton = {
+            TextButton({
+                n?.let { v -> onApply(when (mode) { 0 -> AdminXpPatch(level = v.toInt()); 1 -> AdminXpPatch(xp = v.toInt()); else -> AdminXpPatch(delta = v.toInt()) }) }
+            }, enabled = result != null) { Text("Terapkan", color = Accent, fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = { TextButton(onCancel) { Text("Batal", color = Muted) } }
+    )
+}
+
+// ---------------------------------------------------------------- Global Chat
+
+@Composable
+private fun AdminChatTab() {
+    val openUser = LocalOpenUser.current
+    var items by remember { mutableStateOf<List<ChatMsg>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var err by remember { mutableStateOf<String?>(null) }
+    var info by remember { mutableStateOf<String?>(null) }
+    var confirmAll by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    fun load() {
+        loading = true; err = null
+        scope.launch {
+            runCatching { Net.api.chat().data }
+                .onSuccess { items = it.reversed(); loading = false }
+                .onFailure { err = it.friendly(); loading = false }
+        }
+    }
+    LaunchedEffect(Unit) { load() }
+    if (confirmAll) AdminConfirm("Kosongkan Global Chat?", "Semua pesan di Global Chat dihapus permanen.", "Hapus semua", {
+        confirmAll = false; busy = true
+        scope.launch {
+            runCatching { Net.api.adminClearChat().data }
+                .onSuccess { items = emptyList(); info = "${it.deleted} pesan dihapus" }
+                .onFailure { info = it.friendly() }
+            busy = false
+        }
+    }, { confirmAll = false })
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Global Chat (${items.size} pesan)", color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+            TextButton({ load() }, enabled = !loading) { Text("Muat ulang", color = Accent) }
+            TextButton({ confirmAll = true }, enabled = !busy && items.isNotEmpty()) { Text("Kosongkan", color = RedText) }
+        }
+        info?.let { Text(it, color = Color(0xFF6BCB77), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp)) }
+        if (loading) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Accent) }
+        else if (err != null) Text(err!!, color = RedText, modifier = Modifier.padding(16.dp))
+        else LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
+            items(items, key = { it.id }) { m ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 5.dp).clip(R6).border(1.dp, CardLine, R6).background(CardBg).padding(10.dp), verticalAlignment = Alignment.Top) {
+                    Avatar(m.user.id, m.user.name, m.user.avatarV, 36.dp, Modifier.clickable { openUser(m.user.id) })
+                    Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                        Text("${m.user.name} · Lv ${m.user.level}", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(m.body, color = Color.White, fontSize = 14.sp)
+                    }
+                    TextButton({
+                        scope.launch {
+                            runCatching { Net.api.deleteChat(m.id) }
+                                .onSuccess { items = items.filter { it.id != m.id }; info = "Pesan dihapus" }
+                                .onFailure { info = it.friendly() }
+                        }
+                    }) { Text("Hapus", color = RedText) }
+                }
+            }
+        }
     }
 }

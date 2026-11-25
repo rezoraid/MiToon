@@ -107,7 +107,7 @@ import java.security.MessageDigest
 @Serializable data class AdminCommentsPage(val total: Int = 0, val items: List<AdminComment> = emptyList(), val page: Int = 1, val limit: Int = 30, val hasMore: Boolean = false)
 @Serializable data class AdminUser(
     val id: Long = 0, val username: String = "", val email: String? = null, val displayName: String = "", val bio: String = "",
-    val xp: Int = 0, val verified: Boolean = false, val avatarV: Int = 0, val hasAvatar: Boolean = false, val commentCount: Int = 0,
+    val xp: Int = 0, val level: Int = 1, val verified: Boolean = false, val avatarV: Int = 0, val hasAvatar: Boolean = false, val commentCount: Int = 0,
     val createdAt: String? = null, val isOwner: Boolean = false, val premium: Boolean = false,
     /** diblokir: tidak bisa masuk/memakai akun */
     val banned: Boolean = false, val banReason: String = "",
@@ -120,6 +120,8 @@ import java.security.MessageDigest
     val muted: Boolean? = null, val muteDays: Int? = null, val muteReason: String? = null,
     val clearBio: Boolean? = null, val clearName: Boolean? = null
 )
+/** Tepat satu field diisi: [xp] = nilai total, [level] = naik/turun ke level itu, [delta] = tambah/kurang. */
+@Serializable data class AdminXpPatch(val xp: Int? = null, val level: Int? = null, val delta: Int? = null)
 @Serializable data class AdminDeletedCount(val deleted: Int = 0)
 @Serializable data class AdminRevoked(val revoked: Boolean = true)
 @Serializable data class AdminRevokedCount(val revoked: Int = 0)
@@ -185,8 +187,11 @@ interface Api {
     @PATCH("v1/admin/chapters/{id}") suspend fun adminUpdateChapter(@Path("id") id: Long, @Body b: AdminChapterPatch): Env<Ok>
     @POST("v1/admin/chapters/{id}/fix") suspend fun adminFixChapter(@Path("id") id: Long): Env<AdminFixResult>
     @DELETE("v1/admin/chapters/{id}") suspend fun adminDeleteChapter(@Path("id") id: Long): Env<Ok>
-    @GET("v1/admin/users") suspend fun adminUsers(@Query("q") q: String? = null, @Query("filter") filter: String? = null, @Query("page") page: Int = 1, @Query("limit") limit: Int = 30): Env<AdminUsersPage>
+    @GET("v1/admin/users") suspend fun adminUsers(@Query("q") q: String? = null, @Query("filter") filter: String? = null, @Query("sort") sort: String? = null, @Query("page") page: Int = 1, @Query("limit") limit: Int = 30): Env<AdminUsersPage>
     @PATCH("v1/admin/users/{id}") suspend fun adminModerateUser(@Path("id") id: Long, @Body b: AdminUserPatch): Env<AdminUser>
+    @PATCH("v1/admin/users/{id}/xp") suspend fun adminSetXp(@Path("id") id: Long, @Body b: AdminXpPatch): Env<AdminUser>
+    @DELETE("v1/admin/users/{id}/chat") suspend fun adminDeleteUserChat(@Path("id") id: Long): Env<AdminDeletedCount>
+    @DELETE("v1/admin/chat") suspend fun adminClearChat(): Env<AdminDeletedCount>
     @DELETE("v1/admin/users/{id}/avatar") suspend fun adminClearUserAvatar(@Path("id") id: Long): Env<AdminUser>
     @DELETE("v1/admin/users/{id}/comments") suspend fun adminDeleteUserComments(@Path("id") id: Long): Env<AdminDeletedCount>
     @DELETE("v1/admin/users/{id}") suspend fun adminDeleteUser(@Path("id") id: Long): Env<Ok>

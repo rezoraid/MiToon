@@ -9,7 +9,10 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -169,6 +172,24 @@ fun StreakChip(modifier: Modifier = Modifier) {
         Text("$n", color = if (hot) Color(0xFFFFB02E) else Muted, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(start = 2.dp))
     }
     if (open) StreakDialog(n, hot) { open = false }
+}
+
+/** Kapsul streak untuk profil orang lain: api (menyala bila sudah membaca hari ini), jumlah hari, dan keterangan. */
+@Composable
+fun StreakPill(days: Int, hot: Boolean, modifier: Modifier = Modifier) {
+    val accent = if (hot) Color(0xFFFFB02E) else Muted
+    Row(
+        modifier.clip(RoundedCornerShape(50)).background(if (hot) Color(0x1FFF7A18) else CardBg)
+            .border(1.dp, if (hot) Color(0x66FF9A2E) else Line, RoundedCornerShape(50))
+            .padding(start = 10.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Flame(38.dp, hot)
+        Column(Modifier.padding(start = 8.dp)) {
+            Text("$days hari", color = accent, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 20.sp)
+            Text("Streak membaca", color = Muted, fontSize = 11.sp, lineHeight = 13.sp)
+        }
+    }
 }
 
 @Composable

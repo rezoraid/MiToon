@@ -27,7 +27,9 @@ import java.util.Locale
 @Serializable data class PublicUser(
     val id: Long = 0, val username: String = "", val displayName: String = "", val bio: String = "", val avatarV: Int = 0,
     val xp: Int = 0, val level: Int = 1, val joinedAt: Long = 0, val commentCount: Int = 0,
-    val verified: Boolean = false, val isOwner: Boolean = false, val premium: Boolean = false, val readingHidden: Boolean = false
+    val verified: Boolean = false, val isOwner: Boolean = false, val premium: Boolean = false, val readingHidden: Boolean = false,
+    /** Streak membaca; null bila pemiliknya menyembunyikan aktivitas bacanya. */
+    val streak: StreakRes? = null
 ) { val name: String get() = displayName.ifBlank { username } }
 
 /** Halaman profil orang lain: foto, nama, level, ringkasan, lalu daftar komik yang dibaca + chapter terakhirnya (ketuk untuk melanjutkan baca). */
@@ -78,6 +80,7 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
                             LevelChip(u.level, size = 12)
                             RoleTag(u.level, Modifier.padding(start = 10.dp), iconSize = 24.dp)
                         }
+                        u.streak?.takeIf { it.current > 0 }?.let { StreakPill(it.current, it.readToday, Modifier.padding(top = 14.dp)) }
                         if (u.bio.isNotBlank()) Text(u.bio, color = Color(0xFFD7D9DE), fontSize = 14.sp, lineHeight = 20.sp, textAlign = TextAlign.Center, maxLines = 4, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(top = 14.dp, start = 16.dp, end = 16.dp))
                         Row(Modifier.padding(top = 20.dp), verticalAlignment = Alignment.CenterVertically) {

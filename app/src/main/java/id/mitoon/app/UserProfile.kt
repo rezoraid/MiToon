@@ -26,7 +26,7 @@ import java.util.Locale
 /** Profil pengguna lain (`GET v1/users/:id`): tanpa email atau data akun. */
 @Serializable data class PublicUser(
     val id: Long = 0, val username: String = "", val displayName: String = "", val bio: String = "", val avatarV: Int = 0,
-    val xp: Int = 0, val level: Int = 1, val joinedAt: Long = 0, val commentCount: Int = 0,
+    val xp: Long = 0, val level: Int = 1, val joinedAt: Long = 0, val commentCount: Int = 0,
     val verified: Boolean = false, val isOwner: Boolean = false, val premium: Boolean = false, val readingHidden: Boolean = false,
     /** Streak membaca; null bila pemiliknya menyembunyikan aktivitas bacanya. */
     val streak: StreakRes? = null

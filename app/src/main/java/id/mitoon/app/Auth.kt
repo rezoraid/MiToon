@@ -37,7 +37,7 @@ import javax.crypto.spec.GCMParameterSpec
     /** Sisa detik sebelum username boleh diganti lagi (saat respons dibuat). 0 = boleh sekarang. */
     val usernameCooldownSec: Long = 0,
     /** XP total, level, XP terkumpul di level ini, dan XP yang dibutuhkan untuk naik level (dari server). */
-    val xp: Int = 0, val level: Int = 1, val levelXp: Int = 0, val levelNeed: Int = 40,
+    val xp: Long = 0, val level: Int = 1, val levelXp: Int = 0, val levelNeed: Int = 40,
     /** Lencana centang biru; ditetapkan server (mis. akun owner), tidak bisa diubah dari aplikasi. */
     val verified: Boolean = false,
     /** true jika akun owner (email di OWNER_EMAILS) — bisa akses panel admin */
@@ -119,7 +119,7 @@ object Auth {
         visitor = token == null && prefs.getBoolean("visitor", false)
         user = if (token != null) AuthUser(
             id = prefs.getLong("i", 0), username = prefs.getString("u", "").orEmpty(), avatarV = prefs.getInt("v", 0),
-            displayName = prefs.getString("n", "").orEmpty(), bio = prefs.getString("b", "").orEmpty(), xp = prefs.getInt("xp", 0),
+            displayName = prefs.getString("n", "").orEmpty(), bio = prefs.getString("b", "").orEmpty(), xp = if (prefs.contains("xpl")) prefs.getLong("xpl", 0L) else prefs.getInt("xp", 0).toLong(),
             level = prefs.getInt("lv", 1).coerceAtLeast(1), levelXp = prefs.getInt("lx", 0), levelNeed = prefs.getInt("ln", 40), verified = prefs.getBoolean("vf", false), isOwner = prefs.getBoolean("io", false), premium = prefs.getBoolean("pm", false), verifiedHidden = prefs.getBoolean("vh", false), readingHidden = prefs.getBoolean("rh", false)
         ) else null
         usernameUnlockAt = if (token != null) prefs.getLong("x", 0) else 0L
@@ -186,7 +186,7 @@ object Auth {
         }
     }
 
-    private fun SharedPreferences.Editor.putXp(u: AuthUser) { putInt("xp", u.xp); putInt("lv", u.level); putInt("lx", u.levelXp); putInt("ln", u.levelNeed); putBoolean("vf", u.verified); putBoolean("io", u.isOwner); putBoolean("pm", u.premium); putBoolean("vh", u.verifiedHidden); putBoolean("rh", u.readingHidden) }
+    private fun SharedPreferences.Editor.putXp(u: AuthUser) { putLong("xpl", u.xp); remove("xp"); putInt("lv", u.level); putInt("lx", u.levelXp); putInt("ln", u.levelNeed); putBoolean("vf", u.verified); putBoolean("io", u.isOwner); putBoolean("pm", u.premium); putBoolean("vh", u.verifiedHidden); putBoolean("rh", u.readingHidden) }
 
     private fun unlockAt(u: AuthUser): Long = if (u.usernameCooldownSec > 0) System.currentTimeMillis() + u.usernameCooldownSec * 1000 else 0L
 

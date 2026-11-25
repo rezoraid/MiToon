@@ -12,6 +12,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,14 +56,15 @@ val Roles: List<Role> = listOf(
     Role("Panel Hunter", 20, RoleGlyph.Panels, listOf(Color(0xFFA9B4FF), Color(0xFF5B63E6)), "Tidak melewatkan satu panel pun."),
     Role("Binge Reader", 35, RoleGlyph.Flame, listOf(Color(0xFFFFA48A), Color(0xFFFF4D6A)), "Maraton baca adalah keahlianmu."),
     Role("Series Master", 50, RoleGlyph.Stack, listOf(Color(0xFFFFD98A), Color(0xFFFF9F43)), "Rak seri demi rak kamu tamatkan."),
-    Role("Sensei", 100, RoleGlyph.Pen, listOf(Color(0xFFFFF1C2), Color(0xFFE8C972), Color(0xFFB8903A)), "Tingkat emas. Bingkai level berwarna emas."),
-    Role("Curator", 500, RoleGlyph.Gem, listOf(Color(0xFFB6F5E0), Color(0xFF3FD1A1), Color(0xFF1E8F6B)), "Tingkat zamrud. Bingkai level berkilau."),
-    Role("Legend", 1000, RoleGlyph.Star, listOf(Color(0xFFC4E0FF), Color(0xFF5AA9FF), Color(0xFF3B6FE0)), "Tingkat safir. Bingkai level berputar pelan."),
-    Role("Mythic", 3000, RoleGlyph.Bolt, listOf(Color(0xFFFFC2F0), Color(0xFFB58CFF), Color(0xFF7A4DE0)), "Tingkat ametis. Bingkai level berdenyut."),
-    Role("Eternal", 5000, RoleGlyph.Infinity, listOf(Color(0xFFFF8AD8), Color(0xFFFFD98A), Color(0xFF8AFFD1), Color(0xFF8AC8FF), Color(0xFFC79BFF)), "Tingkat tertinggi. Warna prisma.", sweep = true)
+    Role("Sensei", 100, RoleGlyph.Pen, listOf(Color(0xFFFFF1C2), Color(0xFFE8C972), Color(0xFFB8903A)), "Tingkat emas. Bingkai emas berputar, bintang berkelip, awan nebula tipis."),
+    Role("Curator", 500, RoleGlyph.Gem, listOf(Color(0xFFB6F5E0), Color(0xFF3FD1A1), Color(0xFF1E8F6B)), "Tingkat zamrud. Aura zamrud, nebula, dan bintang jatuh."),
+    Role("Legend", 1000, RoleGlyph.Star, listOf(Color(0xFFC4E0FF), Color(0xFF5AA9FF), Color(0xFF3B6FE0)), "Tingkat safir. Nebula ganda dan komet yang mengorbit lencana."),
+    Role("Mythic", 3000, RoleGlyph.Bolt, listOf(Color(0xFFFFC2F0), Color(0xFFB58CFF), Color(0xFF7A4DE0)), "Tingkat ametis. Galaksi spiral mini dengan aura berdenyut."),
+    Role("Eternal", 5000, RoleGlyph.Infinity, listOf(Color(0xFFFF8AD8), Color(0xFFFFD98A), Color(0xFF8AFFD1), Color(0xFF8AC8FF), Color(0xFFC79BFF)), "Tingkat tertinggi. Galaksi kosmik: spiral, nebula, bintang jatuh, dua komet, bingkai prisma.", sweep = true)
 )
 
 fun roleFor(level: Int): Role = Roles.last { level >= it.minLevel }
+fun roleIndex(level: Int): Int = Roles.indexOfLast { level >= it.minLevel }.coerceAtLeast(0)
 fun nextRole(level: Int): Role? = Roles.firstOrNull { it.minLevel > level }
 
 private val Ink = Color(0xFF17181C)
@@ -161,17 +164,31 @@ private fun DrawScope.glyph(g: RoleGlyph, b: Brush, ink: Color) {
  */
 @Composable
 fun RoleBadge(role: Role, size: Dp = 28.dp, modifier: Modifier = Modifier, locked: Boolean = false) {
+    // Peran Sensei ke atas di ukuran besar hidup: halo berdenyut, bintang berkelip, percikan mengorbit (makin tinggi makin ramai);
+    // Eternal juga memutar warna prismanya. Digambar dari jam animasi bersama [LvClock].
+    val tier = Roles.indexOf(role)
+    val live = !locked && size >= 36.dp && tier >= 6
+    DisposableEffect(live) { if (live) LvClock.users++; onDispose { if (live) LvClock.users-- } }
     Canvas(modifier.size(size)) {
         val s = this.size.minDimension
         val c = Offset(s / 2f, s / 2f)
         val rim = lerp(role.colors.last(), Color.Black, 0.3f)
+        val ms = LvClock.ms
         val medal: Brush = when {
             locked -> SolidColor(Color(0xFF2C2E35))
             role.sweep -> Brush.sweepGradient(role.colors + role.colors.first(), c)
             else -> Brush.linearGradient(role.colors, Offset(0f, 0f), Offset(s, s))
         }
+        if (live) {
+            val pulse = 0.5f - 0.5f * cos(2f * PI.toFloat() * cycle(ms, 3200))
+            val halo = if (role.sweep) cycleColor(role.colors, cycle(ms, 6500)) else role.colors[role.colors.size / 2]
+            val hr = s * (0.62f + 0.1f * (tier - 6) / 4f + 0.04f * pulse)
+            drawCircle(Brush.radialGradient(listOf(halo.copy(alpha = 0.4f + 0.3f * pulse), halo.copy(alpha = 0.12f), Color.Transparent), c, hr), hr, c)
+            if (tier >= 8) nebula(ms, s, s, role.colors, 2, 0.2f)
+        }
         drawCircle(if (locked) Color(0xFF3A3C44) else if (role.sweep) Color(0xFF3A2F5C) else rim, s / 2f)
-        drawCircle(medal, s / 2f - s * 0.06f)
+        if (live && role.sweep) rotate(cycle(ms, 9000) * 360f, c) { drawCircle(medal, s / 2f - s * 0.06f) }
+        else drawCircle(medal, s / 2f - s * 0.06f)
         if (!locked) drawCircle( // kilau lembut di bagian atas supaya terlihat seperti medali
             Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.28f), Color.Transparent), 0f, s * 0.6f),
             s / 2f - s * 0.06f
@@ -180,6 +197,18 @@ fun RoleBadge(role: Role, size: Dp = 28.dp, modifier: Modifier = Modifier, locke
         val glyphFill: Brush = SolidColor(if (locked) Color(0xFF4A4C53) else if (role.sweep) Color(0xFF1A1A24) else Color.White)
         val ink = if (locked) Color(0xFF2C2E35) else if (role.sweep) Color.White else lerp(role.colors.last(), Color.Black, 0.25f)
         withTransform({ translate(o, o); scale(g, g, Offset.Zero) }) { glyph(role.glyph, glyphFill, ink) }
+        if (live) {
+            // bintang berkelip di sekitar medali, percikan mengorbit tepi
+            starfield(3 + tier - 6, ms, s * 1.3f, s * 1.3f, tier, Color.White, s * 0.028f, Offset(-s * 0.15f, -s * 0.15f))
+            val n = 1 + (tier - 6) / 2
+            for (k in 0 until n) {
+                val ang = cycle(ms, 4600 + k * 1300) * 2f * PI.toFloat() + k * 2.4f
+                for (j in 0 until 6) {
+                    val a = ang - j * 0.09f
+                    drawCircle(Color.White.copy(alpha = (1f - j / 6f) * 0.9f), s * 0.028f * (1f - j * 0.1f), Offset(c.x + s * 0.5f * cos(a), c.y + s * 0.5f * sin(a)))
+                }
+            }
+        }
     }
 }
 

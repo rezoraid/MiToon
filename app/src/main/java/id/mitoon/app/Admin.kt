@@ -861,6 +861,8 @@ private fun PushSwitch(label: String, hint: String, on: Boolean, enabled: Boolea
 
 // ---------------------------------------------------------------- level / EXP
 
+/** Batas XP = XP minimum Lv. 10.000 (sama dengan server). */
+private const val ADMIN_XP_MAX = 333_933_529_974L
 private fun adminLevelCost(level: Int): Long = 40L + 15L * (level - 1) + (level - 1).toLong() * (level - 1)
 private fun adminXpForLevel(level: Int): Long { var t = 0L; for (l in 1 until level.coerceIn(1, 10000)) t += adminLevelCost(l); return t }
 private fun adminLevelOf(xp: Long): Int { var lv = 1; var left = xp.coerceAtLeast(0); while (left >= adminLevelCost(lv) && lv < 10000) { left -= adminLevelCost(lv); lv++ }; return lv }
@@ -873,8 +875,8 @@ private fun AdminXpDialog(u: AdminUser, onApply: (AdminXpPatch) -> Unit, onCance
     val n = text.toLongOrNull()
     val result: Long? = when (mode) {
         0 -> n?.takeIf { it in 1..10000 }?.let { adminXpForLevel(it.toInt()) }
-        1 -> n?.takeIf { it in 0..100_000_000 }
-        else -> n?.takeIf { it in -100_000_000..100_000_000 }?.let { (u.xp + it).coerceIn(0, 100_000_000) }
+        1 -> n?.takeIf { it in 0..ADMIN_XP_MAX }
+        else -> n?.takeIf { it in -ADMIN_XP_MAX..ADMIN_XP_MAX }?.let { (u.xp + it).coerceIn(0L, ADMIN_XP_MAX) }
     }
     AlertDialog(
         onDismissRequest = onCancel, containerColor = CardBg, shape = RoundedCornerShape(20.dp),
@@ -888,7 +890,7 @@ private fun AdminXpDialog(u: AdminUser, onApply: (AdminXpPatch) -> Unit, onCance
                     AdminChip("+/- EXP", mode == 2) { mode = 2; text = "" }
                 }
                 OutlinedTextField(
-                    text, { v -> text = v.filter { it.isDigit() || (it == '-' && mode == 2 && v.indexOf('-') == 0) }.take(10) },
+                    text, { v -> text = v.filter { it.isDigit() || (it == '-' && mode == 2 && v.indexOf('-') == 0) }.take(13) },
                     singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     label = { Text(when (mode) { 0 -> "Level baru (1–10000)"; 1 -> "EXP total baru"; else -> "Tambah / kurangi (mis. 500 atau -200)" }, color = Muted) },
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Accent, unfocusedBorderColor = CardLine, focusedTextColor = Color.White, unfocusedTextColor = Color.White)
@@ -900,7 +902,7 @@ private fun AdminXpDialog(u: AdminUser, onApply: (AdminXpPatch) -> Unit, onCance
         },
         confirmButton = {
             TextButton({
-                n?.let { v -> onApply(when (mode) { 0 -> AdminXpPatch(level = v.toInt()); 1 -> AdminXpPatch(xp = v.toInt()); else -> AdminXpPatch(delta = v.toInt()) }) }
+                n?.let { v -> onApply(when (mode) { 0 -> AdminXpPatch(level = v.toInt()); 1 -> AdminXpPatch(xp = v); else -> AdminXpPatch(delta = v) }) }
             }, enabled = result != null) { Text("Terapkan", color = Accent, fontWeight = FontWeight.Bold) }
         },
         dismissButton = { TextButton(onCancel) { Text("Batal", color = Muted) } }

@@ -20,6 +20,22 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.Icon
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -123,18 +139,22 @@ private fun AppScaffold() {
     Scaffold(containerColor = Bg, bottomBar = {
         // Saat keyboard terbuka (mis. mengetik di Global Chat) bilah bawah disembunyikan supaya kolom tulis tepat di atas keyboard.
         val imeOpen = WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
-        if (tabs.any { it.route == route } && !imeOpen) NavigationBar(containerColor = CardBg) {
-            tabs.forEach { t ->
-                NavigationBarItem(route == t.route, {
-                    nav.navigate(t.route) { popUpTo("home"); launchSingleTop = true; restoreState = true }
-                }, { Icon(if (route == t.route) t.on else t.icon, t.label) }, label = { Text(t.label, fontSize = 11.sp, maxLines = 1, softWrap = false) },
-                    colors = NavigationBarItemDefaults.colors(selectedIconColor = Accent, selectedTextColor = Accent,
-                        indicatorColor = Color.Transparent, unselectedIconColor = Muted, unselectedTextColor = Muted))
+        if (tabs.any { it.route == route } && !imeOpen) Box(Modifier.fillMaxWidth().background(Bg).navigationBarsPadding().padding(start = 24.dp, end = 24.dp, top = 6.dp, bottom = 12.dp)) {
+            // Bilah melayang: kotak membulat (agak kapsul), tab aktif = kotak putih membulat dengan ikon hitam.
+            Row(Modifier.fillMaxWidth().height(62.dp).clip(RoundedCornerShape(22.dp)).background(CardBg).border(1.dp, Line, RoundedCornerShape(22.dp)),
+                horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {
+                tabs.forEach { t ->
+                    val on = route == t.route
+                    Box(Modifier.size(width = 52.dp, height = 46.dp).clip(RoundedCornerShape(15.dp)).background(if (on) Color.White else Color.Transparent)
+                        .clickable { nav.navigate(t.route) { popUpTo("home"); launchSingleTop = true; restoreState = true } }, Alignment.Center) {
+                        Icon(if (on) t.on else t.icon, t.label, tint = if (on) Color.Black else Color(0xFFB4B7C2), modifier = Modifier.size(24.dp))
+                    }
+                }
             }
         }
     }) { pad ->
         // Transisi singkat (<250 ms) dan ringan: pindah tab = fade; buka layar = fade + geser tipis; kembali = layar atas menyingkir.
-        NavHost(nav, "home", Modifier.padding(pad).consumeWindowInsets(pad),
+        NavHost(nav, "home", Modifier.padding(if (route == "home") PaddingValues(bottom = pad.calculateBottomPadding()) else pad).consumeWindowInsets(pad),
             // Maju: layar baru geser masuk dari kanan, layar lama sedikit bergeser ke kiri. Mundur (tombol/gestur back): kebalikannya.
             // Dengan predictive back aktif (manifest), animasi pop ini mengikuti jari saat gestur back ditarik.
             enterTransition = { if (initialState.isReader() && targetState.isReader()) EnterTransition.None else if (initialState.isTab() && targetState.isTab()) fadeIn(tween(160)) else fadeIn(tween(240, 40)) + slideInHorizontally(tween(320, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it / 5 } },
@@ -142,9 +162,9 @@ private fun AppScaffold() {
             popEnterTransition = { fadeIn(tween(240)) + slideInHorizontally(tween(320, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { -it / 8 } },
             popExitTransition = { if (initialState.isTab() && targetState.isTab()) fadeOut(tween(120)) else fadeOut(tween(220)) + slideOutHorizontally(tween(320, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it / 5 } }) {
             composable("home") {
-                HomeScreen({ nav.detail(it) }, { nav.navigate("search") }) {
+                HomeScreen({ nav.detail(it) }, { nav.navigate("search") }, {
                     nav.navigate("explore") { popUpTo("home"); launchSingleTop = true; restoreState = true }
-                }
+                }, { sid, cid -> nav.reader(sid, cid) })
             }
             composable("explore") { ExploreScreen({ nav.detail(it) }, { nav.navigate("search") }) }
             composable("library") {

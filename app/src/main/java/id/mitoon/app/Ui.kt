@@ -179,15 +179,23 @@ fun SeriesCard(s: Series, up: Boolean, sub: String? = null, showRating: Boolean 
     Box(Modifier.fillMaxWidth().aspectRatio(COVER_RATIO).clip(R6).clickable(onClick = onClick)) {
         // Cover dari daftar kosong / gagal dimuat -> pakai cover dari detail seri (diambil sekali dari server, bukan dari cache yang bisa kosong).
         var bad by remember(s.id, s.cover) { mutableStateOf(false) }
+        // Putaran perbaikan: tiap gagal naik 1 (jeda makin lama, maks. 4x) dan gambar dimuat ulang dari awal.
+        var round by remember(s.id, s.cover) { mutableIntStateOf(0) }
         val fixed by remember(s.id) { derivedStateOf { Net.coverFix[s.id] } }
         val url = fixed ?: s.cover
         // Dapat URL cover baru -> beri kesempatan memuat lagi.
         LaunchedEffect(fixed) { if (fixed != null) bad = false }
-        // Kosong: cari cover. Gagal dimuat: buang URL rusak lalu ambil ulang dari server (force) dan jangan pakai URL yang sama lagi.
-        LaunchedEffect(s.id, url.isBlank(), bad) {
-            if (url.isBlank() || bad) Net.fixCover(s.id, force = bad, bad = url.takeIf { bad && it.isNotBlank() })
+        // Kosong: cari cover. Gagal dimuat: ambil ulang dari server (force). Belum berhasil (jaringan lambat, server sibuk, URL sama) ->
+        // coba lagi dengan jeda bertahap, bukan menyerah dan membiarkan kartu hitam selamanya.
+        LaunchedEffect(s.id, url.isBlank(), bad, round) {
+            if (!(url.isBlank() || bad)) return@LaunchedEffect
+            if (round > 0) delay(2500L * round)
+            val found = Net.fixCover(s.id, force = bad, bad = url.takeIf { bad && it.isNotBlank() })
+            if (!found && round < 4) { round++; bad = false }
         }
-        Img(url, s.provider, Modifier.fillMaxSize(), retries = 1, onFail = { bad = true; Net.dropCoverFix(s.id, url) }, maxW = 420)
+        androidx.compose.runtime.key(round) {
+            Img(url, s.provider, Modifier.fillMaxSize(), retries = 2, onFail = { bad = true; Net.dropCoverFix(s.id, url) }, maxW = 420)
+        }
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.38f)
             .background(Shade))
         s.rating?.takeIf { showRating && it > 0 }?.let {

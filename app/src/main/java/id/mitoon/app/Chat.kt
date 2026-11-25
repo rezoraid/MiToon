@@ -190,7 +190,7 @@ fun ChatScreen(onBack: () -> Unit) {
                 Text("Public Chat", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
                 Text("Ngobrol bareng semua pembaca", color = Muted, fontSize = 11.sp, maxLines = 1)
             }
-            Box(Modifier.size(34.dp).clip(R6).background(Line), Alignment.Center) { Icon(Ic.Comment, null, tint = Color.White, modifier = Modifier.size(18.dp)) }
+            Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(Line), Alignment.Center) { Icon(Ic.Comment, null, tint = Color.White, modifier = Modifier.size(18.dp)) }
         }
         HorizontalDivider(color = Line, thickness = 1.dp)
 
@@ -203,7 +203,7 @@ fun ChatScreen(onBack: () -> Unit) {
                     Column(Modifier.align(Alignment.Center).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(ChatState.error.orEmpty(), color = Muted, fontSize = 14.sp, textAlign = TextAlign.Center)
                         Text("Coba lagi", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.clip(CircleShape).background(Color.White)
+                            modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White)
                                 .clickable { scope.launch { ChatState.refresh() } }.padding(horizontal = 20.dp, vertical = 9.dp))
                     }
                 chrono.isEmpty() ->
@@ -228,7 +228,7 @@ fun ChatScreen(onBack: () -> Unit) {
                 }
             }
             androidx.compose.animation.AnimatedVisibility(showJump, Modifier.align(Alignment.BottomEnd).padding(14.dp), enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
-                Box(Modifier.size(40.dp).clip(CircleShape).background(Color.White).clickable { scope.launch { listState.animateScrollToItem(0) } }, Alignment.Center) {
+                Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(Color.White).clickable { scope.launch { listState.animateScrollToItem(0) } }, Alignment.Center) {
                     Icon(Ic.Down, "Ke pesan terbaru", tint = Color.Black, modifier = Modifier.size(22.dp))
                 }
             }
@@ -271,7 +271,7 @@ private fun ChatBubble(m: ChatMsg, head: Boolean, mine: Boolean, onReply: (ChatM
 
     Box(Modifier.fillMaxWidth().padding(top = if (head) 8.dp else 2.dp).then(swipe)) {
         val p = (shift.value / triggerPx).coerceIn(0f, 1f)
-        Box(Modifier.align(Alignment.CenterStart).padding(start = 6.dp).size(30.dp).alpha(p).clip(CircleShape).background(Line), Alignment.Center) {
+        Box(Modifier.align(Alignment.CenterStart).padding(start = 6.dp).size(30.dp).alpha(p).clip(RoundedCornerShape(10.dp)).background(Line), Alignment.Center) {
             Icon(Ic.Reply, "Balas", tint = Color.White, modifier = Modifier.size(15.dp))
         }
         Column(Modifier.fillMaxWidth().offset { IntOffset(shift.value.roundToInt(), 0) }, horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
@@ -304,20 +304,28 @@ private fun ChatBubble(m: ChatMsg, head: Boolean, mine: Boolean, onReply: (ChatM
  */
 @Composable
 private fun BubbleBody(m: ChatMsg, mine: Boolean, head: Boolean, whenText: String, modifier: Modifier = Modifier, onUser: () -> Unit = {}) {
-    val big = 18.dp
-    val tip = if (head) 5.dp else big
+    val big = 16.dp
+    val tip = if (head) 6.dp else big
     val shape = if (mine) RoundedCornerShape(big, tip, big, big) else RoundedCornerShape(tip, big, big, big)
     val fg = Color.White
     val timeColor = if (mine) Color(0xFFB4B7C2) else Muted
     val sending = m.id <= 0
     val bg = if (mine) (if (sending) Color(0xB33B3F4C) else Color(0xFF3B3F4C)) else Color(0xFF23252C)
-    Column(modifier.widthIn(min = 64.dp, max = 290.dp).clip(shape).background(bg).padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 6.dp)) {
-        if (head) Row(Modifier.padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(m.user.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false).clickable(onClick = onUser))
-            StatusBadges(m.user.verified, m.user.isOwner, m.user.premium, size = 13.dp)
-            RoleBadge(roleFor(m.user.level), 15.dp)
-            LevelChip(m.user.level, size = 8)
+    Column(modifier.widthIn(min = 64.dp, max = 290.dp).width(androidx.compose.foundation.layout.IntrinsicSize.Max).clip(shape).background(bg).padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 6.dp)) {
+        if (head) {
+            // baris 1: nama + centang verified (kalau ada)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(m.user.name, color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false).clickable(onClick = onUser))
+                if (m.user.verified || m.user.isOwner) VerifiedBadge(Modifier.padding(start = 5.dp), 14.dp)
+            }
+            // baris 2: badge-badge (owner, premium, peran, level)
+            Row(Modifier.padding(top = 3.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (m.user.isOwner) OwnerBadge(Modifier, 14.dp)
+                if (m.user.premium) PremiumBadge(Modifier, 14.dp)
+                RoleBadge(roleFor(m.user.level), 16.dp)
+                LevelChip(m.user.level, size = 9)
+            }
         }
         m.replyTo?.let { ReplyQuote(it, onLight = false) }
         Text(m.body, color = fg, fontSize = 14.5.sp, lineHeight = 20.sp)
@@ -330,10 +338,12 @@ private fun BubbleBody(m: ChatMsg, mine: Boolean, head: Boolean, whenText: Strin
 private fun ReplyQuote(r: ChatReply, onLight: Boolean) {
     val palette = listOf(Color(0xFF6CC070), Color(0xFFE8825B), Color(0xFF5BA8E8), Color(0xFFC58BE8), Color(0xFFE8C45B), Color(0xFF5BD6C4))
     val bar = palette[(r.userName.hashCode() and 0x7fffffff) % palette.size]
-    Row(Modifier.padding(bottom = 4.dp).clip(RoundedCornerShape(6.dp)).background(if (onLight) Color(0x12000000) else Color(0x1AFFFFFF)).height(androidx.compose.foundation.layout.IntrinsicSize.Min)) {
-        Box(Modifier.width(3.dp).fillMaxHeight().background(bar))
-        Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-            Text(r.userName.ifBlank { "Pengguna" }, color = if (onLight) Color(0xFF3A3C44) else Color(0xFFD0D2D9), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp).clip(RoundedCornerShape(12.dp)).background(if (onLight) Color(0x12000000) else Color(0x24FFFFFF)).height(androidx.compose.foundation.layout.IntrinsicSize.Min),
+        verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.width(4.dp).fillMaxHeight().background(bar))
+        Icon(Ic.Reply, null, tint = bar, modifier = Modifier.padding(start = 8.dp).size(14.dp))
+        Column(Modifier.weight(1f).padding(start = 8.dp, end = 10.dp, top = 6.dp, bottom = 6.dp)) {
+            Text(r.userName.ifBlank { "Pengguna" }, color = if (onLight) Color(0xFF3A3C44) else Color(0xFFE2E4EA), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(r.body, color = if (onLight) Color(0xFF55575F) else Muted, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
@@ -345,7 +355,7 @@ private fun ChatComposer(modifier: Modifier = Modifier) {
     Column(modifier) {
         if (Auth.isGuest) {
             Text("Masuk dengan Google untuk ikut ngobrol", color = Muted, fontSize = 14.sp, textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).border(1.dp, Color(0xFF4A4C53), RoundedCornerShape(14.dp))
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).border(1.dp, Color(0xFF4A4C53), RoundedCornerShape(16.dp))
                     .clickable { GuestGate.ask(GUEST_CHAT) }.padding(14.dp))
             return@Column
         }
@@ -356,7 +366,7 @@ private fun ChatComposer(modifier: Modifier = Modifier) {
         val focus = remember { androidx.compose.ui.focus.FocusRequester() }
         val target = ChatState.replying
         LaunchedEffect(target?.id) { if (target != null) runCatching { focus.requestFocus() } }
-        if (target != null) Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(R6).background(Bg).border(1.dp, Line, R6).padding(start = 12.dp, top = 6.dp, bottom = 6.dp, end = 4.dp),
+        if (target != null) Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(16.dp)).background(Bg).border(1.dp, Line, RoundedCornerShape(16.dp)).padding(start = 12.dp, top = 6.dp, bottom = 6.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Icon(Ic.Reply, null, tint = Muted, modifier = Modifier.size(16.dp))
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
@@ -366,14 +376,14 @@ private fun ChatComposer(modifier: Modifier = Modifier) {
             IconButton({ ChatState.replying = null }, Modifier.size(32.dp)) { Icon(Ic.Close, "Batal membalas", tint = Muted, modifier = Modifier.size(16.dp)) }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(text, { if (it.length <= CHAT_MAX_LEN) text = it }, Modifier.weight(1f).focusRequester(focus), maxLines = 4, shape = RoundedCornerShape(22.dp), enabled = !muted,
+            OutlinedTextField(text, { if (it.length <= CHAT_MAX_LEN) text = it }, Modifier.weight(1f).focusRequester(focus), maxLines = 4, shape = RoundedCornerShape(16.dp), enabled = !muted,
                 placeholder = { Text("Tulis pesan…", color = Muted) },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color.White, unfocusedBorderColor = Color(0xFF4A4C53),
                     focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Color.White,
                     focusedContainerColor = Bg, unfocusedContainerColor = Bg))
             val ready = text.isNotBlank() && !muted
-            IconButton({ val t = text; text = ""; ChatState.send(t) { failed -> if (text.isBlank()) text = failed } }, Modifier.size(56.dp).clip(CircleShape)
+            IconButton({ val t = text; text = ""; ChatState.send(t) { failed -> if (text.isBlank()) text = failed } }, Modifier.size(56.dp).clip(RoundedCornerShape(16.dp))
                 .background(if (ready) Color.White else Color(0xFF3A3C42)), enabled = ready) {
                 Icon(Ic.Right, "Kirim", tint = if (ready) Color.Black else Muted, modifier = Modifier.size(24.dp))
             }

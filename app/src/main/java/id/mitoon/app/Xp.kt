@@ -1,6 +1,11 @@
 package id.mitoon.app
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.drawscope.clipRect
+import kotlin.math.sin
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -68,24 +73,40 @@ object Xp {
     }
 }
 
-/** Tema lencana level tinggi: warna bingkai (sapuan), isi, teks, cahaya; spinMs = putaran bingkai (0 = diam). */
+/**
+ * Tema lencana level, satu per peran (lihat [Roles]); makin tinggi perannya makin megah: bingkai berwarna -> cahaya (aura) ->
+ * kilau -> bintang berkelip -> nebula melayang -> bintang jatuh -> komet mengorbit -> galaksi spiral (Eternal).
+ */
 private class LvTheme(
     val border: List<Color>, val fillTop: Color, val fillBottom: Color, val text: Color, val glow: Color,
-    val spinMs: Int, val pulse: Boolean, val shimmer: Boolean
+    /** putaran bingkai (ms), 0 = diam */ val spinMs: Int,
+    /** kekuatan cahaya di sekeliling lencana 0..1 */ val aura: Float,
+    val shimmer: Boolean, val stars: Int, val nebula: Int, val shoot: Boolean, val comets: Int, val spiral: Boolean,
+    val padH: Int, val textGlow: Boolean
 )
-private val LvGold = LvTheme(listOf(Color(0xFFE8C972), Color(0xFFFFF1C2), Color(0xFFB8903A)), Color(0xFF2B2414), Color(0xFF1F1B10), Color(0xFFF3DDA0), Color(0xFFE8C972), 0, false, true)
-private val LvEmerald = LvTheme(listOf(Color(0xFF3FD1A1), Color(0xFFB6F5E0), Color(0xFF1E8F6B)), Color(0xFF10261F), Color(0xFF0C1B16), Color(0xFF9BEBCF), Color(0xFF3FD1A1), 0, false, true)
-private val LvSapphire = LvTheme(listOf(Color(0xFF5AA9FF), Color(0xFFC4E0FF), Color(0xFF3B6FE0)), Color(0xFF111E33), Color(0xFF0C1526), Color(0xFFB5D7FF), Color(0xFF5AA9FF), 9000, false, true)
-private val LvAmethyst = LvTheme(listOf(Color(0xFFB58CFF), Color(0xFFFFC2F0), Color(0xFF7A4DE0)), Color(0xFF1E1533), Color(0xFF150F25), Color(0xFFDCC8FF), Color(0xFFB58CFF), 7000, true, true)
-private val LvPrism = LvTheme(listOf(Color(0xFFFF8AD8), Color(0xFFFFD98A), Color(0xFF8AFFD1), Color(0xFF8AC8FF), Color(0xFFC79BFF)), Color(0xFF1A1A24), Color(0xFF111118), Color.White, Color(0xFFC79BFF), 5500, true, true)
 
-private fun lvTheme(level: Int): LvTheme? = when {
-    level >= 5000 -> LvPrism
-    level >= 3000 -> LvAmethyst
-    level >= 1000 -> LvSapphire
-    level >= 500 -> LvEmerald
-    level >= 100 -> LvGold
-    else -> null
+private fun lvTheme(level: Int): LvTheme? {
+    val i = roleIndex(level)
+    if (i == 0) return null
+    val cols = Roles[i].colors
+    val border = cols + cols.first()
+    val dark = cols.last()
+    val top = if (i == 10) Color(0xFF0B0724) else lerp(dark, Color(0xFF0B0B14), 0.84f)
+    val bottom = if (i == 10) Color(0xFF04030E) else lerp(dark, Color.Black, 0.92f)
+    val text = lerp(cols.first(), Color.White, if (i >= 8) 0.7f else 0.35f)
+    val glow = cols[cols.size / 2]
+    return when (i) {
+        1 -> LvTheme(border, top, bottom, text, glow, 0, 0f, false, 0, 0, false, 0, false, 5, false)
+        2 -> LvTheme(border, top, bottom, text, glow, 0, 0.25f, false, 0, 0, false, 0, false, 5, false)
+        3 -> LvTheme(border, top, bottom, text, glow, 0, 0.3f, true, 0, 0, false, 0, false, 5, false)
+        4 -> LvTheme(border, top, bottom, text, glow, 0, 0.35f, true, 2, 0, false, 0, false, 5, false)
+        5 -> LvTheme(border, top, bottom, text, glow, 14000, 0.4f, true, 3, 0, false, 0, false, 5, false)
+        6 -> LvTheme(border, top, bottom, text, glow, 10000, 0.5f, true, 4, 1, false, 0, false, 6, true)
+        7 -> LvTheme(border, top, bottom, text, glow, 8000, 0.55f, true, 5, 1, true, 0, false, 6, true)
+        8 -> LvTheme(border, top, bottom, text, glow, 7000, 0.65f, true, 7, 2, true, 1, false, 6, true)
+        9 -> LvTheme(border, top, bottom, text, glow, 6000, 0.8f, true, 9, 2, true, 1, true, 7, true)
+        else -> LvTheme(border, top, bottom, text, glow, 4500, 1f, true, 13, 3, true, 2, true, 8, true)
+    }
 }
 
 /**
@@ -110,10 +131,99 @@ object LvClock {
 /** Posisi 0..1 dalam satu siklus berdurasi [period] ms. */
 internal fun cycle(ms: Long, period: Int): Float = (ms % period).toFloat() / period
 
+/** Warna yang berganti mulus di antara [colors] menurut posisi siklus [p] (0..1, berputar kembali ke awal). */
+internal fun cycleColor(colors: List<Color>, p: Float): Color {
+    val n = colors.size
+    val x = (p - kotlin.math.floor(p)) * n
+    val i = x.toInt() % n
+    return lerp(colors[i], colors[(i + 1) % n], x - x.toInt())
+}
+
+/** Angka acak stabil 0..1 dari (i, k): posisi bintang tetap sama tiap frame, tanpa menyimpan state. */
+internal fun hash01(i: Int, k: Int): Float {
+    var x = (i * 374761393L + k * 668265263L) xor 0x5bd1e995L
+    x = (x xor (x shr 13)) * 1274126177L
+    return ((x xor (x shr 16)) and 0xFFFFL) / 65535f
+}
+
+private val TAU = (2.0 * PI).toFloat()
+
+/** Bintang berkelip: tiap bintang punya periode & fase sendiri; yang paling terang diberi kilau silang. */
+internal fun DrawScope.starfield(count: Int, ms: Long, w: Float, h: Float, seed: Int, tint: Color, maxR: Float, area: Offset = Offset.Zero) {
+    for (i in 0 until count) {
+        val x = area.x + w * (0.08f + 0.84f * hash01(i, seed))
+        val y = area.y + h * (0.14f + 0.72f * hash01(i, seed + 1))
+        val per = 1700 + (hash01(i, seed + 2) * 2300).toInt()
+        val tw = 0.5f - 0.5f * cos(TAU * cycle(ms + (hash01(i, seed + 3) * per).toLong(), per))
+        val r = maxR * (0.55f + 0.45f * hash01(i, seed + 4)) * (0.5f + 0.5f * tw)
+        val c = if (i % 3 == 0) tint else Color.White
+        drawCircle(c.copy(alpha = 0.2f + 0.8f * tw), r, Offset(x, y))
+        if (tw > 0.82f && hash01(i, seed + 5) > 0.45f) {
+            val l = r * 3.2f * tw; val sw = maxOf(r * 0.5f, 0.6f)
+            drawLine(c.copy(alpha = 0.65f * tw), Offset(x - l, y), Offset(x + l, y), sw, StrokeCap.Round)
+            drawLine(c.copy(alpha = 0.65f * tw), Offset(x, y - l), Offset(x, y + l), sw, StrokeCap.Round)
+        }
+    }
+}
+
+/** Awan nebula: beberapa bercak cahaya berwarna yang melayang pelan (lintasan elips berbeda-beda). */
+internal fun DrawScope.nebula(ms: Long, w: Float, h: Float, colors: List<Color>, layers: Int, strength: Float, origin: Offset = Offset.Zero) {
+    for (i in 0 until layers) {
+        val ph = cycle(ms, 11000 + i * 4300) * TAU + i * 2.1f
+        val cx = origin.x + w * (0.5f + 0.4f * cos(ph)); val cy = origin.y + h * (0.5f + 0.4f * sin(ph * 1.3f))
+        val col = colors[i % colors.size]
+        val rad = maxOf(w, h) * (0.55f + 0.1f * i)
+        drawCircle(Brush.radialGradient(listOf(col.copy(alpha = strength), Color.Transparent), Offset(cx, cy), rad), rad, Offset(cx, cy))
+    }
+}
+
+/** Galaksi spiral: dua lengan bintang berputar pelan, gepeng mengikuti bentuk lencana, inti bercahaya di tengah. */
+internal fun DrawScope.spiralGalaxy(ms: Long, w: Float, h: Float, colors: List<Color>, flat: Float) {
+    val cx = w / 2f; val cy = h / 2f
+    val rot = cycle(ms, 16000) * TAU
+    drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.55f), colors[0].copy(alpha = 0.25f), Color.Transparent), Offset(cx, cy), h * 0.9f), h * 0.9f, Offset(cx, cy))
+    for (arm in 0 until 2) for (j in 1..16) {
+        val th = j * 0.42f
+        val r = w * 0.032f * th
+        val a = th + rot + arm * PI.toFloat()
+        val x = cx + r * cos(a); val y = cy + r * sin(a) * flat
+        val col = colors[(j + arm) % colors.size]
+        drawCircle(col.copy(alpha = (0.85f - j * 0.04f).coerceAtLeast(0.15f)), maxOf(0.5f, h * 0.045f * (1.2f - j * 0.04f)), Offset(x, y))
+    }
+}
+
+private fun perimeter(t: Float, w: Float, h: Float): Offset {
+    val d = (t - kotlin.math.floor(t)) * 2f * (w + h)
+    return when {
+        d < w -> Offset(d, 0f)
+        d < w + h -> Offset(w, d - w)
+        d < 2f * w + h -> Offset(w - (d - w - h), h)
+        else -> Offset(0f, h - (d - 2f * w - h))
+    }
+}
+
+/** Komet kecil yang mengelilingi tepi lencana dengan ekor memudar. */
+internal fun DrawScope.orbitComet(ms: Long, w: Float, h: Float, period: Int, color: Color, r: Float, offset: Float = 0f) {
+    val head = cycle(ms, period) + offset
+    for (k in 0 until 9) drawCircle(color.copy(alpha = (1f - k / 9f) * 0.95f), r * (1f - k * 0.07f), perimeter(head - k * 0.011f, w, h))
+}
+
+/** Bintang jatuh yang melintas diagonal sesekali (±1 detik tiap [period] ms). */
+private fun DrawScope.shootingStar(ms: Long, w: Float, h: Float, period: Int, offset: Int) {
+    val p = cycle(ms + offset, period)
+    if (p > 0.22f) return
+    val k = p / 0.22f
+    val fade = minOf(1f, k * 5f, (1f - k) * 5f)
+    val head = Offset(-0.2f * w + k * 1.5f * w, -0.1f * h + k * 1.2f * h)
+    val tail = Offset(head.x - 0.45f * w, head.y - 0.55f * h)
+    drawLine(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.9f * fade)), tail, head), tail, head, 1.3f.dp.toPx(), StrokeCap.Round)
+}
+
 /**
- * Lencana kecil "Lv. 12". Level 100/500/1000/3000/5000 punya tema sendiri (emas, zamrud, safir, ametis, prisma):
- * bingkai gradasi + kilau tipis; makin tinggi makin hidup (bingkai berputar pelan, cahaya berdenyut halus). Semua digambar
- * di fase draw dari [LvClock], jadi tidak memicu recompose maupun relayout.
+ * Lencana kecil "Lv. 12". Tiap peran punya tema sendiri dan makin tinggi makin megah (lihat [LvTheme]); puncaknya
+ * (Eternal, Lv. 5000+) adalah galaksi mini: nebula berwarna melayang, galaksi spiral berputar, bintang berkelip,
+ * bintang jatuh, dua komet mengorbit, bingkai prisma berputar, dan aura yang berdenyut. Semua digambar di fase draw dari
+ * [LvClock], jadi tidak memicu recompose maupun relayout.
  */
 @Composable
 fun LevelChip(level: Int, modifier: Modifier = Modifier, size: Int = 10) {
@@ -124,15 +234,20 @@ fun LevelChip(level: Int, modifier: Modifier = Modifier, size: Int = 10) {
         return
     }
     DisposableEffect(Unit) { LvClock.users++; onDispose { LvClock.users-- } }
+    val base = LocalTextStyle.current
     Text("Lv. $level", color = t.text, fontSize = size.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+        style = if (t.textGlow) base.copy(shadow = Shadow(t.glow.copy(alpha = 0.95f), Offset.Zero, 7f)) else base,
         modifier = modifier
             .drawBehind {
-                if (t.pulse) { // cahaya tipis di sekeliling kotak; gelombang sinus supaya naik-turun mulus
-                    val p = cycle(LvClock.ms, 3600)
-                    val a = 0.05f + 0.05f * (0.5f - 0.5f * cos(2f * PI.toFloat() * p))
-                    val g1 = 4.dp.toPx(); val g2 = 2.dp.toPx()
-                    drawRoundRect(t.glow.copy(alpha = a), Offset(-g1, -g1), Size(this.size.width + 2 * g1, this.size.height + 2 * g1), CornerRadius(7.dp.toPx()))
-                    drawRoundRect(t.glow.copy(alpha = a * 1.3f), Offset(-g2, -g2), Size(this.size.width + 2 * g2, this.size.height + 2 * g2), CornerRadius(5.dp.toPx()))
+                if (t.aura > 0f) { // aura: lapisan cahaya membulat di luar kotak, denyut sinus; tema prisma berganti warna
+                    val ms = LvClock.ms
+                    val pulse = 0.65f + 0.35f * (0.5f - 0.5f * cos(TAU * cycle(ms, 3000)))
+                    val gc = if (t.border.size > 4) cycleColor(t.border, cycle(ms, 7000)) else t.glow
+                    for (n in 1..3) {
+                        val g = n * 2.3.dp.toPx()
+                        drawRoundRect(gc.copy(alpha = (t.aura * pulse * 0.2f / n).coerceAtMost(0.5f)), Offset(-g, -g),
+                            Size(this.size.width + 2 * g, this.size.height + 2 * g), CornerRadius(6.dp.toPx() + g))
+                    }
                 }
             }
             .clip(R6)
@@ -144,20 +259,32 @@ fun LevelChip(level: Int, modifier: Modifier = Modifier, size: Int = 10) {
                 val ms = LvClock.ms
                 // bingkai: sapuan warna (diputar bila tema bergerak), lalu isi gelap di atasnya menyisakan garis tepi
                 rotate(if (t.spinMs > 0) cycle(ms, t.spinMs) * 360f else 0f, c) {
-                    drawRect(Brush.sweepGradient(t.border + t.border.first(), c), Offset(c.x - d, c.y - d), Size(d * 2, d * 2))
+                    drawRect(Brush.sweepGradient(t.border, c), Offset(c.x - d, c.y - d), Size(d * 2, d * 2))
                 }
-                drawRoundRect(Brush.verticalGradient(listOf(t.fillTop, t.fillBottom)), Offset(b, b), Size(w - 2 * b, h - 2 * b), CornerRadius(2.dp.toPx()))
+                val iw = w - 2 * b; val ih = h - 2 * b
+                drawRoundRect(Brush.verticalGradient(listOf(t.fillTop, t.fillBottom)), Offset(b, b), Size(iw, ih), CornerRadius(2.dp.toPx()))
+                // isi dalam: nebula -> galaksi spiral -> bintang -> bintang jatuh (dipotong di dalam bingkai)
+                clipRect(b, b, w - b, h - b) {
+                    if (t.nebula > 0) nebula(ms, iw, ih, t.border, t.nebula, 0.1f + 0.07f * t.nebula, Offset(b, b))
+                    if (t.spiral) spiralGalaxy(ms, w, h, t.border, 0.42f)
+                    if (t.stars > 0) starfield(t.stars, ms, iw, ih, level % 7 + 3, t.text, 0.85.dp.toPx(), Offset(b, b))
+                    if (t.shoot) shootingStar(ms, w, h, 4300, 900)
+                    if (t.shoot && t.comets > 1) shootingStar(ms, w, h, 5900, 3100)
+                }
                 val sheen = cycle(ms, 5000)
                 if (t.shimmer && sheen < 0.3f) { // kilau lewat sesekali; memudar di kedua ujung agar tidak muncul/hilang tiba-tiba
                     val k = sheen / 0.3f
                     val fade = minOf(1f, k * 6f, (1f - k) * 6f)
                     val band = h * 2.4f
                     val x = -band + k * (w + band * 2)
-                    drawRect(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.2f * fade), Color.Transparent), Offset(x, 0f), Offset(x + band, h)),
-                        Offset(b, b), Size(w - 2 * b, h - 2 * b))
+                    drawRect(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.22f * fade), Color.Transparent), Offset(x, 0f), Offset(x + band, h)),
+                        Offset(b, b), Size(iw, ih))
                 }
+                // komet mengorbit di atas bingkai
+                if (t.comets > 0) orbitComet(ms, w, h, 4200, Color.White, 1.1.dp.toPx())
+                if (t.comets > 1) orbitComet(ms, w, h, 6100, t.glow, 0.9.dp.toPx(), 0.5f)
             }
-            .padding(horizontal = 5.dp, vertical = 1.dp))
+            .padding(horizontal = t.padH.dp, vertical = 1.dp))
 }
 
 /** Centang verifikasi (segel biru bergelombang + centang putih), digambar sendiri tanpa paket ikon tambahan. */

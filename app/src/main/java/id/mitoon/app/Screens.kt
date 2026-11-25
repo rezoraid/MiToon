@@ -9,7 +9,12 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -44,14 +49,14 @@ fun TopBar(title: String, onBack: (() -> Unit)?, action: @Composable () -> Unit 
 private const val SHELF_PAGE = 24
 
 @Composable
-fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Unit) {
+fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Unit, onResume: (String, String) -> Unit = { _, _ -> }) {
     val hv: HomeVm = viewModel()
     var sel by rememberSaveable { mutableStateOf("beranda") }
     val s = if (sel == "sorotan" || sel == "populer") "beranda" else sel // nilai lama dari versi sebelumnya
     val genres = hv.genres
     val tabs = remember(genres) { listOf("beranda" to "Beranda") + genres.map { it.slug to it.name } }
     Column(Modifier.fillMaxSize()) {
-        Header(onSearch)
+        if (s != "beranda") Header(onSearch) // Beranda memakai header melayang di atas banner (HomeHero)
         if (s == "beranda") {
             // Kunci snapshot "home-sorotan" / "home-populer" sama seperti sebelumnya, jadi cache lama tetap terpakai.
             // Rekomendasi & Populer diacak dari kumpulan teratas (lihat HomeMix) supaya isi Beranda berbeda tiap dibuka.
@@ -64,15 +69,14 @@ fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Uni
             val upd = keyedVm("home-sorotan") { PagedVm("home-sorotan") { p -> Net.latest(p, SHELF_PAGE) } }
             val pop = keyedVm("home-populer") { PagedVm("home-populer") { p -> HomeMix.page("pop", p, SHELF_PAGE) { pg, lim -> Net.popular(pg, lim) } } }
             PullRefresh(rec.refreshing || upd.refreshing || pop.refreshing, { rec.refresh(); upd.refresh(); pop.refresh(); hv.refresh() }, Modifier.weight(1f).fillMaxWidth()) {
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-                item("pills", "pills") { Box(Modifier.padding(horizontal = 12.dp)) { Pills(tabs, s) { sel = it } } }
-                if (hv.spotlight.isNotEmpty()) item("spot", "spot") { Box(Modifier.padding(horizontal = 12.dp)) { Spotlight(hv.spotlight, onOpen) } }
-                item("t-rec", "title") { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Rekomendasi") } }
-                item("s-rec", "shelf") { SeriesShelf(rec, onOpen) }
-                item("t-upd", "title") { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Update Komik", onMore) } }
-                item("s-upd", "shelf") { SeriesShelf(upd, onOpen, upCount = 9) }
-                item("t-pop", "title") { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Populer") } }
-                item("s-pop", "shelf") { SeriesShelf(pop, onOpen) }
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+                item("hero", "hero") { HomeHero(hv.spotlight, tabs, s, { sel = it }, onOpen, onSearch) }
+                item("cont", "cont") { ContinueRow(onResume) }
+                item("top", "top") { TopTenRow(pop, onOpen) }
+                item("t-rec", "title") { HomeSectionTitle("Rekomendasi") }
+                item("s-rec", "shelf") { PosterRow(rec, onOpen, showRating = true) }
+                item("t-upd", "title") { HomeSectionTitle("Baru Update", onMore) }
+                item("s-upd", "shelf") { PosterRow(upd, onOpen, showChapter = true, newCount = 9) }
             }
             }
         } else {
@@ -224,11 +228,27 @@ fun SearchScreen(onBack: () -> Unit, onOpen: (Series) -> Unit) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) }
-            OutlinedTextField(q, { q = it }, Modifier.weight(1f).padding(end = 12.dp), singleLine = true,
-                placeholder = { Text("Cari komik / novel", color = Muted) },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { sent = q.trim(); if (sent.isNotBlank()) genre = null; kb?.hide() }),
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Accent, unfocusedBorderColor = CardBg, cursorColor = Accent))
+            // Kotak cari: gaya sama dengan bar cari di Beranda (sudut membulat, isi gelap, garis tipis); garis memutih saat fokus.
+            var focused by remember { mutableStateOf(false) }
+            val focus = remember { FocusRequester() }
+            LaunchedEffect(Unit) { if (sent.isBlank() && genre == null) runCatching { focus.requestFocus() } }
+            val submit = { sent = q.trim(); if (sent.isNotBlank()) genre = null; kb?.hide(); Unit }
+            Row(Modifier.weight(1f).padding(end = 12.dp).height(46.dp).clip(R6).background(CardBg).border(1.dp, if (focused) Accent else Line, R6)
+                .padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Ic.Search, null, tint = if (focused) Color.White else Muted, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Box(Modifier.weight(1f), Alignment.CenterStart) {
+                    if (q.isEmpty()) Text("Cari komik / novel", color = Muted, fontSize = 15.sp, maxLines = 1)
+                    BasicTextField(q, { q = it }, Modifier.fillMaxWidth().focusRequester(focus).onFocusChanged { focused = it.isFocused },
+                        singleLine = true, textStyle = LocalTextStyle.current.copy(color = Color.White, fontSize = 15.sp),
+                        cursorBrush = SolidColor(Accent),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { submit() }))
+                }
+                if (q.isNotEmpty()) IconButton({ q = ""; sent = ""; runCatching { focus.requestFocus() } }, Modifier.size(38.dp)) {
+                    Icon(Ic.Close, "Hapus", tint = Muted, modifier = Modifier.size(18.dp))
+                }
+            }
         }
         val g = genre
         when {

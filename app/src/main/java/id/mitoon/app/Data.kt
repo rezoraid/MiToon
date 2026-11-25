@@ -107,7 +107,7 @@ import java.security.MessageDigest
 @Serializable data class AdminCommentsPage(val total: Int = 0, val items: List<AdminComment> = emptyList(), val page: Int = 1, val limit: Int = 30, val hasMore: Boolean = false)
 @Serializable data class AdminUser(
     val id: Long = 0, val username: String = "", val email: String? = null, val displayName: String = "", val bio: String = "",
-    val xp: Int = 0, val level: Int = 1, val verified: Boolean = false, val avatarV: Int = 0, val hasAvatar: Boolean = false, val commentCount: Int = 0,
+    val xp: Long = 0, val level: Int = 1, val verified: Boolean = false, val avatarV: Int = 0, val hasAvatar: Boolean = false, val commentCount: Int = 0,
     val createdAt: String? = null, val isOwner: Boolean = false, val premium: Boolean = false,
     /** diblokir: tidak bisa masuk/memakai akun */
     val banned: Boolean = false, val banReason: String = "",
@@ -121,7 +121,7 @@ import java.security.MessageDigest
     val clearBio: Boolean? = null, val clearName: Boolean? = null
 )
 /** Tepat satu field diisi: [xp] = nilai total, [level] = naik/turun ke level itu, [delta] = tambah/kurang. */
-@Serializable data class AdminXpPatch(val xp: Int? = null, val level: Int? = null, val delta: Int? = null)
+@Serializable data class AdminXpPatch(val xp: Long? = null, val level: Int? = null, val delta: Long? = null)
 @Serializable data class AdminDeletedCount(val deleted: Int = 0)
 @Serializable data class AdminRevoked(val revoked: Boolean = true)
 @Serializable data class AdminRevokedCount(val revoked: Int = 0)
@@ -520,13 +520,14 @@ object Net {
     /**
      * Cari cover untuk kartu yang covernya kosong/gagal: cache -> disk -> server. Cache yang covernya kosong/rusak TIDAK dipercaya
      * (dulu langsung dipakai lalu berhenti -> kartu kosong selamanya). [force] = abaikan cache, ambil ulang dari server
-     * (dipakai saat URL cover yang ada gagal dimuat). Dicoba ulang paling cepat tiap 20 dtk per seri.
+     * (dipakai saat URL cover yang ada gagal dimuat). Jeda minimal 2 dtk per seri; pemanggil mengulang dengan jeda bertahap.
+     * Mengembalikan true bila sekarang ada cover yang bisa dipakai (berbeda dari [bad]); false = belum, coba lagi nanti.
      */
-    suspend fun fixCover(id: String, force: Boolean = false, bad: String? = null) {
-        if (!force && coverFix.containsKey(id)) return
+    suspend fun fixCover(id: String, force: Boolean = false, bad: String? = null): Boolean {
+        if (!force) coverFix[id]?.let { return true }
         val now = System.currentTimeMillis()
-        if (now - (fixTried[id] ?: 0L) < 20_000L) return
-        if (!fixing.add(id)) return
+        if (now - (fixTried[id] ?: 0L) < 2_000L) return false
+        if (!fixing.add(id)) return false
         try {
             fixTried[id] = now
             coverGate.withPermit {
@@ -536,8 +537,10 @@ object Net {
                     catch (e: kotlinx.coroutines.CancellationException) { throw e }
                     catch (e: Exception) { null }
                 }
-                d?.cover?.takeIf { validCover(it) && it != bad }?.let { coverFix[id] = it }
-            }
+                val url = d?.cover?.takeIf { validCover(it) && it != bad } ?: return@withPermit false
+                coverFix[id] = url
+                return@withPermit true
+            }.let { return it }
         } finally { fixing.remove(id) }
     }
 

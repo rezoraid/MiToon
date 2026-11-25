@@ -49,14 +49,14 @@ fun TopBar(title: String, onBack: (() -> Unit)?, action: @Composable () -> Unit 
 private const val SHELF_PAGE = 24
 
 @Composable
-fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Unit, onResume: (String, String) -> Unit = { _, _ -> }) {
+fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Unit) {
     val hv: HomeVm = viewModel()
     var sel by rememberSaveable { mutableStateOf("beranda") }
     val s = if (sel == "sorotan" || sel == "populer") "beranda" else sel // nilai lama dari versi sebelumnya
     val genres = hv.genres
     val tabs = remember(genres) { listOf("beranda" to "Beranda") + genres.map { it.slug to it.name } }
     Column(Modifier.fillMaxSize()) {
-        if (s != "beranda") Header(onSearch) // Beranda memakai header melayang di atas banner (HomeHero)
+        Header(onSearch)
         if (s == "beranda") {
             // Kunci snapshot "home-sorotan" / "home-populer" sama seperti sebelumnya, jadi cache lama tetap terpakai.
             // Rekomendasi & Populer diacak dari kumpulan teratas (lihat HomeMix) supaya isi Beranda berbeda tiap dibuka.
@@ -69,14 +69,15 @@ fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Uni
             val upd = keyedVm("home-sorotan") { PagedVm("home-sorotan") { p -> Net.latest(p, SHELF_PAGE) } }
             val pop = keyedVm("home-populer") { PagedVm("home-populer") { p -> HomeMix.page("pop", p, SHELF_PAGE) { pg, lim -> Net.popular(pg, lim) } } }
             PullRefresh(rec.refreshing || upd.refreshing || pop.refreshing, { rec.refresh(); upd.refresh(); pop.refresh(); hv.refresh() }, Modifier.weight(1f).fillMaxWidth()) {
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-                item("hero", "hero") { HomeHero(hv.spotlight, tabs, s, { sel = it }, onOpen, onSearch) }
-                item("cont", "cont") { ContinueRow(onResume) }
-                item("top", "top") { TopTenRow(pop, onOpen) }
-                item("t-rec", "title") { HomeSectionTitle("Rekomendasi") }
-                item("s-rec", "shelf") { PosterRow(rec, onOpen, showRating = true) }
-                item("t-upd", "title") { HomeSectionTitle("Baru Update", onMore) }
-                item("s-upd", "shelf") { PosterRow(upd, onOpen, showChapter = true, newCount = 9) }
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+                item("pills", "pills") { Box(Modifier.padding(horizontal = 12.dp)) { Pills(tabs, s) { sel = it } } }
+                if (hv.spotlight.isNotEmpty()) item("spot", "spot") { Box(Modifier.padding(horizontal = 12.dp)) { Spotlight(hv.spotlight, onOpen) } }
+                item("t-rec", "title") { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Rekomendasi") } }
+                item("s-rec", "shelf") { SeriesShelf(rec, onOpen) }
+                item("t-upd", "title") { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Update Komik", onMore) } }
+                item("s-upd", "shelf") { SeriesShelf(upd, onOpen, upCount = 9) }
+                item("t-pop", "title") { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Populer") } }
+                item("s-pop", "shelf") { SeriesShelf(pop, onOpen) }
             }
             }
         } else {

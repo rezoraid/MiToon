@@ -247,19 +247,21 @@ fun RolesScreen(onBack: () -> Unit) {
             }
             items(Roles, key = { it.title }) { r ->
                 val open = user.level >= r.minLevel
-                Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    RoleBadge(r, 46.dp, locked = !open)
+                val idx = Roles.indexOf(r)
+                val max = Roles.getOrNull(idx + 1)?.minLevel?.minus(1)
+                val range = if (max == null) "Lv. ${r.minLevel}+" else "Lv. ${r.minLevel} – $max"
+                Row(Modifier.fillMaxWidth().then(if (r === cur) Modifier.clip(R6).background(CardBg) else Modifier).padding(horizontal = if (r === cur) 8.dp else 0.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    RoleBadge(r, 46.dp)
                     Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(r.title, color = if (open) Color.White else Muted, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                            if (r === cur) Text("  ·  Saat ini", color = r.colors.first(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                        Text(r.desc, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 2.dp))
+                        Text(r.title, color = r.colors.first(), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        LvPill(r.minLevel, range, Modifier.padding(top = 5.dp), size = 11)
+                        Text(r.desc, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 6.dp))
                     }
-                    if (open) Text("Lv. ${r.minLevel}", color = Color(0xFFD7D9DE), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    else Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Ic.Lock, null, tint = Muted, modifier = Modifier.size(14.dp))
-                        Text(" Lv. ${r.minLevel}", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    when {
+                        r === cur -> Text("Sekarang", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
+                        open -> Text("✓ Tercapai", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 8.dp))
+                        else -> Text("${"%,d".format(java.util.Locale("id"), r.minLevel - user.level)} level lagi", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 8.dp))
                     }
                 }
                 HorizontalDivider(color = Line)

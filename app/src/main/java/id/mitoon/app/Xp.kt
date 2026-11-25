@@ -8,6 +8,8 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import kotlin.math.sin
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -74,39 +76,37 @@ object Xp {
 }
 
 /**
- * Tema lencana level, satu per peran (lihat [Roles]); makin tinggi perannya makin megah: bingkai berwarna -> cahaya (aura) ->
- * kilau -> bintang berkelip -> nebula melayang -> bintang jatuh -> komet mengorbit -> galaksi spiral (Eternal).
+ * Tema pill level bergaya kosmik, satu per peran (lihat [Roles]). Tier rendah: pill gradien berwarna dengan kilau yang lewat;
+ * makin tinggi makin "luar angkasa": bintang berkelip -> nebula -> bintang jatuh -> komet -> galaksi spiral (Mythic, Eternal).
  */
-private class LvTheme(
-    val border: List<Color>, val fillTop: Color, val fillBottom: Color, val text: Color, val glow: Color,
-    /** putaran bingkai (ms), 0 = diam */ val spinMs: Int,
-    /** kekuatan cahaya di sekeliling lencana 0..1 */ val aura: Float,
-    val shimmer: Boolean, val stars: Int, val nebula: Int, val shoot: Boolean, val comets: Int, val spiral: Boolean,
-    val padH: Int, val textGlow: Boolean
+private class PillTheme(
+    val fill: List<Color>, val space: Boolean, val rim: List<Color>, val text: Color, val glow: Color,
+    /** putaran bingkai (ms), 0 = diam */ val spinMs: Int, val aura: Float,
+    val stars: Int, val nebula: Int, val shoot: Boolean, val comets: Int, val spiral: Boolean
 )
 
-private fun lvTheme(level: Int): LvTheme? {
+private val PillStars = intArrayOf(0, 1, 2, 3, 4, 5, 8, 10, 12, 15, 20)
+private val PillNebula = intArrayOf(0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3)
+private val PillSpin = intArrayOf(0, 0, 0, 0, 0, 0, 10000, 8000, 7000, 6000, 4500)
+
+private fun pillTheme(level: Int): PillTheme {
     val i = roleIndex(level)
-    if (i == 0) return null
     val cols = Roles[i].colors
-    val border = cols + cols.first()
     val dark = cols.last()
-    val top = if (i == 10) Color(0xFF0B0724) else lerp(dark, Color(0xFF0B0B14), 0.84f)
-    val bottom = if (i == 10) Color(0xFF04030E) else lerp(dark, Color.Black, 0.92f)
-    val text = lerp(cols.first(), Color.White, if (i >= 8) 0.7f else 0.35f)
-    val glow = cols[cols.size / 2]
-    return when (i) {
-        1 -> LvTheme(border, top, bottom, text, glow, 0, 0f, false, 0, 0, false, 0, false, 5, false)
-        2 -> LvTheme(border, top, bottom, text, glow, 0, 0.25f, false, 0, 0, false, 0, false, 5, false)
-        3 -> LvTheme(border, top, bottom, text, glow, 0, 0.3f, true, 0, 0, false, 0, false, 5, false)
-        4 -> LvTheme(border, top, bottom, text, glow, 0, 0.35f, true, 2, 0, false, 0, false, 5, false)
-        5 -> LvTheme(border, top, bottom, text, glow, 14000, 0.4f, true, 3, 0, false, 0, false, 5, false)
-        6 -> LvTheme(border, top, bottom, text, glow, 10000, 0.5f, true, 4, 1, false, 0, false, 6, true)
-        7 -> LvTheme(border, top, bottom, text, glow, 8000, 0.55f, true, 5, 1, true, 0, false, 6, true)
-        8 -> LvTheme(border, top, bottom, text, glow, 7000, 0.65f, true, 7, 2, true, 1, false, 6, true)
-        9 -> LvTheme(border, top, bottom, text, glow, 6000, 0.8f, true, 9, 2, true, 1, true, 7, true)
-        else -> LvTheme(border, top, bottom, text, glow, 4500, 1f, true, 13, 3, true, 2, true, 8, true)
+    val mid = cols[cols.size / 2]
+    val space = i >= 6
+    val deep = Color(0xFF070712)
+    val fill = when {
+        i == 10 -> listOf(Color(0xFF1B0F4D), Color(0xFF3A1470), Color(0xFF0E2A5C))
+        space -> listOf(lerp(dark, deep, 0.78f), lerp(dark, Color(0xFF0B0B1C), 0.5f), lerp(dark, deep, 0.78f))
+        else -> listOf(lerp(dark, Color.Black, 0.3f), lerp(mid, Color.White, 0.08f))
     }
+    return PillTheme(
+        fill = fill, space = space, rim = cols + cols.first(),
+        text = if (space) lerp(cols.first(), Color.White, 0.75f) else Color.White,
+        glow = mid, spinMs = PillSpin[i], aura = if (i >= 4) 0.3f + 0.07f * (i - 4) else 0f,
+        stars = PillStars[i], nebula = PillNebula[i], shoot = i >= 6, comets = when { i >= 10 -> 2; i >= 8 -> 1; else -> 0 }, spiral = i >= 9
+    )
 }
 
 /**
@@ -219,72 +219,73 @@ private fun DrawScope.shootingStar(ms: Long, w: Float, h: Float, period: Int, of
     drawLine(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.9f * fade)), tail, head), tail, head, 1.3f.dp.toPx(), StrokeCap.Round)
 }
 
+/** Lencana kecil "Lv. 12": pill kosmik dengan tema sesuai peran (lihat [LvPill]). */
+@Composable
+fun LevelChip(level: Int, modifier: Modifier = Modifier, size: Int = 10) = LvPill(level, "Lv. $level", modifier, size)
+
 /**
- * Lencana kecil "Lv. 12". Tiap peran punya tema sendiri dan makin tinggi makin megah (lihat [LvTheme]); puncaknya
- * (Eternal, Lv. 5000+) adalah galaksi mini: nebula berwarna melayang, galaksi spiral berputar, bintang berkelip,
- * bintang jatuh, dua komet mengorbit, bingkai prisma berputar, dan aura yang berdenyut. Semua digambar di fase draw dari
- * [LvClock], jadi tidak memicu recompose maupun relayout.
+ * Pill level bergaya kosmik. [level] menentukan tema (peran); [text] bebas ("Lv. 25", "Lv. 50 – 149", dst.).
+ * Semua efek digambar dari [LvClock] di fase draw, jadi tidak memicu recompose maupun relayout.
  */
 @Composable
-fun LevelChip(level: Int, modifier: Modifier = Modifier, size: Int = 10) {
-    val t = lvTheme(level)
-    if (t == null) {
-        Text("Lv. $level", color = Color(0xFFD7D9DE), fontSize = size.sp, fontWeight = FontWeight.Bold, maxLines = 1,
-            modifier = modifier.clip(R6).border(1.dp, Color(0xFF4A4C53), R6).padding(horizontal = 5.dp, vertical = 1.dp))
-        return
-    }
+fun LvPill(level: Int, text: String, modifier: Modifier = Modifier, size: Int = 10) {
+    val t = remember(level) { pillTheme(level) }
     DisposableEffect(Unit) { LvClock.users++; onDispose { LvClock.users-- } }
     val base = LocalTextStyle.current
-    Text("Lv. $level", color = t.text, fontSize = size.sp, fontWeight = FontWeight.Bold, maxLines = 1,
-        style = if (t.textGlow) base.copy(shadow = Shadow(t.glow.copy(alpha = 0.95f), Offset.Zero, 7f)) else base,
+    val shadow = if (t.space) Shadow(t.glow.copy(alpha = 0.95f), Offset.Zero, 7f) else Shadow(Color(0x66000000), Offset(0f, 1.5f), 3f)
+    Text(text, color = t.text, fontSize = size.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, style = base.copy(shadow = shadow),
         modifier = modifier
             .drawBehind {
-                if (t.aura > 0f) { // aura: lapisan cahaya membulat di luar kotak, denyut sinus; tema prisma berganti warna
+                if (t.aura > 0f) { // aura: cahaya membulat di luar pill, berdenyut pelan
                     val ms = LvClock.ms
                     val pulse = 0.65f + 0.35f * (0.5f - 0.5f * cos(TAU * cycle(ms, 3000)))
-                    val gc = if (t.border.size > 4) cycleColor(t.border, cycle(ms, 7000)) else t.glow
+                    val gc = if (t.rim.size > 4) cycleColor(t.rim, cycle(ms, 7000)) else t.glow
                     for (n in 1..3) {
                         val g = n * 2.3.dp.toPx()
                         drawRoundRect(gc.copy(alpha = (t.aura * pulse * 0.2f / n).coerceAtMost(0.5f)), Offset(-g, -g),
-                            Size(this.size.width + 2 * g, this.size.height + 2 * g), CornerRadius(6.dp.toPx() + g))
+                            Size(this.size.width + 2 * g, this.size.height + 2 * g), CornerRadius(this.size.height / 2f + g))
                     }
                 }
             }
-            .clip(R6)
+            .clip(RoundedCornerShape(50))
             .drawBehind {
                 val w = this.size.width; val h = this.size.height
                 val c = Offset(w / 2f, h / 2f)
-                val b = 1.dp.toPx()
-                val d = maxOf(w, h)
+                val r = h / 2f
                 val ms = LvClock.ms
-                // bingkai: sapuan warna (diputar bila tema bergerak), lalu isi gelap di atasnya menyisakan garis tepi
-                rotate(if (t.spinMs > 0) cycle(ms, t.spinMs) * 360f else 0f, c) {
-                    drawRect(Brush.sweepGradient(t.border, c), Offset(c.x - d, c.y - d), Size(d * 2, d * 2))
-                }
+                val b = if (t.space) 1.3.dp.toPx() else 1.dp.toPx()
+                val d = maxOf(w, h)
                 val iw = w - 2 * b; val ih = h - 2 * b
-                drawRoundRect(Brush.verticalGradient(listOf(t.fillTop, t.fillBottom)), Offset(b, b), Size(iw, ih), CornerRadius(2.dp.toPx()))
-                // isi dalam: nebula -> galaksi spiral -> bintang -> bintang jatuh (dipotong di dalam bingkai)
+                if (t.space) { // bingkai warna berputar, lalu isi "luar angkasa" di atasnya menyisakan garis tepi
+                    rotate(if (t.spinMs > 0) cycle(ms, t.spinMs) * 360f else 0f, c) {
+                        drawRect(Brush.sweepGradient(t.rim, c), Offset(c.x - d, c.y - d), Size(d * 2, d * 2))
+                    }
+                    drawRoundRect(Brush.horizontalGradient(t.fill), Offset(b, b), Size(iw, ih), CornerRadius(r - b))
+                } else {
+                    drawRoundRect(Brush.horizontalGradient(t.fill), cornerRadius = CornerRadius(r))
+                }
                 clipRect(b, b, w - b, h - b) {
-                    if (t.nebula > 0) nebula(ms, iw, ih, t.border, t.nebula, 0.1f + 0.07f * t.nebula, Offset(b, b))
-                    if (t.spiral) spiralGalaxy(ms, w, h, t.border, 0.42f)
-                    if (t.stars > 0) starfield(t.stars, ms, iw, ih, level % 7 + 3, t.text, 0.85.dp.toPx(), Offset(b, b))
-                    if (t.shoot) shootingStar(ms, w, h, 4300, 900)
-                    if (t.shoot && t.comets > 1) shootingStar(ms, w, h, 5900, 3100)
+                    if (t.nebula > 0) nebula(ms, iw, ih, t.rim, t.nebula, 0.16f + 0.06f * t.nebula, Offset(b, b))
+                    if (t.spiral) spiralGalaxy(ms, w, h, t.rim, 0.42f)
+                    if (t.stars > 0) starfield(t.stars, ms, iw, ih, level % 7 + 3, if (t.space) t.text else Color.White, 0.8.dp.toPx(), Offset(b, b))
+                    if (t.shoot) shootingStar(ms + level * 131L, w, h, 4300, 900)
+                    // kilap kaca di separuh atas
+                    drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = if (t.space) 0.1f else 0.28f), Color.Transparent), 0f, h * 0.62f))
+                    // kilau lembut yang lewat dari kiri ke kanan; fase tiap level berbeda supaya tidak serempak
+                    val p = cycle(ms + level * 397L, 3600)
+                    if (p < 0.5f) {
+                        val k = p / 0.5f
+                        val fade = minOf(1f, k * 5f, (1f - k) * 5f)
+                        val band = h * 2.2f
+                        val x = -band + k * (w + band * 2)
+                        drawRect(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.5f * fade), Color.Transparent), Offset(x, 0f), Offset(x + band, h)))
+                    }
                 }
-                val sheen = cycle(ms, 5000)
-                if (t.shimmer && sheen < 0.3f) { // kilau lewat sesekali; memudar di kedua ujung agar tidak muncul/hilang tiba-tiba
-                    val k = sheen / 0.3f
-                    val fade = minOf(1f, k * 6f, (1f - k) * 6f)
-                    val band = h * 2.4f
-                    val x = -band + k * (w + band * 2)
-                    drawRect(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.22f * fade), Color.Transparent), Offset(x, 0f), Offset(x + band, h)),
-                        Offset(b, b), Size(iw, ih))
-                }
-                // komet mengorbit di atas bingkai
+                if (!t.space) drawRoundRect(Color.White.copy(alpha = 0.28f), cornerRadius = CornerRadius(r), style = Stroke(1.dp.toPx()))
                 if (t.comets > 0) orbitComet(ms, w, h, 4200, Color.White, 1.1.dp.toPx())
                 if (t.comets > 1) orbitComet(ms, w, h, 6100, t.glow, 0.9.dp.toPx(), 0.5f)
             }
-            .padding(horizontal = t.padH.dp, vertical = 1.dp))
+            .padding(horizontal = (size * 0.9f).dp, vertical = (size * 0.24f).dp))
 }
 
 /** Centang verifikasi (segel biru bergelombang + centang putih), digambar sendiri tanpa paket ikon tambahan. */

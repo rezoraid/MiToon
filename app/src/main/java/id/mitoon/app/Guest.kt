@@ -1,5 +1,6 @@
 package id.mitoon.app
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
@@ -34,7 +35,7 @@ fun GuestGateHost() {
     }
     GuestGate.prompt?.let { msg ->
         AlertDialog(
-            onDismissRequest = { GuestGate.dismiss() }, containerColor = CardBg, shape = R6,
+            onDismissRequest = { GuestGate.dismiss() }, containerColor = CardBg, shape = RoundedCornerShape(20.dp),
             title = { Text("Perlu masuk", color = Color.White, fontWeight = FontWeight.Bold) },
             text = { Text("$msg\n\nBookmark, riwayat, dan unduhanmu tetap tersimpan di perangkat ini.", color = Muted, fontSize = 14.sp, lineHeight = 20.sp) },
             confirmButton = { TextButton({ GuestGate.openUpgrade() }) { Text("Masuk dengan Google", color = Color.White, fontWeight = FontWeight.Bold) } },
@@ -43,7 +44,7 @@ fun GuestGateHost() {
     }
     err?.let { msg ->
         AlertDialog(
-            onDismissRequest = { err = null }, containerColor = CardBg, shape = R6,
+            onDismissRequest = { err = null }, containerColor = CardBg, shape = RoundedCornerShape(20.dp),
             text = { Text(msg, color = Color.White, fontSize = 14.sp, lineHeight = 20.sp) },
             confirmButton = { TextButton({ err = null }) { Text("OK", color = Color.White, fontWeight = FontWeight.Bold) } }
         )

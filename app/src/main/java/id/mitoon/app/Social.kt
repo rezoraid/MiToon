@@ -654,7 +654,7 @@ fun CommentsSheet(target: String, title: String, origin: CommentOrigin? = null, 
     ScrollToFocusedComment(feed, listState)
 
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp), containerColor = CardBg, contentWindowInsets = { WindowInsets(0) }) {
+        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp), containerColor = CardBg, contentWindowInsets = { WindowInsets(0) }) {
         KeepBarsHidden()
         Column(Modifier.fillMaxWidth().fillMaxHeight(0.88f).imePadding()) {
             Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 10.dp)) {

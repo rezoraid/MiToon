@@ -45,7 +45,7 @@ val Accent = Color.White          // aksen = putih (tema hitam-putih)
 val OnAccent = Color.Black        // teks/ikon di atas permukaan Accent
 val Star = Color.White
 val Muted = Color(0xFF9EA2AD)
-val R6 = RoundedCornerShape(3.dp) // nama lama; semua tombol/chip/kartu memakai sudut kecil agar tampil kotak
+val R6 = RoundedCornerShape(12.dp) // nama lama; sudut tombol/chip/kartu: agak kapsul tapi tidak bulat penuh
 /** Diisi saat genre di halaman detail ditekan; ExploreScreen membacanya sekali lalu mengosongkannya. */
 object ExploreRequest { var genre by mutableStateOf<String?>(null) }
 private val NonAlnum = Regex("[^\\p{L}\\p{N}]+")

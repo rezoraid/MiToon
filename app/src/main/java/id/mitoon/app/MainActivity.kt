@@ -135,10 +135,12 @@ private fun AppScaffold() {
     }) { pad ->
         // Transisi singkat (<250 ms) dan ringan: pindah tab = fade; buka layar = fade + geser tipis; kembali = layar atas menyingkir.
         NavHost(nav, "home", Modifier.padding(pad).consumeWindowInsets(pad),
-            enterTransition = { if (initialState.isReader() && targetState.isReader()) EnterTransition.None else if (initialState.isTab() && targetState.isTab()) fadeIn(tween(160)) else fadeIn(tween(200, 30)) + slideInHorizontally(tween(240)) { it / 12 } },
-            exitTransition = { if (initialState.isReader() && targetState.isReader()) ExitTransition.None else fadeOut(tween(100)) },
-            popEnterTransition = { fadeIn(tween(180)) },
-            popExitTransition = { if (initialState.isTab() && targetState.isTab()) fadeOut(tween(120)) else fadeOut(tween(140)) + slideOutHorizontally(tween(220)) { it / 12 } }) {
+            // Maju: layar baru geser masuk dari kanan, layar lama sedikit bergeser ke kiri. Mundur (tombol/gestur back): kebalikannya.
+            // Dengan predictive back aktif (manifest), animasi pop ini mengikuti jari saat gestur back ditarik.
+            enterTransition = { if (initialState.isReader() && targetState.isReader()) EnterTransition.None else if (initialState.isTab() && targetState.isTab()) fadeIn(tween(160)) else fadeIn(tween(240, 40)) + slideInHorizontally(tween(320, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it / 5 } },
+            exitTransition = { if (initialState.isReader() && targetState.isReader()) ExitTransition.None else if (initialState.isTab() && targetState.isTab()) fadeOut(tween(100)) else fadeOut(tween(220)) + slideOutHorizontally(tween(320, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { -it / 8 } },
+            popEnterTransition = { fadeIn(tween(240)) + slideInHorizontally(tween(320, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { -it / 8 } },
+            popExitTransition = { if (initialState.isTab() && targetState.isTab()) fadeOut(tween(120)) else fadeOut(tween(220)) + slideOutHorizontally(tween(320, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it / 5 } }) {
             composable("home") {
                 HomeScreen({ nav.detail(it) }, { nav.navigate("search") }) {
                     nav.navigate("explore") { popUpTo("home"); launchSingleTop = true; restoreState = true }

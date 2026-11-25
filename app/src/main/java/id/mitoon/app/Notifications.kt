@@ -252,7 +252,7 @@ private fun InfoList(notices: List<Notice>?, seenAt: Long) {
     open?.let { n ->
         val uri = LocalUriHandler.current
         ModalBottomSheet({ open = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp), containerColor = CardBg) {
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp), containerColor = CardBg) {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
                 Text(plainText(n.title), color = Color.White, fontSize = 19.sp, lineHeight = 25.sp, fontWeight = FontWeight.ExtraBold)
                 if (n.createdAt > 0) Text(dateText(n.createdAt), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))

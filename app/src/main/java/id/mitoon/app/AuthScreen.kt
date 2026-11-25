@@ -118,6 +118,7 @@ fun AuthScreen() {
     val onLast by remember { derivedStateOf { pager.currentPage == pages - 1 } }
 
     Box(Modifier.fillMaxSize().background(Bg)) {
+        WelcomeBackdrop(pos)
         BoxWithConstraints(Modifier.fillMaxSize().systemBarsPadding()) {
             // Maskot satu-satunya yang berpindah antar tahap: besar di tahap 1, mengecil & naik ke atas di tahap 2-3.
             val base = minOf(230.dp, maxHeight * 0.30f)
@@ -179,6 +180,32 @@ fun AuthScreen() {
                 Spacer(Modifier.width(8.dp))
                 Icon(Ic.Right, null, Modifier.size(20.dp))
             }
+        }
+    }
+}
+
+/**
+ * Latar welcome satu warna (abu kebiruan sangat gelap): gradasi vertikal, cahaya putih lembut di belakang maskot
+ * yang ikut bergeser pelan mengikuti tahap, dan pola titik halus. Tanpa warna lain agar tetap sejalan dengan tema hitam-putih.
+ */
+@Composable
+private fun WelcomeBackdrop(pos: () -> Float) {
+    Canvas(Modifier.fillMaxSize()) {
+        val w = size.width; val h = size.height
+        drawRect(Brush.verticalGradient(listOf(Color(0xFF1D2029), Color(0xFF15171D), Color(0xFF0F1014))))
+        val t = pos() / 2f
+        val cx = w * lerp(0.5f, 0.62f, t)
+        val cy = h * lerp(0.26f, 0.2f, t)
+        val r = w * 0.95f
+        drawCircle(Brush.radialGradient(listOf(Color(0x24FFFFFF), Color.Transparent), Offset(cx, cy), r), r, Offset(cx, cy))
+        val gap = 26.dp.toPx()
+        val dot = 1.2.dp.toPx()
+        val fade = Brush.verticalGradient(listOf(Color(0x14FFFFFF), Color.Transparent), 0f, h * 0.75f)
+        var y = gap
+        while (y < h * 0.75f) {
+            var x = gap / 2f
+            while (x < w) { drawCircle(fade, dot, Offset(x, y), alpha = 1f); x += gap }
+            y += gap
         }
     }
 }

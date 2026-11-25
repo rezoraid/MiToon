@@ -136,7 +136,7 @@ private fun FilterSheet(genres: List<Genre>, g: String?, sort: String, type: Str
         if (dg != null) { add("manhwa" to "Manhwa"); add("manhua" to "Manhua") }
         add("comic" to "Komik"); add("novel" to "Novel")
     }
-    ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp), containerColor = CardBg, contentColor = Color.White) {
+    ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp), containerColor = CardBg, contentColor = Color.White) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Filter", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))

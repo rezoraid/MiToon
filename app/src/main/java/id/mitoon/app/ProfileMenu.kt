@@ -1,5 +1,6 @@
 package id.mitoon.app
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -176,7 +177,7 @@ fun AccountSettingsScreen(onBack: () -> Unit) {
     if (confirm) {
         var v by remember { mutableStateOf("") }
         AlertDialog(
-            onDismissRequest = { if (!busy) confirm = false }, containerColor = CardBg, shape = R6,
+            onDismissRequest = { if (!busy) confirm = false }, containerColor = CardBg, shape = RoundedCornerShape(20.dp),
             title = { Text("Hapus akun?", color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
                 Column {

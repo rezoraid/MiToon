@@ -1,5 +1,6 @@
 package id.mitoon.app
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -196,7 +197,7 @@ fun ProfileEditScreen(onBack: () -> Unit) {
 
     // ---------------------------------------------------------------- dialog foto
     if (photoMenu) AlertDialog(
-        onDismissRequest = { photoMenu = false }, containerColor = CardBg, shape = R6,
+        onDismissRequest = { photoMenu = false }, containerColor = CardBg, shape = RoundedCornerShape(20.dp),
         title = { Text("Foto profil", color = Color.White, fontWeight = FontWeight.Bold) },
         text = {
             Column {
@@ -211,7 +212,7 @@ fun ProfileEditScreen(onBack: () -> Unit) {
     if (editName) {
         var v by remember { mutableStateOf(user.displayName.ifBlank { user.username }) }
         AlertDialog(
-            onDismissRequest = { if (!saving) editName = false }, containerColor = CardBg, shape = R6,
+            onDismissRequest = { if (!saving) editName = false }, containerColor = CardBg, shape = RoundedCornerShape(20.dp),
             title = { Text("Ubah nama", color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
                 Column {
@@ -233,7 +234,7 @@ fun ProfileEditScreen(onBack: () -> Unit) {
     if (editBio) {
         var v by remember { mutableStateOf(user.bio) }
         AlertDialog(
-            onDismissRequest = { if (!saving) editBio = false }, containerColor = CardBg, shape = R6,
+            onDismissRequest = { if (!saving) editBio = false }, containerColor = CardBg, shape = RoundedCornerShape(20.dp),
             title = { Text("Ubah bio", color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
                 Column {
@@ -260,7 +261,7 @@ fun ProfileEditScreen(onBack: () -> Unit) {
         var v by remember { mutableStateOf(user.username) }
         val valid = UsernameChars.matches(v)
         AlertDialog(
-            onDismissRequest = { if (!saving) editUser = false }, containerColor = CardBg, shape = R6,
+            onDismissRequest = { if (!saving) editUser = false }, containerColor = CardBg, shape = RoundedCornerShape(20.dp),
             title = { Text("Ubah username", color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
                 Column {
@@ -287,7 +288,7 @@ fun ProfileEditScreen(onBack: () -> Unit) {
     }
     pendingUsername?.let { newName ->
         AlertDialog(
-            onDismissRequest = { if (!saving) pendingUsername = null }, containerColor = CardBg, shape = R6,
+            onDismissRequest = { if (!saving) pendingUsername = null }, containerColor = CardBg, shape = RoundedCornerShape(20.dp),
             title = { Text("Ganti username?", color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
                 Text("Username berubah dari @${user.username} menjadi @$newName.\n\n@${user.username} bisa dipakai orang lain, dan kamu baru bisa mengganti username lagi setelah 7 hari.",

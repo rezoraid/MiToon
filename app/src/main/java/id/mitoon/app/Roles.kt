@@ -1,5 +1,6 @@
 package id.mitoon.app
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -243,7 +244,7 @@ fun RolesScreen(onBack: () -> Unit) {
 @Composable
 fun RoleUnlockDialog(role: Role, onClose: () -> Unit, onOpen: () -> Unit) {
     AlertDialog(
-        onDismissRequest = onClose, containerColor = CardBg, shape = R6,
+        onDismissRequest = onClose, containerColor = CardBg, shape = RoundedCornerShape(20.dp),
         title = { Text("Peran baru terbuka!", color = Color.White, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) },
         text = {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {

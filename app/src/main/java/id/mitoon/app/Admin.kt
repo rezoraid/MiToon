@@ -1,5 +1,6 @@
 package id.mitoon.app
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -324,7 +325,7 @@ private val AmberText = Color(0xFFFFB86B)
 @Composable
 private fun AdminConfirm(title: String, text: String, confirm: String, onOk: () -> Unit, onCancel: () -> Unit) {
     AlertDialog(
-        onDismissRequest = onCancel, containerColor = CardBg, shape = R6,
+        onDismissRequest = onCancel, containerColor = CardBg, shape = RoundedCornerShape(20.dp),
         title = { Text(title, color = Color.White, fontWeight = FontWeight.Bold) },
         text = { Text(text, color = Muted) },
         confirmButton = { TextButton(onOk) { Text(confirm, color = RedText, fontWeight = FontWeight.Bold) } },
@@ -338,7 +339,7 @@ private fun AdminReasonDialog(title: String, confirm: String, durations: List<Pa
     var reason by remember { mutableStateOf("") }
     var pick by remember { mutableIntStateOf(0) }
     AlertDialog(
-        onDismissRequest = onCancel, containerColor = CardBg, shape = R6,
+        onDismissRequest = onCancel, containerColor = CardBg, shape = RoundedCornerShape(20.dp),
         title = { Text(title, color = Color.White, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {

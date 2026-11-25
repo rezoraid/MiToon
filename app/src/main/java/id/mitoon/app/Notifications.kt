@@ -132,7 +132,6 @@ fun NotificationsScreen(onBack: () -> Unit, onOpen: (CommentOrigin) -> Unit) {
             NotifTab("Aktivitas", tab == 0, newActivity, Modifier.weight(1f)) { tab = 0 }
             NotifTab("Informasi", tab == 1, newInfo, Modifier.weight(1f)) { tab = 1 }
         }
-        HorizontalDivider(color = Line)
         PullRefresh(refreshing, pull, Modifier.weight(1f).fillMaxWidth()) {
             if (tab == 0) ActivityList(page, err, onRetry = { reload++ }, onOpen) else InfoList(notices, page?.infoSeenAt ?: Long.MAX_VALUE)
         }
@@ -208,7 +207,7 @@ private fun ActivityRow(n: NotifItem, onAvatar: () -> Unit, onClick: () -> Unit)
     val o = origin
     Column {
         Row(
-            Modifier.fillMaxWidth().background(if (n.unread) Unread else Color.Transparent).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
+            Modifier.fillMaxWidth().background(if (n.unread) Unread else Color.Transparent).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 16.dp),
             verticalAlignment = Alignment.Top
         ) {
             // Avatar polos tanpa ikon/badge tambahan.
@@ -222,10 +221,8 @@ private fun ActivityRow(n: NotifItem, onAvatar: () -> Unit, onClick: () -> Unit)
                     withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color.White)) { append(n.actor.name) }
                     append(if (like) " menyukai komentarmu" else " membalas komentarmu")
                 }, color = Soft, fontSize = 14.sp, lineHeight = 20.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
-                if (n.text.isNotBlank()) Row(Modifier.padding(top = 6.dp).height(IntrinsicSize.Min)) {
-                    Box(Modifier.width(3.dp).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(CardLine))
-                    Text(n.text, color = Muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp))
-                }
+                if (n.text.isNotBlank()) Text(n.text, color = Muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 8.dp).clip(R6).background(CardBg).padding(horizontal = 10.dp, vertical = 7.dp))
                 Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (n.unread) Box(Modifier.padding(end = 6.dp).size(7.dp).clip(CircleShape).background(Red))
                     val where = o?.let { it.title.ifBlank { "Seri" } + (it.chapterNumber?.let { c -> " · Ch. $c" } ?: "") }
@@ -234,7 +231,6 @@ private fun ActivityRow(n: NotifItem, onAvatar: () -> Unit, onClick: () -> Unit)
             }
             if (o != null) Img(o.cover, o.provider, Modifier.width(38.dp).height(54.dp).clip(R6), maxW = 200)
         }
-        HorizontalDivider(color = Line, modifier = Modifier.padding(start = 82.dp))
     }
 }
 
@@ -249,7 +245,6 @@ private fun InfoList(notices: List<Notice>?, seenAt: Long) {
         else -> LazyColumn(Modifier.fillMaxSize()) {
             items(notices, key = { it.id }) { n ->
                 NoticeRow(n, unread = n.createdAt > seenAt) { open = n }
-                HorizontalDivider(color = Line, modifier = Modifier.padding(start = 76.dp))
             }
             item { Spacer(Modifier.height(16.dp)) }
         }

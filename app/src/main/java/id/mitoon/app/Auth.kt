@@ -144,6 +144,7 @@ object Auth {
         Streak.clear()
         Xp.event("daily")
         Library.scheduleSync()
+        Push.syncUser(r.user.id)
     }
 
     /** Data akun terbaru (mis. setelah ganti foto) tanpa mengubah token. */
@@ -154,6 +155,7 @@ object Auth {
         user = u
         usernameUnlockAt = unlockAt(u)
         if (prefs.contains("t")) prefs.edit().putString("u", u.username).putLong("i", u.id).putInt("v", u.avatarV).putString("n", u.displayName).putString("b", u.bio).putLong("x", usernameUnlockAt).also { it.putXp(u) }.apply()
+        Push.syncUser(u.id)
     }
 
     /** Ubah lokal saja (layar + disk) tanpa menyentuh waktu cooldown username; dasar untuk perubahan optimistik. */
@@ -191,7 +193,7 @@ object Auth {
     private fun unlockAt(u: AuthUser): Long = if (u.usernameCooldownSec > 0) System.currentTimeMillis() + u.usernameCooldownSec * 1000 else 0L
 
     fun logout() {
-        visitor = false; token = null; user = null; menuOpen = false; roleUnlocked = null; usernameUnlockAt = 0L; Xp.reset(); Streak.clear(); ChatState.clear(); Library.onLogout()
+        visitor = false; token = null; user = null; menuOpen = false; roleUnlocked = null; usernameUnlockAt = 0L; Xp.reset(); Streak.clear(); ChatState.clear(); Library.onLogout(); Push.syncUser(null)
         prefs.edit().clear().apply()
     }
 

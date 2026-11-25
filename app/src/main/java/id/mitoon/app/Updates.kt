@@ -44,15 +44,24 @@ object Updates {
 
     var fresh by mutableStateOf<Map<String, Int>>(emptyMap()); private set
     var pendingOpen by mutableStateOf<String?>(null)
+    /** Buka layar notifikasi (dari tap push balasan komentar). */
+    var pendingNotif by mutableStateOf(false)
     var askNotif: (() -> Unit)? = null
+
+    private const val CHANNEL_SOCIAL = "social"
 
     fun init(ctx: Context) {
         prefs = ctx.getSharedPreferences("updates", Context.MODE_PRIVATE)
         fresh = load()
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= 26) nm.createNotificationChannel(NotificationChannel(CHANNEL, "Chapter baru", NotificationManager.IMPORTANCE_DEFAULT).apply {
-            description = "Pemberitahuan chapter baru dari komik di bookmark"
-        })
+        if (Build.VERSION.SDK_INT >= 26) {
+            nm.createNotificationChannel(NotificationChannel(CHANNEL, "Chapter baru", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "Pemberitahuan chapter baru dari komik di bookmark"
+            })
+            nm.createNotificationChannel(NotificationChannel(CHANNEL_SOCIAL, "Balasan & aktivitas", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "Pemberitahuan saat komentarmu dibalas"
+            })
+        }
     }
 
     fun schedule(ctx: Context) {
@@ -129,6 +138,36 @@ object Updates {
         val n = NotificationCompat.Builder(ctx, CHANNEL).setSmallIcon(R.drawable.ic_notif).setAutoCancel(true).setContentIntent(pi)
             .setContentTitle(title.ifBlank { "Chapter baru" }).setContentText(if (number.isBlank()) "Chapter baru sudah tersedia" else "Chapter $number sudah tersedia").build()
         runCatching { nm.notify(seriesId.hashCode(), n) }
+    }
+
+    /**
+     * Push FCM: seseorang membalas komentar kita.
+     * Menampilkan notifikasi; ketuk → buka tab Aktivitas + fokus ke komentar bila target/id ada.
+     */
+    fun onReply(ctx: Context, title: String, body: String, target: String, commentId: Long, parentId: Long?) {
+        if (!::prefs.isInitialized) init(ctx)
+        if (target.isNotBlank() && commentId > 0) CommentFocus.set(target, commentId, parentId)
+        val nm = NotificationManagerCompat.from(ctx)
+        if (!nm.areNotificationsEnabled()) return
+        val open = Intent(ctx, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("openNotif", true)
+            if (target.isNotBlank()) putExtra("notifTarget", target)
+            if (commentId > 0) putExtra("notifCommentId", commentId)
+            parentId?.let { putExtra("notifParentId", it) }
+        }
+        val pi = PendingIntent.getActivity(ctx, (target + commentId).hashCode(), open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val n = NotificationCompat.Builder(ctx, CHANNEL_SOCIAL)
+            .setSmallIcon(R.drawable.ic_notif)
+            .setAutoCancel(true)
+            .setContentIntent(pi)
+            .setContentTitle(title.ifBlank { "Komentarmu dibalas" })
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .build()
+        runCatching { nm.notify(("reply:$commentId").hashCode(), n) }
+        // badge in-app naik dulu; angka pasti di-refresh saat buka layar notifikasi
+        if (NotifState.notif < 99) NotifState.notif = NotifState.notif + 1
     }
 
     /** Notifikasi manual dari admin (topic "all"). */

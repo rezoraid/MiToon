@@ -890,7 +890,7 @@ private fun AdminXpDialog(u: AdminUser, onApply: (AdminXpPatch) -> Unit, onCance
                     AdminChip("+/- EXP", mode == 2) { mode = 2; text = "" }
                 }
                 OutlinedTextField(
-                    text, { v -> text = v.filter { it.isDigit() || (it == '-' && mode == 2 && v.indexOf('-') == 0) }.take(13) },
+                    text, { v -> text = v.filter { it.isDigit() || (it == '-' && mode == 2 && v.indexOf('-') == 0) }.take(15) },
                     singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     label = { Text(when (mode) { 0 -> "Level baru (1–10000)"; 1 -> "EXP total baru"; else -> "Tambah / kurangi (mis. 500 atau -200)" }, color = Muted) },
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Accent, unfocusedBorderColor = CardLine, focusedTextColor = Color.White, unfocusedTextColor = Color.White)

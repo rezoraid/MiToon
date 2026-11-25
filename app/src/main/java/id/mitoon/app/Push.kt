@@ -9,8 +9,11 @@ import com.google.firebase.messaging.RemoteMessage
 import java.security.MessageDigest
 
 /**
- * Push realtime lewat FCM. Setiap komik di bookmark = satu topic `s_<sha1(seriesId)[0..24]>`; backend cukup mengirim satu pesan
- * ke topic itu saat chapter baru terdeteksi. Tanpa login pun jalan. Tanpa google-services.json, semuanya dilewati (pengecekan berkala tetap jalan).
+ * Push realtime lewat FCM.
+ *  - komik di bookmark → topic `s_<sha1(seriesId)[0..24]>` (chapter baru)
+ *  - topic `all` → broadcast admin
+ *  - user login → topic `u_<userId>` (balasan komentar)
+ * Tanpa google-services.json, semuanya dilewati.
  */
 object Push {
     private lateinit var appCtx: Context
@@ -20,6 +23,8 @@ object Push {
     fun topic(seriesId: String): String =
         "s_" + MessageDigest.getInstance("SHA-1").digest(seriesId.toByteArray()).joinToString("") { "%02x".format(it) }.take(24)
 
+    fun userTopic(userId: Long): String = "u_$userId"
+
     fun init(ctx: Context) {
         appCtx = ctx.applicationContext
         prefs = appCtx.getSharedPreferences("push", Context.MODE_PRIVATE)
@@ -27,6 +32,8 @@ object Push {
         if (ready) {
             if (!prefs.getBoolean("all", false)) runCatching { FirebaseMessaging.getInstance().subscribeToTopic("all").addOnSuccessListener { prefs.edit().putBoolean("all", true).apply() } }
             sync(Library.entries.values.filter { it.bookmarked }.map { it.id }.toSet())
+            // subscribe topic user bila sudah login
+            Auth.user?.id?.takeIf { it > 0 }?.let { syncUser(it) }
         }
     }
 
@@ -42,15 +49,40 @@ object Push {
         (have - want.keys).forEach { t -> fm.unsubscribeFromTopic(t).addOnSuccessListener { done.remove(t); save(done) } }
     }
 
+    /** Subscribe topic `u_<id>` saat login; unsubscribe topic user lama saat ganti akun / logout. */
+    @Synchronized
+    fun syncUser(userId: Long?) {
+        if (!ready) return
+        val fm = runCatching { FirebaseMessaging.getInstance() }.getOrNull() ?: return
+        val prev = prefs.getLong("uid", 0L)
+        val next = userId?.takeIf { it > 0 } ?: 0L
+        if (prev == next) return
+        if (prev > 0) runCatching { fm.unsubscribeFromTopic(userTopic(prev)) }
+        if (next > 0) runCatching { fm.subscribeToTopic(userTopic(next)) }
+        prefs.edit().putLong("uid", next).apply()
+    }
+
     @Synchronized private fun save(s: Set<String>) { prefs.edit().putStringSet("topics", s.toSet()).apply() }
 }
 
 class MiToonMessaging : FirebaseMessagingService() {
     override fun onMessageReceived(m: RemoteMessage) {
         val d = m.data
-        if (d["type"] == "broadcast") { Updates.onBroadcast(applicationContext, d["title"].orEmpty(), d["body"].orEmpty(), d["seriesId"]); return }
-        val sid = d["seriesId"] ?: return
-        Updates.onPush(applicationContext, sid, d["title"] ?: m.notification?.title.orEmpty(), d["chapter"].orEmpty(), d["chapterId"].orEmpty())
+        when (d["type"]) {
+            "broadcast" -> Updates.onBroadcast(applicationContext, d["title"].orEmpty(), d["body"].orEmpty(), d["seriesId"])
+            "reply" -> Updates.onReply(
+                applicationContext,
+                d["title"].orEmpty(),
+                d["body"].orEmpty(),
+                d["target"].orEmpty(),
+                d["commentId"]?.toLongOrNull() ?: 0L,
+                d["parentId"]?.toLongOrNull()
+            )
+            else -> {
+                val sid = d["seriesId"] ?: return
+                Updates.onPush(applicationContext, sid, d["title"] ?: m.notification?.title.orEmpty(), d["chapter"].orEmpty(), d["chapterId"].orEmpty())
+            }
+        }
     }
 
     override fun onNewToken(token: String) {}

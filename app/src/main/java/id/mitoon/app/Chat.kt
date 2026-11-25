@@ -190,7 +190,7 @@ fun ChatScreen(onBack: () -> Unit) {
                 Text("Public Chat", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
                 Text("Ngobrol bareng semua pembaca", color = Muted, fontSize = 11.sp, maxLines = 1)
             }
-            Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(Line), Alignment.Center) { Icon(Ic.Comment, null, tint = Color.White, modifier = Modifier.size(18.dp)) }
+            Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(Line), Alignment.Center) { Icon(Ic.Chat, null, tint = Color.White, modifier = Modifier.size(18.dp)) }
         }
         HorizontalDivider(color = Line, thickness = 1.dp)
 
@@ -313,38 +313,92 @@ private fun BubbleBody(m: ChatMsg, mine: Boolean, head: Boolean, whenText: Strin
     val bg = if (mine) (if (sending) Color(0xB33B3F4C) else Color(0xFF3B3F4C)) else Color(0xFF23252C)
     Column(modifier.widthIn(min = 64.dp, max = 290.dp).width(androidx.compose.foundation.layout.IntrinsicSize.Max).clip(shape).background(bg).padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 6.dp)) {
         if (head) {
-            // baris 1: nama + centang verified (kalau ada)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(m.user.name, color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false).clickable(onClick = onUser))
-                if (m.user.verified || m.user.isOwner) VerifiedBadge(Modifier.padding(start = 5.dp), 14.dp)
-            }
-            // baris 2: badge-badge (owner, premium, peran, level)
-            Row(Modifier.padding(top = 3.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (m.user.isOwner) OwnerBadge(Modifier, 14.dp)
-                if (m.user.premium) PremiumBadge(Modifier, 14.dp)
-                RoleBadge(roleFor(m.user.level), 16.dp)
-                LevelChip(m.user.level, size = 9)
+            // Satu baris rapat: nama · verified · owner/premium · peran · level (sejajar, tidak besar)
+            Row(
+                Modifier.padding(bottom = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                Text(
+                    m.user.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false).clickable(onClick = onUser)
+                )
+                if (m.user.verified || m.user.isOwner) VerifiedBadge(size = 13.dp)
+                if (m.user.isOwner) OwnerBadge(size = 13.dp)
+                if (m.user.premium) PremiumBadge(size = 13.dp)
+                RoleBadge(roleFor(m.user.level), 14.dp)
+                LevelChip(m.user.level, size = 8)
             }
         }
-        m.replyTo?.let { ReplyQuote(it, onLight = false) }
+        m.replyTo?.let { ReplyQuote(it) }
         Text(m.body, color = fg, fontSize = 14.5.sp, lineHeight = 20.sp)
         Text(whenText, color = timeColor, fontSize = 10.sp, maxLines = 1, modifier = Modifier.align(Alignment.End).padding(top = 3.dp))
     }
 }
 
-/** Kutipan pesan yang dibalas, di dalam gelembung. [onLight] = gelembung putih (pesan sendiri). */
+/**
+ * Warna stabil per nama (hash) supaya tiap user punya identitas visual di kutipan balasan.
+ * Palette cukup panjang agar jarang bentrok di ruang chat.
+ */
+private val ReplyPalette = listOf(
+    Color(0xFF6CC070), Color(0xFFE8825B), Color(0xFF5BA8E8), Color(0xFFC58BE8),
+    Color(0xFFE8C45B), Color(0xFF5BD6C4), Color(0xFFFF8A80), Color(0xFF81D4FA),
+    Color(0xFFFFB74D), Color(0xFFCE93D8), Color(0xFF80CBC4), Color(0xFFFFAB91)
+)
+
+/** Warna khusus bila yang dikutip adalah pesan kita sendiri — mudah dikenali. */
+private val ReplyMineColor = Color(0xFF6BCB77)
+
+private fun replyColorFor(userName: String, isMine: Boolean): Color {
+    if (isMine) return ReplyMineColor
+    val n = userName.trim()
+    if (n.isEmpty()) return ReplyPalette[0]
+    val h = n.fold(0) { acc, c -> acc * 31 + c.code }
+    return ReplyPalette[(h and 0x7fffffff) % ReplyPalette.size]
+}
+
+/** Apakah kutipan merujuk ke pesan milik kita (cocokkan nama tampilan / username). */
+private fun isReplyToMe(userName: String): Boolean {
+    val me = Auth.user ?: return false
+    val n = userName.trim()
+    if (n.isEmpty()) return false
+    return n.equals(me.name, ignoreCase = true) ||
+        n.equals(me.username, ignoreCase = true) ||
+        (me.displayName.isNotBlank() && n.equals(me.displayName, ignoreCase = true))
+}
+
+/**
+ * Kutipan pesan yang dibalas: bar + nama berwarna (identitas user), atau hijau khusus
+ * bila yang dikutip adalah pesan kita.
+ */
 @Composable
-private fun ReplyQuote(r: ChatReply, onLight: Boolean) {
-    val palette = listOf(Color(0xFF6CC070), Color(0xFFE8825B), Color(0xFF5BA8E8), Color(0xFFC58BE8), Color(0xFFE8C45B), Color(0xFF5BD6C4))
-    val bar = palette[(r.userName.hashCode() and 0x7fffffff) % palette.size]
-    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp).clip(RoundedCornerShape(12.dp)).background(if (onLight) Color(0x12000000) else Color(0x24FFFFFF)).height(androidx.compose.foundation.layout.IntrinsicSize.Min),
-        verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(4.dp).fillMaxHeight().background(bar))
-        Icon(Ic.Reply, null, tint = bar, modifier = Modifier.padding(start = 8.dp).size(14.dp))
-        Column(Modifier.weight(1f).padding(start = 8.dp, end = 10.dp, top = 6.dp, bottom = 6.dp)) {
-            Text(r.userName.ifBlank { "Pengguna" }, color = if (onLight) Color(0xFF3A3C44) else Color(0xFFE2E4EA), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(r.body, color = if (onLight) Color(0xFF55575F) else Muted, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+private fun ReplyQuote(r: ChatReply) {
+    val mine = isReplyToMe(r.userName)
+    val accent = replyColorFor(r.userName, mine)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(bottom = 6.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (mine) accent.copy(alpha = 0.14f) else Color(0x24FFFFFF))
+            .height(androidx.compose.foundation.layout.IntrinsicSize.Min),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.width(3.5.dp).fillMaxHeight().background(accent))
+        Column(Modifier.weight(1f).padding(start = 8.dp, end = 10.dp, top = 5.dp, bottom = 5.dp)) {
+            Text(
+                if (mine) "Kamu" else r.userName.ifBlank { "Pengguna" },
+                color = accent,
+                fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                r.body,
+                color = if (mine) Color(0xFFD0E8D3) else Muted,
+                fontSize = 12.sp, lineHeight = 16.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -366,26 +420,48 @@ private fun ChatComposer(modifier: Modifier = Modifier) {
         val focus = remember { androidx.compose.ui.focus.FocusRequester() }
         val target = ChatState.replying
         LaunchedEffect(target?.id) { if (target != null) runCatching { focus.requestFocus() } }
-        if (target != null) Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(16.dp)).background(Bg).border(1.dp, Line, RoundedCornerShape(16.dp)).padding(start = 12.dp, top = 6.dp, bottom = 6.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            Icon(Ic.Reply, null, tint = Muted, modifier = Modifier.size(16.dp))
-            Column(Modifier.weight(1f).padding(start = 10.dp)) {
+        if (target != null) Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(Bg)
+                .border(1.dp, Line, RoundedCornerShape(14.dp))
+                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
                 Text("Membalas ${target.user.name}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(target.body.replace('\n', ' '), color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            IconButton({ ChatState.replying = null }, Modifier.size(32.dp)) { Icon(Ic.Close, "Batal membalas", tint = Muted, modifier = Modifier.size(16.dp)) }
+            IconButton({ ChatState.replying = null }, Modifier.size(32.dp)) {
+                Icon(Ic.Close, "Batal membalas", tint = Muted, modifier = Modifier.size(16.dp))
+            }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(text, { if (it.length <= CHAT_MAX_LEN) text = it }, Modifier.weight(1f).focusRequester(focus), maxLines = 4, shape = RoundedCornerShape(16.dp), enabled = !muted,
-                placeholder = { Text("Tulis pesan…", color = Muted) },
+            // Foto profil pengirim di kiri kotak input (sama pola dengan komentar chapter)
+            val me = Auth.user
+            if (me != null) {
+                Avatar(me.id, me.name, me.avatarV, 36.dp, Modifier.padding(bottom = 10.dp))
+            }
+            OutlinedTextField(
+                text, { if (it.length <= CHAT_MAX_LEN) text = it },
+                Modifier.weight(1f).focusRequester(focus),
+                maxLines = 4, shape = RoundedCornerShape(16.dp), enabled = !muted,
+                placeholder = { Text(if (target != null) "Tulis balasan…" else "Tulis pesan…", color = Muted) },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color.White, unfocusedBorderColor = Color(0xFF4A4C53),
                     focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Color.White,
-                    focusedContainerColor = Bg, unfocusedContainerColor = Bg))
+                    focusedContainerColor = Bg, unfocusedContainerColor = Bg
+                )
+            )
             val ready = text.isNotBlank() && !muted
-            IconButton({ val t = text; text = ""; ChatState.send(t) { failed -> if (text.isBlank()) text = failed } }, Modifier.size(56.dp).clip(RoundedCornerShape(16.dp))
-                .background(if (ready) Color.White else Color(0xFF3A3C42)), enabled = ready) {
-                Icon(Ic.Right, "Kirim", tint = if (ready) Color.Black else Muted, modifier = Modifier.size(24.dp))
+            IconButton(
+                { val t = text; text = ""; ChatState.send(t) { failed -> if (text.isBlank()) text = failed } },
+                Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(if (ready) Color.White else Color(0xFF3A3C42)),
+                enabled = ready
+            ) {
+                Icon(Ic.Right, "Kirim", tint = if (ready) Color.Black else Muted, modifier = Modifier.size(22.dp))
             }
         }
     }

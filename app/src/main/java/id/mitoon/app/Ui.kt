@@ -254,7 +254,7 @@ fun Header(onSearch: () -> Unit, onBack: (() -> Unit)? = null) = Column {
         Text(LogoText, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
         if (onBack == null) { // header detail sudah penuh (tombol kembali); Public Chat cukup di layar utama
             val openChat = LocalOpenChat.current
-            IconButton(openChat) { Icon(Ic.Comment, "Public Chat", tint = Muted, modifier = Modifier.size(26.dp)) }
+            IconButton(openChat) { Icon(Ic.Chat, "Public Chat", tint = Muted, modifier = Modifier.size(26.dp)) }
         }
         IconButton(onSearch) { Icon(Ic.Search, "Cari", tint = Muted, modifier = Modifier.size(26.dp)) }
         val openNotif = LocalOpenNotif.current

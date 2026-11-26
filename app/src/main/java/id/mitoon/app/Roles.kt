@@ -57,10 +57,10 @@ val Roles: List<Role> = listOf(
     Role("Binge Reader", 35, RoleGlyph.Flame, listOf(Color(0xFFFFA48A), Color(0xFFFF4D6A)), "Maraton baca adalah keahlianmu."),
     Role("Series Master", 50, RoleGlyph.Stack, listOf(Color(0xFFFFD98A), Color(0xFFFF9F43)), "Rak seri demi rak kamu tamatkan. Api kecil menyala di atas lencana levelmu."),
     Role("Sensei", 100, RoleGlyph.Pen, listOf(Color(0xFFFFF1C2), Color(0xFFE8C972), Color(0xFFB8903A)), "Tingkat emas. Karangan daun emas melingkari lencana levelmu."),
-    Role("Curator", 500, RoleGlyph.Gem, listOf(Color(0xFFB6F5E0), Color(0xFF3FD1A1), Color(0xFF1E8F6B)), "Tingkat zamrud. Kristal zamrud tumbuh dari lencana levelmu."),
-    Role("Legend", 1000, RoleGlyph.Star, listOf(Color(0xFFC4E0FF), Color(0xFF5AA9FF), Color(0xFF3B6FE0)), "Tingkat safir. Sepasang sayap safir mengembang di sisi lencana."),
-    Role("Mythic", 3000, RoleGlyph.Bolt, listOf(Color(0xFFFFC2F0), Color(0xFFB58CFF), Color(0xFF7A4DE0)), "Tingkat ametis. Sayap ametis, lingkaran cahaya, dan bintang yang mengorbit."),
-    Role("Eternal", 5000, RoleGlyph.Infinity, listOf(Color(0xFFFF8AD8), Color(0xFFFFD98A), Color(0xFF8AFFD1), Color(0xFF8AC8FF), Color(0xFFC79BFF)), "Tingkat tertinggi. Mahkota prisma, sayap pelangi, dan galaksi di dalam lencana.", sweep = true)
+    Role("Curator", 500, RoleGlyph.Gem, listOf(Color(0xFFB6F5E0), Color(0xFF3FD1A1), Color(0xFF1E8F6B)), "Tingkat zamrud. Aurora zamrud, sinar cahaya berputar, dan kristal tumbuh dari lencana levelmu."),
+    Role("Legend", 1000, RoleGlyph.Star, listOf(Color(0xFFC4E0FF), Color(0xFF5AA9FF), Color(0xFF3B6FE0)), "Tingkat safir. Planet bercincin, komet yang mengorbit, bulan sabit, dan sinar cahaya berputar."),
+    Role("Mythic", 3000, RoleGlyph.Bolt, listOf(Color(0xFFFFC2F0), Color(0xFFB58CFF), Color(0xFF7A4DE0)), "Tingkat ametis. Galaksi spiral berputar, lingkaran cahaya, bulan sabit, dan bintang jatuh."),
+    Role("Eternal", 5000, RoleGlyph.Infinity, listOf(Color(0xFFFF8AD8), Color(0xFFFFD98A), Color(0xFF8AFFD1), Color(0xFF8AC8FF), Color(0xFFC79BFF)), "Tingkat tertinggi. Sinar prisma berputar, galaksi, dua cincin komet, sayap cahaya, dan mahkota.", sweep = true)
 )
 
 fun roleFor(level: Int): Role = Roles.last { level >= it.minLevel }

@@ -53,7 +53,7 @@ fun genreSlug(name: String) = name.lowercase().replace(NonAlnum, "-").trim('-')
 
 /** Dibuka dari ikon lonceng di header; diisi oleh AppScaffold. */
 val LocalOpenNotif = staticCompositionLocalOf<() -> Unit> { {} }
-/** Membuka Public Chat; dipakai ikon chat di header (menggantikan ikon streak). */
+/** Membuka Public Chat; dipakai banner chat di Beranda. */
 val LocalOpenChat = staticCompositionLocalOf<() -> Unit> { {} }
 
 /** Kotak genre: persegi, bisa ditekan. */
@@ -252,10 +252,7 @@ fun Header(onSearch: () -> Unit, onBack: (() -> Unit)? = null) = Column {
         Image(painterResource(R.drawable.logo), "MiToon", Modifier.size(34.dp).clip(R6))
         Spacer(Modifier.width(8.dp))
         Text(LogoText, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-        if (onBack == null) { // header detail sudah penuh (tombol kembali); Public Chat cukup di layar utama
-            val openChat = LocalOpenChat.current
-            IconButton(openChat) { Icon(Ic.Comment, "Public Chat", tint = Muted, modifier = Modifier.size(26.dp)) }
-        }
+        if (onBack == null) StreakChip()
         IconButton(onSearch) { Icon(Ic.Search, "Cari", tint = Muted, modifier = Modifier.size(26.dp)) }
         val openNotif = LocalOpenNotif.current
         IconButton(openNotif) {

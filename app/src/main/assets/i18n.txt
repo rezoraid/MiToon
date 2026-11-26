@@ -423,3 +423,7 @@ Streak & ranking||Streaks & ranking||Streak & kedudukan||Rachas y ranking||連�
 Baca tiap hari, naikkan level, dan panjat papan peringkat.||Read daily, level up, and climb the leaderboard.||Baca setiap hari, naikkan tahap dan panjat papan kedudukan.||Lee a diario, sube de nivel y escala en la clasificación.||毎日読んでレベルアップし、ランキングを駆け上がろう。
 Global Chat & komentar||Global Chat & comments||Sembang Global & komen||Chat global y comentarios||グローバルチャットとコメント
 Ngobrol bareng pembaca lain, di tiap komik atau obrolan global.||Chat with other readers, on every comic or in the global chat.||Berbual dengan pembaca lain, di setiap komik atau sembang global.||Charla con otros lectores, en cada cómic o en el chat global.||他の読者と、各コミックでもグローバルチャットでも交流できます。
+Public Chat||Public Chat||Sembang Awam||Chat público||パブリックチャット
+Ngobrol bareng semua pembaca||Chat with all readers||Berbual dengan semua pembaca||Charla con todos los lectores||すべての読者と交流
+Memuat obrolan…||Loading chat…||Memuatkan sembang…||Cargando chat…||チャットを読み込み中…
+Ketuk untuk membuka obrolan||Tap to open the chat||Ketik untuk buka sembang||Toca para abrir el chat||タップしてチャットを開く

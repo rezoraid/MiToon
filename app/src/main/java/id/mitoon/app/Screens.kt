@@ -49,7 +49,7 @@ fun TopBar(title: String, onBack: (() -> Unit)?, action: @Composable () -> Unit 
 private const val SHELF_PAGE = 24
 
 @Composable
-fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Unit, onPremium: () -> Unit = {}) {
+fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Unit, onChat: () -> Unit = {}) {
     val hv: HomeVm = viewModel()
     var sel by rememberSaveable { mutableStateOf("beranda") }
     val s = if (sel == "sorotan" || sel == "populer") "beranda" else sel // nilai lama dari versi sebelumnya
@@ -72,7 +72,7 @@ fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Uni
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                 item("pills", "pills") { Box(Modifier.padding(horizontal = 12.dp)) { Pills(tabs, s) { sel = it } } }
                 if (hv.spotlight.isNotEmpty()) item("spot", "spot") { Box(Modifier.padding(horizontal = 12.dp)) { Spotlight(hv.spotlight, onOpen) } }
-                item("premium", "premium") { PremiumPromo(onPremium, Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
+                item("chat", "chat") { ChatPromo(onChat, Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
                 item("t-rec", "title") { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Rekomendasi") } }
                 item("s-rec", "shelf") { SeriesShelf(rec, onOpen) }
                 item("t-upd", "title") { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Update Komik", onMore) } }

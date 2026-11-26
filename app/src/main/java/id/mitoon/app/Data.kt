@@ -654,6 +654,7 @@ class MiToonApp : Application(), ImageLoaderFactory {
         Downloads.init(this)
         Auth.init(this)
         Streak.init(this)
+        ChatState.init(this)
         CommentHistory.init(this)
         Updates.init(this)
         Updates.schedule(this)

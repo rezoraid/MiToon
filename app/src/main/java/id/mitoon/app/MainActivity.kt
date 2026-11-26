@@ -144,7 +144,7 @@ private fun AppScaffold() {
             composable("home") {
                 HomeScreen({ nav.detail(it) }, { nav.navigate("search") }, {
                     nav.navigate("explore") { popUpTo("home"); launchSingleTop = true; restoreState = true }
-                }, { if (Auth.isGuest) GuestGate.ask(GUEST_PREMIUM) else nav.navigate("premium") { launchSingleTop = true } })
+                }, openChat)
             }
             composable("explore") { ExploreScreen({ nav.detail(it) }, { nav.navigate("search") }) }
             composable("library") {

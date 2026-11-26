@@ -1,6 +1,9 @@
 package id.mitoon.app
 
+import android.content.Context
+import android.content.SharedPreferences
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -42,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -90,6 +94,7 @@ import retrofit2.HttpException
 const val CHAT_LIMIT = 50
 private const val CHAT_MAX_LEN = 500
 private const val CHAT_POLL_MS = 4_000L
+private const val CHAT_PUSH_POLL_MS = 15_000L
 private const val GROUP_GAP_MS = 5 * 60_000L
 
 const val GUEST_CHAT = "Masuk dengan Google dulu untuk ikut ngobrol."
@@ -107,6 +112,24 @@ object ChatState {
     var replying by mutableStateOf<ChatMsg?>(null)
 
     private var seq = 0L
+    private var prefs: SharedPreferences? = null
+    var seenId by mutableLongStateOf(-1L); private set
+
+    fun init(ctx: Context) {
+        prefs = ctx.applicationContext.getSharedPreferences("mitoon_chat", Context.MODE_PRIVATE)
+        seenId = prefs?.getLong("seen", -1L) ?: -1L
+    }
+
+    fun markSeen() {
+        val n = rows.maxOfOrNull { it.id } ?: return
+        if (n > seenId) { seenId = n; prefs?.edit()?.putLong("seen", n)?.apply() }
+    }
+
+    val unread: Int get() {
+        if (seenId < 0) return 0
+        val me = Auth.user?.id
+        return rows.count { it.id > seenId && it.user.id != me }
+    }
 
     private fun trim(l: List<ChatMsg>) = l.distinctBy { it.id }.sortedBy { it.id }.takeLast(CHAT_LIMIT)
 
@@ -115,6 +138,7 @@ object ChatState {
         try {
             rows = trim(Net.api.chat().data)
             error = null
+            if (seenId < 0) markSeen()
         } catch (e: CancellationException) { throw e } catch (e: Exception) {
             if (!loaded) error = e.friendly()
         } finally { loaded = true }
@@ -161,7 +185,76 @@ object ChatState {
         }
     }
 
-    fun clear() { rows = emptyList(); pending = emptyList(); replying = null; loaded = false; error = null; sendError = null }
+    fun clear() {
+        rows = emptyList(); pending = emptyList(); replying = null; loaded = false; error = null; sendError = null
+        seenId = -1L; prefs?.edit()?.remove("seen")?.apply()
+    }
+}
+
+// ---------------------------------------------------------------- banner di Beranda
+/** Kartu Public Chat di Beranda: pesan terbaru, peserta terakhir, dan jumlah pesan yang belum dibaca. */
+@Composable
+fun ChatPromo(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    LaunchedEffect(Unit) { while (true) { ChatState.refresh(); delay(CHAT_PUSH_POLL_MS) } }
+    val last = ChatState.rows.lastOrNull()
+    val unread = ChatState.unread
+    val online = ChatState.loaded && ChatState.error == null
+    val people = remember(ChatState.rows) { ChatState.rows.asReversed().map { it.user }.filter { it.id > 0 }.distinctBy { it.id }.take(3) }
+    val shape = RoundedCornerShape(20.dp)
+    Column(
+        modifier.fillMaxWidth().clip(shape).background(CardBg).border(1.dp, Line, shape)
+            .clickable(onClick = onClick).padding(14.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(40.dp).clip(RoundedCornerShape(13.dp)).background(Color(0xFF2B2E37)), Alignment.Center) {
+                Icon(Ic.Comment, null, tint = Color.White, modifier = Modifier.size(22.dp))
+            }
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Public Chat", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                    if (online) {
+                        val pulse = androidx.compose.animation.core.rememberInfiniteTransition(label = "live").animateFloat(
+                            0.35f, 1f,
+                            androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(900), androidx.compose.animation.core.RepeatMode.Reverse),
+                            label = "a"
+                        )
+                        Box(Modifier.padding(start = 8.dp).size(7.dp).alpha(pulse.value).background(Color(0xFF30D158), CircleShape))
+                    }
+                }
+                Text("Ngobrol bareng semua pembaca", color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (people.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy((-8).dp)) {
+                people.forEach { u -> Avatar(u.id, u.name, u.avatarV, 26.dp, Modifier.border(2.dp, CardBg, CircleShape)) }
+            }
+            if (unread > 0) Box(
+                Modifier.padding(start = 6.dp).heightIn(min = 22.dp).widthIn(min = 22.dp).clip(CircleShape).background(Color(0xFFE5484D)).padding(horizontal = 6.dp),
+                Alignment.Center
+            ) { Text(if (unread > 99) "99+" else "$unread", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1) }
+            else Icon(Ic.Right, null, tint = Muted, modifier = Modifier.padding(start = 4.dp).size(18.dp))
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Bg).padding(horizontal = 10.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (last != null) {
+                Avatar(last.user.id, last.user.name, last.user.avatarV, 28.dp)
+                Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(last.user.name, color = Color(0xFFE2E4EA), fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                        if (last.user.verified || last.user.isOwner) VerifiedBadge(Modifier.padding(start = 4.dp), 12.dp)
+                    }
+                    Text(last.body.replace(Regex("\\s+"), " "), color = if (unread > 0) Color.White else Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Text(clock(last.createdAt), color = Muted, fontSize = 10.sp, maxLines = 1)
+            } else {
+                Text(
+                    if (!ChatState.loaded) "Memuat obrolan…" else if (ChatState.error != null) "Ketuk untuk membuka obrolan" else "Belum ada pesan. Jadi yang pertama menyapa!",
+                    color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(vertical = 5.dp)
+                )
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------- layar
@@ -182,6 +275,7 @@ fun ChatScreen(onBack: () -> Unit) {
         if (newestId != null && (listState.firstVisibleItemIndex <= 1 || lastIsMine)) listState.animateScrollToItem(0)
     }
     val showJump by remember { derivedStateOf { listState.firstVisibleItemIndex > 3 } }
+    LaunchedEffect(newestId) { ChatState.markSeen() }
 
     Column(Modifier.fillMaxSize()) {
         // header

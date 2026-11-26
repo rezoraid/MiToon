@@ -184,26 +184,6 @@ fun ProfileBackdrop(userId: Long, theme: String, headerV: Int, blur: Int, pos: I
     }
 }
 
-// ------------------------------------------------------------------ kartu "Go Premium" di Home
-@Composable
-fun PremiumPromo(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val status = premiumStatusText(Auth.user)
-    val from = PremiumCatalogState.catalog.plans.minOfOrNull { it.price } ?: 7000
-    Row(
-        modifier.fillMaxWidth().clip(R6).background(CardBg)
-            .border(1.dp, Brush.linearGradient(listOf(Color(0x66FFE08A), Color(0x26FFB02E))), R6)
-            .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(Modifier.size(40.dp).clip(CircleShape).background(Color(0x22FFB02E)), Alignment.Center) { PremiumBadge(size = 22.dp) }
-        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            Text(if (status != null) "Premium aktif" else "Go Premium", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            Text(status ?: "Mulai ${rupiah(from)} · EXP lebih besar, frame & tema eksklusif", color = Muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        }
-        Icon(Ic.Right, null, tint = Muted)
-    }
-}
-
 // ------------------------------------------------------------------ halaman pembelian
 private val Perks = listOf(
     "Bonus EXP lebih besar" to "Semua perolehan EXP dikali %s (dibulatkan ke atas). Batas harian tetap sama.",

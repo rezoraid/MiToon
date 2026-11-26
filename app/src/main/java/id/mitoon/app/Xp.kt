@@ -47,6 +47,22 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
+/** Kurva level, identik dengan server (be/src/core/xp.ts): biaya naik dari L ke L+1 = 20 + 5k + k²/8 dengan k = L-1. */
+object Levels {
+    const val MAX = 10000
+    fun cost(level: Int): Long { val k = (level - 1).coerceAtLeast(0).toLong(); return 20L + 5L * k + k * k / 8L }
+    /** cum[L] = total XP minimum untuk mencapai level L. */
+    private val cum = LongArray(MAX + 1).also { for (l in 2..MAX) it[l] = it[l - 1] + cost(l - 1) }
+    val XP_MAX: Long = cum[MAX]
+    fun xpFor(level: Int): Long = cum[level.coerceIn(1, MAX)]
+    fun of(xp: Long): Int {
+        val x = xp.coerceAtLeast(0L)
+        var lo = 1; var hi = MAX
+        while (lo < hi) { val mid = (lo + hi + 1) ushr 1; if (cum[mid] <= x) lo = mid else hi = mid - 1 }
+        return lo
+    }
+}
+
 @Serializable data class XpReq(val type: String, val ref: String? = null)
 @Serializable data class XpRes(val gained: Int = 0, val user: AuthUser = AuthUser(), val streak: StreakRes? = null)
 
@@ -83,14 +99,12 @@ private class PillTheme(
     val fill: List<Color>, val space: Boolean, val rim: List<Color>, val text: Color, val glow: Color,
     /** putaran bingkai (ms), 0 = diam */ val spinMs: Int, val aura: Float,
     val stars: Int, val nebula: Int, val shoot: Boolean, val comets: Int, val spiral: Boolean,
-    /** partikel yang keluar dari tepi pill (0 = mati; mulai tipis dari Series Master / Lv.50) */ val emit: Int
+    /** hiasan yang keluar dari pill (null di bawah Lv. 50) */ val flair: Flair?
 )
 
 private val PillStars = intArrayOf(0, 1, 2, 3, 4, 5, 8, 10, 12, 15, 20)
 private val PillNebula = intArrayOf(0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3)
 private val PillSpin = intArrayOf(0, 0, 0, 0, 0, 0, 10000, 8000, 7000, 6000, 4500)
-/** Jumlah partikel yang memancar keluar: 0 sebelum Lv.50, lalu makin padat & mewah */
-private val PillEmit = intArrayOf(0, 0, 0, 0, 0, 3, 5, 7, 9, 12, 16)
 
 private fun pillTheme(level: Int): PillTheme {
     val i = roleIndex(level)
@@ -108,8 +122,8 @@ private fun pillTheme(level: Int): PillTheme {
         fill = fill, space = space, rim = cols + cols.first(),
         text = if (space) lerp(cols.first(), Color.White, 0.75f) else Color.White,
         glow = mid, spinMs = PillSpin[i], aura = if (i >= 4) 0.3f + 0.07f * (i - 4) else 0f,
-        stars = PillStars[i], nebula = PillNebula[i], shoot = i >= 6, comets = when { i >= 10 -> 2; i >= 8 -> 1; else -> 0 }, spiral = i >= 9,
-        emit = PillEmit[i]
+        stars = PillStars[i], nebula = PillNebula[i], shoot = i >= 6, comets = when { i >= 10 -> 2; i >= 9 -> 1; else -> 0 }, spiral = i >= 10,
+        flair = if (i >= 5) Flair(i, flairPower(level), cols) else null
     )
 }
 
@@ -223,38 +237,6 @@ private fun DrawScope.shootingStar(ms: Long, w: Float, h: Float, period: Int, of
     drawLine(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.9f * fade)), tail, head), tail, head, 1.3f.dp.toPx(), StrokeCap.Round)
 }
 
-/**
- * Partikel mewah yang keluar dari tepi pill: mulai dari Series Master (Lv.50) tipis,
- * makin tinggi makin padat, lebih jauh, dan berwarna. Tiap partikel punya fase & arah stabil.
- */
-private fun DrawScope.emitParticles(count: Int, ms: Long, w: Float, h: Float, tint: Color, strength: Float) {
-    if (count <= 0 || strength <= 0f) return
-    val cx = w / 2f; val cy = h / 2f
-    val reach = maxOf(w, h) * (0.55f + 0.35f * strength)
-    for (i in 0 until count) {
-        val per = 2200 + (hash01(i, 11) * 2800).toInt()
-        val p = cycle(ms + (hash01(i, 12) * per).toLong(), per)
-        // hanya tampil di separuh siklus, fade in/out lembut
-        if (p > 0.72f) continue
-        val k = p / 0.72f
-        val fade = minOf(1f, k * 4f, (1f - k) * 3.5f) * strength
-        val ang = hash01(i, 13) * TAU
-        val dist = (0.42f + 0.58f * k) * reach
-        val x = cx + cos(ang) * dist
-        val y = cy + sin(ang) * dist * 0.72f
-        val r = (0.7f + 1.1f * hash01(i, 14)) * (1.1f - 0.35f * k).dp.toPx()
-        val col = if (i % 3 == 0) tint else Color.White
-        drawCircle(col.copy(alpha = 0.55f * fade), r, Offset(x, y))
-        // kilau silang tipis di partikel paling terang
-        if (fade > 0.55f && hash01(i, 15) > 0.55f) {
-            val l = r * 2.4f
-            val a = 0.4f * fade
-            drawLine(col.copy(alpha = a), Offset(x - l, y), Offset(x + l, y), r * 0.35f, StrokeCap.Round)
-            drawLine(col.copy(alpha = a), Offset(x, y - l), Offset(x, y + l), r * 0.35f, StrokeCap.Round)
-        }
-    }
-}
-
 /** Lencana kecil "Lv. 12": pill kosmik dengan tema sesuai peran (lihat [LvPill]). */
 @Composable
 fun LevelChip(level: Int, modifier: Modifier = Modifier, size: Int = 10) = LvPill(level, "Lv. $level", modifier, size)
@@ -268,27 +250,28 @@ fun LvPill(level: Int, text: String, modifier: Modifier = Modifier, size: Int = 
     val t = remember(level) { pillTheme(level) }
     DisposableEffect(Unit) { LvClock.users++; onDispose { LvClock.users-- } }
     val base = LocalTextStyle.current
+    val unit = size
+    val pad = t.flair?.let { flairPad(it.tier, it.pw) }
+    val padX = ((pad?.x ?: 0f) * size).dp; val padT = ((pad?.top ?: 0f) * size).dp
     val shadow = if (t.space) Shadow(t.glow.copy(alpha = 0.95f), Offset.Zero, 7f) else Shadow(Color(0x66000000), Offset(0f, 1.5f), 3f)
     Text(text, color = t.text, fontSize = size.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, style = base.copy(shadow = shadow),
         modifier = modifier
+            .drawBehind { // hiasan di belakang pill: api, daun, kristal, sayap (mulai Lv. 50)
+                val fl = t.flair ?: return@drawBehind
+                val u = unit.dp.toPx()
+                drawFlair(fl, padX.toPx(), padT.toPx(), this.size.width - 2 * padX.toPx(), this.size.height - padT.toPx(), u, LvClock.ms)
+            }
+            .padding(start = padX, end = padX, top = padT)
             .drawBehind {
-                val ms = LvClock.ms
-                val w = this.size.width; val h = this.size.height
-                // aura di luar pill (sebelum clip) supaya tidak terpotong
-                if (t.aura > 0f) {
+                if (t.aura > 0f) { // aura: cahaya membulat di luar pill, berdenyut pelan
+                    val ms = LvClock.ms
                     val pulse = 0.65f + 0.35f * (0.5f - 0.5f * cos(TAU * cycle(ms, 3000)))
                     val gc = if (t.rim.size > 4) cycleColor(t.rim, cycle(ms, 7000)) else t.glow
                     for (n in 1..3) {
                         val g = n * 2.3.dp.toPx()
                         drawRoundRect(gc.copy(alpha = (t.aura * pulse * 0.2f / n).coerceAtMost(0.5f)), Offset(-g, -g),
-                            Size(w + 2 * g, h + 2 * g), CornerRadius(h / 2f + g))
+                            Size(this.size.width + 2 * g, this.size.height + 2 * g), CornerRadius(this.size.height / 2f + g))
                     }
-                }
-                // partikel keluar dari tepi pill — harus digambar SEBELUM clip agar terlihat di luar
-                if (t.emit > 0) {
-                    // strength 0.35 (Lv.50 tipis) → ~1.0 di Eternal
-                    val strength = (0.28f + 0.045f * t.emit).coerceAtMost(1f)
-                    emitParticles(t.emit, ms + level * 97L, w, h, t.glow, strength)
                 }
             }
             .clip(RoundedCornerShape(50))

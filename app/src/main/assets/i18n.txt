@@ -94,8 +94,8 @@ Chapters||Chapters||Bab||Capítulos||チャプター
 Chapters: {}||Chapters: {}||Bab: {}||Capítulos: {}||チャプター：{}
 Coba lagi||Try again||Cuba lagi||Reintentar||再試行
 Cubit untuk zoom, geser untuk mengatur posisi.||Pinch to zoom, drag to set the position.||Cubit untuk zum, seret untuk melaras kedudukan.||Pellizca para hacer zoom y arrastra para ajustar la posición.||ピンチでズーム、ドラッグで位置を調整します。
-DIBISUKAN {}||MUTED {}||DIBISUKAN {}||SILENCIADO {}||ミュート中 {}
-DIBLOKIR||BLOCKED||DISEKAT||BLOQUEADO||ブロック中
+Dibisukan {}||Muted {}||Dibisukan {}||Silenciado {}||ミュート中 {}
+Diblokir||Blocked||Disekat||Bloqueado||ブロック中
 Daftar chapter||Chapter list||Senarai bab||Lista de capítulos||チャプター一覧
 Data diambil lagi dari sumber dan bisa memakan waktu. Batas {}x per hari, sisa {} kali hari ini. Jangan dipakai berulang tanpa perlu.||Data is fetched again from the source and may take a while. Limit {}x per day, {} left today. Please don't use it repeatedly without need.||Data diambil semula daripada sumber dan mungkin mengambil masa. Had {}x sehari, baki {} kali hari ini. Jangan guna berulang tanpa perlu.||Los datos se obtienen de nuevo de la fuente y puede tardar. Límite {}x al día, quedan {} hoy. No lo uses repetidamente sin necesidad.||データを元のソースから再取得するため時間がかかる場合があります。1日{}回まで、本日の残り{}回。不要な連続使用はお控えください。
 Dibisukan||Muted||Dibisukan||Silenciado||ミュート中
@@ -215,7 +215,7 @@ Premium diberikan||Premium granted||Premium diberikan||Premium otorgado||プレ�
 Premium dicabut||Premium revoked||Premium ditarik balik||Premium revocado||プレミアムを取り消しました
 Profil||Profile||Profil||Perfil||プロフィール
 Pustaka pribadi||Personal library||Pustaka peribadi||Biblioteca personal||マイライブラリ
-Rak seri demi rak kamu tamatkan.||You finish shelf after shelf of series.||Rak siri demi rak anda tamatkan.||Terminas estante tras estante de series.||棚ごとに作品を読破していきます。
+Rak seri demi rak kamu tamatkan. Api kecil menyala di atas lencana levelmu.||You finish shelf after shelf of series. A small flame burns above your level badge.||Rak siri demi rak anda tamatkan. Api kecil menyala di atas lencana tahap anda.||Terminas estante tras estante de series. Una pequeña llama arde sobre tu insignia de nivel.||棚ごとに作品を読破します。レベルバッジの上に小さな炎が灯ります。
 Refresh||Refresh||Muat semula||Actualizar||更新
 Reset||Reset||Tetap semula||Restablecer||リセット
 Reset nama tampilan||Reset display name||Tetap semula nama paparan||Restablecer nombre visible||表示名をリセット
@@ -263,11 +263,11 @@ Tersimpan||Saved||Disimpan||Guardado||保存しました
 Tidak ada koneksi internet||No internet connection||Tiada sambungan internet||Sin conexión a internet||インターネットに接続されていません
 Tidak melewatkan satu panel pun.||Not missing a single panel.||Tidak terlepas satu panel pun.||Sin perderte ni una viñeta.||コマを一つも見逃しません。
 Tidak suka||Dislike||Tidak suka||No me gusta||よくないね
-Tingkat ametis. Bingkai level berdenyut.||Amethyst tier. The level frame pulses.||Peringkat ametis. Bingkai tahap berdenyut.||Nivel amatista. El marco de nivel pulsa.||アメジスト段階。レベル枠が脈打ちます。
-Tingkat emas. Bingkai level berwarna emas.||Gold tier. The level frame is gold.||Peringkat emas. Bingkai tahap berwarna emas.||Nivel oro. El marco de nivel es dorado.||ゴールド段階。レベル枠が金色になります。
-Tingkat safir. Bingkai level berputar pelan.||Sapphire tier. The level frame rotates slowly.||Peringkat nilam. Bingkai tahap berputar perlahan.||Nivel zafiro. El marco de nivel gira despacio.||サファイア段階。レベル枠がゆっくり回転します。
-Tingkat tertinggi. Warna prisma.||Highest tier. Prism colors.||Peringkat tertinggi. Warna prisma.||Nivel máximo. Colores de prisma.||最高段階。プリズムカラー。
-Tingkat zamrud. Bingkai level berkilau.||Emerald tier. The level frame sparkles.||Peringkat zamrud. Bingkai tahap berkilau.||Nivel esmeralda. El marco de nivel brilla.||エメラルド段階。レベル枠がきらめきます。
+Tingkat ametis. Sayap ametis, lingkaran cahaya, dan bintang yang mengorbit.||Amethyst tier. Amethyst wings, a halo, and orbiting stars.||Peringkat kecubung. Sayap kecubung, lingkaran cahaya dan bintang yang mengorbit.||Nivel amatista. Alas de amatista, un halo y estrellas en órbita.||アメジスト段階。アメジストの翼、光輪、周回する星。
+Tingkat emas. Karangan daun emas melingkari lencana levelmu.||Gold tier. A golden laurel wreath surrounds your level badge.||Peringkat emas. Kalungan daun emas mengelilingi lencana tahap anda.||Nivel oro. Una corona de laurel dorada rodea tu insignia de nivel.||ゴールド段階。金の月桂冠がレベルバッジを囲みます。
+Tingkat safir. Sepasang sayap safir mengembang di sisi lencana.||Sapphire tier. A pair of sapphire wings spreads beside the badge.||Peringkat nilam. Sepasang sayap nilam terbentang di sisi lencana.||Nivel zafiro. Un par de alas de zafiro se despliega junto a la insignia.||サファイア段階。バッジの両側にサファイアの翼が広がります。
+Tingkat tertinggi. Mahkota prisma, sayap pelangi, dan galaksi di dalam lencana.||Highest tier. A prism crown, rainbow wings, and a galaxy inside the badge.||Peringkat tertinggi. Mahkota prisma, sayap pelangi dan galaksi di dalam lencana.||Nivel máximo. Corona de prisma, alas arcoíris y una galaxia dentro de la insignia.||最高段階。プリズムの王冠、虹色の翼、バッジの中の銀河。
+Tingkat zamrud. Kristal zamrud tumbuh dari lencana levelmu.||Emerald tier. Emerald crystals grow from your level badge.||Peringkat zamrud. Hablur zamrud tumbuh daripada lencana tahap anda.||Nivel esmeralda. Cristales de esmeralda crecen de tu insignia de nivel.||エメラルド段階。エメラルドの結晶がレベルバッジから生えます。
 Total XP||Total XP||Jumlah XP||XP total||合計XP
 Total: {}||Total: {}||Jumlah: {}||Total: {}||合計：{}
 Total: {} komentar||Total: {} comments||Jumlah: {} komen||Total: {} comentarios||合計：コメント{}件
@@ -415,7 +415,7 @@ Belum membaca hari ini||Not read today||Belum membaca hari ini||Aún no has leí
 Kembali besok untuk melanjutkan streak!||Come back tomorrow to keep your streak going!||Kembali esok untuk meneruskan streak!||¡Vuelve mañana para mantener tu racha!||明日また来て連続記録を続けましょう！
 Baca satu chapter sebelum tengah malam (WIB) supaya apimu tidak padam.||Read one chapter before midnight (WIB) so your flame doesn't go out.||Baca satu bab sebelum tengah malam (WIB) supaya api anda tidak padam.||Lee un capítulo antes de la medianoche (WIB) para que tu llama no se apague.||炎を消さないよう、深夜0時（WIB）までに1話読みましょう。
 Baca satu chapter hari ini untuk menyalakan api. Tiap hari berturut-turut menambah streak-mu.||Read one chapter today to light the flame. Every consecutive day adds to your streak.||Baca satu bab hari ini untuk menyalakan api. Setiap hari berturut-turut menambah streak anda.||Lee un capítulo hoy para encender la llama. Cada día seguido suma a tu racha.||今日1話読んで炎を灯しましょう。毎日続けるほど連続記録が伸びます。
-SELAMAT DATANG DI||WELCOME TO||SELAMAT DATANG KE||BIENVENIDO A||ようこそ
+Selamat datang di||Welcome to||Selamat datang ke||Bienvenido a||ようこそ
 Lewati||Skip||Langkau||Omitir||スキップ
 Semua ada di sini||Everything is here||Semuanya ada di sini||Todo está aquí||すべてここに
 Simpan favoritmu dan lanjutkan dari chapter terakhir.||Save your favorites and continue from your last chapter.||Simpan kegemaran anda dan sambung dari bab terakhir.||Guarda tus favoritos y continúa desde el último capítulo.||お気に入りを保存して、最後に読んだ話から再開できます。

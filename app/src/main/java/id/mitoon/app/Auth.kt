@@ -37,7 +37,7 @@ import javax.crypto.spec.GCMParameterSpec
     /** Sisa detik sebelum username boleh diganti lagi (saat respons dibuat). 0 = boleh sekarang. */
     val usernameCooldownSec: Long = 0,
     /** XP total, level, XP terkumpul di level ini, dan XP yang dibutuhkan untuk naik level (dari server). */
-    val xp: Long = 0, val level: Int = 1, val levelXp: Int = 0, val levelNeed: Int = 40,
+    val xp: Long = 0, val level: Int = 1, val levelXp: Int = 0, val levelNeed: Int = 20,
     /** Lencana centang biru; ditetapkan server (mis. akun owner), tidak bisa diubah dari aplikasi. */
     val verified: Boolean = false,
     /** true jika akun owner (email di OWNER_EMAILS) — bisa akses panel admin */
@@ -120,7 +120,7 @@ object Auth {
         user = if (token != null) AuthUser(
             id = prefs.getLong("i", 0), username = prefs.getString("u", "").orEmpty(), avatarV = prefs.getInt("v", 0),
             displayName = prefs.getString("n", "").orEmpty(), bio = prefs.getString("b", "").orEmpty(), xp = if (prefs.contains("xpl")) prefs.getLong("xpl", 0L) else prefs.getInt("xp", 0).toLong(),
-            level = prefs.getInt("lv", 1).coerceAtLeast(1), levelXp = prefs.getInt("lx", 0), levelNeed = prefs.getInt("ln", 40), verified = prefs.getBoolean("vf", false), isOwner = prefs.getBoolean("io", false), premium = prefs.getBoolean("pm", false), verifiedHidden = prefs.getBoolean("vh", false), readingHidden = prefs.getBoolean("rh", false)
+            level = prefs.getInt("lv", 1).coerceAtLeast(1), levelXp = prefs.getInt("lx", 0), levelNeed = prefs.getInt("ln", 20), verified = prefs.getBoolean("vf", false), isOwner = prefs.getBoolean("io", false), premium = prefs.getBoolean("pm", false), verifiedHidden = prefs.getBoolean("vh", false), readingHidden = prefs.getBoolean("rh", false)
         ) else null
         usernameUnlockAt = if (token != null) prefs.getLong("x", 0) else 0L
     }
@@ -144,7 +144,6 @@ object Auth {
         Streak.clear()
         Xp.event("daily")
         Library.scheduleSync()
-        Push.syncUser(r.user.id)
     }
 
     /** Data akun terbaru (mis. setelah ganti foto) tanpa mengubah token. */
@@ -155,7 +154,6 @@ object Auth {
         user = u
         usernameUnlockAt = unlockAt(u)
         if (prefs.contains("t")) prefs.edit().putString("u", u.username).putLong("i", u.id).putInt("v", u.avatarV).putString("n", u.displayName).putString("b", u.bio).putLong("x", usernameUnlockAt).also { it.putXp(u) }.apply()
-        Push.syncUser(u.id)
     }
 
     /** Ubah lokal saja (layar + disk) tanpa menyentuh waktu cooldown username; dasar untuk perubahan optimistik. */
@@ -193,7 +191,7 @@ object Auth {
     private fun unlockAt(u: AuthUser): Long = if (u.usernameCooldownSec > 0) System.currentTimeMillis() + u.usernameCooldownSec * 1000 else 0L
 
     fun logout() {
-        visitor = false; token = null; user = null; menuOpen = false; roleUnlocked = null; usernameUnlockAt = 0L; Xp.reset(); Streak.clear(); ChatState.clear(); Library.onLogout(); Push.syncUser(null)
+        visitor = false; token = null; user = null; menuOpen = false; roleUnlocked = null; usernameUnlockAt = 0L; Xp.reset(); Streak.clear(); ChatState.clear(); Library.onLogout()
         prefs.edit().clear().apply()
     }
 

@@ -41,25 +41,11 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         safeSeriesId(intent.getStringExtra("series"))?.let { Updates.pendingOpen = it }
-        applyNotifIntent(intent)
     }
-
-    private fun applyNotifIntent(intent: android.content.Intent?) {
-        if (intent?.getBooleanExtra("openNotif", false) != true) return
-        Updates.pendingNotif = true
-        val target = intent.getStringExtra("notifTarget").orEmpty()
-        val cid = intent.getLongExtra("notifCommentId", 0L)
-        if (target.isNotBlank() && cid > 0) {
-            val pid = if (intent.hasExtra("notifParentId")) intent.getLongExtra("notifParentId", 0L) else null
-            CommentFocus.set(target, cid, pid?.takeIf { it > 0 })
-        }
-    }
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         safeSeriesId(intent?.getStringExtra("series"))?.let { Updates.pendingOpen = it }
-        applyNotifIntent(intent)
         Updates.askNotif = { if (android.os.Build.VERSION.SDK_INT >= 33) notifPerm.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
         // Aplikasi selalu gelap: ikon status/navigasi harus terang, apa pun mode sistem perangkat.
         enableEdgeToEdge(
@@ -125,12 +111,6 @@ private fun AppScaffold() {
     val bookmarkCount = Library.entries.values.count { it.bookmarked }
     LaunchedEffect(bookmarkCount > 0) { if (bookmarkCount > 0) Updates.ensurePermission(appCtx) }
     LaunchedEffect(Updates.pendingOpen) { Updates.pendingOpen?.let { Updates.pendingOpen = null; nav.detail(it) } }
-    LaunchedEffect(Updates.pendingNotif) {
-        if (Updates.pendingNotif) {
-            Updates.pendingNotif = false
-            if (!Auth.isGuest) nav.navigate("notifications") { launchSingleTop = true }
-        }
-    }
     LaunchedEffect(Auth.menuOpen) { if (Auth.menuOpen) { Auth.menuOpen = false; nav.navigate("profile") { launchSingleTop = true } } }
     val openUser: (Long) -> Unit = { id -> if (id == Auth.user?.id) nav.navigate("profile") { launchSingleTop = true } else nav.navigate("user/$id") { launchSingleTop = true } }
     Auth.roleUnlocked?.let { r ->

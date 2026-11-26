@@ -205,9 +205,9 @@ fun SeriesCard(s: Series, up: Boolean, sub: String? = null, showRating: Boolean 
                 Text(remember(it) { "%.1f".format(it) }, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
-        if (badge > 0) Text("$badge BARU", color = OnAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+        if (badge > 0) Text("$badge baru", color = OnAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.TopEnd).padding(5.dp).background(Accent, RoundedCornerShape(2.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
-        else if (up) Text("UP", color = OnAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+        else if (up) Text("Up", color = OnAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.TopEnd).padding(5.dp).background(Accent, RoundedCornerShape(2.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 6.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(s.title, color = Color.White, fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
@@ -254,7 +254,7 @@ fun Header(onSearch: () -> Unit, onBack: (() -> Unit)? = null) = Column {
         Text(LogoText, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
         if (onBack == null) { // header detail sudah penuh (tombol kembali); Public Chat cukup di layar utama
             val openChat = LocalOpenChat.current
-            IconButton(openChat) { Icon(Ic.Chat, "Public Chat", tint = Muted, modifier = Modifier.size(26.dp)) }
+            IconButton(openChat) { Icon(Ic.Comment, "Public Chat", tint = Muted, modifier = Modifier.size(26.dp)) }
         }
         IconButton(onSearch) { Icon(Ic.Search, "Cari", tint = Muted, modifier = Modifier.size(26.dp)) }
         val openNotif = LocalOpenNotif.current

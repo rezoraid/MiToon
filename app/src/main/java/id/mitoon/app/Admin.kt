@@ -603,8 +603,8 @@ private fun AdminUsersTab() {
                                 }
                                 Text("@${u.username} · Lv ${u.level} · XP ${u.xp} · ${u.commentCount} komentar", color = Muted, fontSize = 12.sp)
                                 if (u.email != null) Text(u.email, color = Muted, fontSize = 11.sp)
-                                if (u.banned) Text("DIBLOKIR" + if (u.banReason.isNotBlank()) ": ${u.banReason}" else "", color = RedText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                if (mutedNow) Text("DIBISUKAN ${muteUntilText(u.mutedUntil)}" + if (u.muteReason.isNotBlank()) " · ${u.muteReason}" else "", color = AmberText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                if (u.banned) Text("Diblokir" + if (u.banReason.isNotBlank()) ": ${u.banReason}" else "", color = RedText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                if (mutedNow) Text("Dibisukan ${muteUntilText(u.mutedUntil)}" + if (u.muteReason.isNotBlank()) " · ${u.muteReason}" else "", color = AmberText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                         if (open) {
@@ -862,10 +862,9 @@ private fun PushSwitch(label: String, hint: String, on: Boolean, enabled: Boolea
 // ---------------------------------------------------------------- level / EXP
 
 /** Batas XP = XP minimum Lv. 10.000 (sama dengan server). */
-private const val ADMIN_XP_MAX = 333_933_529_974L
-private fun adminLevelCost(level: Int): Long = 40L + 15L * (level - 1) + (level - 1).toLong() * (level - 1)
-private fun adminXpForLevel(level: Int): Long { var t = 0L; for (l in 1 until level.coerceIn(1, 10000)) t += adminLevelCost(l); return t }
-private fun adminLevelOf(xp: Long): Int { var lv = 1; var left = xp.coerceAtLeast(0); while (left >= adminLevelCost(lv) && lv < 10000) { left -= adminLevelCost(lv); lv++ }; return lv }
+private val ADMIN_XP_MAX = Levels.XP_MAX
+private fun adminXpForLevel(level: Int): Long = Levels.xpFor(level)
+private fun adminLevelOf(xp: Long): Int = Levels.of(xp)
 
 /** Dialog atur level / EXP: pilih mode, isi angka, lihat pratinjau hasil, lalu terapkan. */
 @Composable
@@ -874,7 +873,7 @@ private fun AdminXpDialog(u: AdminUser, onApply: (AdminXpPatch) -> Unit, onCance
     var text by remember { mutableStateOf("") }
     val n = text.toLongOrNull()
     val result: Long? = when (mode) {
-        0 -> n?.takeIf { it in 1..10000 }?.let { adminXpForLevel(it.toInt()) }
+        0 -> n?.takeIf { it in 1..Levels.MAX.toLong() }?.let { adminXpForLevel(it.toInt()) }
         1 -> n?.takeIf { it in 0..ADMIN_XP_MAX }
         else -> n?.takeIf { it in -ADMIN_XP_MAX..ADMIN_XP_MAX }?.let { (u.xp + it).coerceIn(0L, ADMIN_XP_MAX) }
     }
@@ -890,9 +889,9 @@ private fun AdminXpDialog(u: AdminUser, onApply: (AdminXpPatch) -> Unit, onCance
                     AdminChip("+/- EXP", mode == 2) { mode = 2; text = "" }
                 }
                 OutlinedTextField(
-                    text, { v -> text = v.filter { it.isDigit() || (it == '-' && mode == 2 && v.indexOf('-') == 0) }.take(15) },
+                    text, { v -> text = v.filter { it.isDigit() || (it == '-' && mode == 2 && v.indexOf('-') == 0) }.take(13) },
                     singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    label = { Text(when (mode) { 0 -> "Level baru (1–10000)"; 1 -> "EXP total baru"; else -> "Tambah / kurangi (mis. 500 atau -200)" }, color = Muted) },
+                    label = { Text(when (mode) { 0 -> "Level baru (1–${Levels.MAX})"; 1 -> "EXP total baru"; else -> "Tambah / kurangi (mis. 500 atau -200)" }, color = Muted) },
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Accent, unfocusedBorderColor = CardLine, focusedTextColor = Color.White, unfocusedTextColor = Color.White)
                 )
                 if (result != null) Text("Hasil: Level ${adminLevelOf(result)} · $result XP", color = Color(0xFF6BCB77), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)

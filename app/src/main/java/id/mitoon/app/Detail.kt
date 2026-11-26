@@ -423,33 +423,9 @@ object ReaderPrefs {
     @JvmName("applyAutoNext") fun setAutoNext(v: Boolean) { autoNext = v; prefs?.edit()?.putBoolean("a", v)?.apply() }
 }
 
-/**
- * Progress baca per chapter (indeks halaman 0-based), lokal di perangkat.
- * Dibuka lagi → lanjut dari posisi terakhir; selesai (halaman akhir) → dihapus.
- */
-object ReadProgress {
-    private var prefs: SharedPreferences? = null
-    fun init(ctx: Context) {
-        if (prefs == null) prefs = ctx.getSharedPreferences("read_progress", Context.MODE_PRIVATE)
-    }
-    /** Indeks halaman terakhir (0 = awal). */
-    fun pageOf(chapterId: String): Int = prefs?.getInt(chapterId, 0)?.coerceAtLeast(0) ?: 0
-    fun save(chapterId: String, pageIndex: Int, total: Int) {
-        val p = prefs ?: return
-        if (total <= 0) return
-        // Selesai / hampir selesai → hapus supaya buka lagi mulai dari atas
-        if (pageIndex >= total - 1) {
-            p.edit().remove(chapterId).apply()
-        } else if (pageIndex > 0) {
-            p.edit().putInt(chapterId, pageIndex).apply()
-        }
-    }
-}
-
 @Composable
 fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeries: () -> Unit, onChapter: (String) -> Unit) {
     ReaderPrefs.init(LocalContext.current.applicationContext)
-    ReadProgress.init(LocalContext.current.applicationContext)
     var tick by remember { mutableIntStateOf(0) }
     // Chapter yang sudah diunduh dibaca dari file lokal (tanpa internet); selain itu dari server seperti biasa.
     val local = remember(chapterId) { Downloads.content(chapterId) }
@@ -595,25 +571,6 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     val total = c?.images?.size ?: 0
     val page = (listState.firstVisibleItemIndex + 1).coerceIn(1, maxOf(total, 1))
     val atEnd = total > 0 && !listState.canScrollForward
-    // Pulihkan posisi baca tersimpan sekali setelah gambar chapter siap
-    var restored by remember(chapterId) { mutableStateOf(false) }
-    LaunchedEffect(chapterId, total) {
-        if (restored || total <= 1) return@LaunchedEffect
-        val saved = ReadProgress.pageOf(chapterId).coerceIn(0, total - 1)
-        if (saved > 0) {
-            // Tunggu layout sedikit agar scrollToItem akurat
-            delay(50)
-            runCatching { listState.scrollToItem(saved) }
-        }
-        restored = true
-    }
-    // Simpan progress saat menggulir (setelah restore selesai)
-    LaunchedEffect(chapterId, total, restored) {
-        if (!restored || total <= 0) return@LaunchedEffect
-        snapshotFlow { listState.firstVisibleItemIndex }.collect { idx ->
-            ReadProgress.save(chapterId, idx, total)
-        }
-    }
     LaunchedEffect(atEnd) { if (atEnd) bars = true }
     LaunchedEffect(atEnd, total) { if (total > 0 && !atEnd) { sawNotEnd = true; dismissed = false } }
     LaunchedEffect(atEnd, sawNotEnd, dismissed, playing, leaving, c?.next, ReaderPrefs.autoNext, ReaderPrefs.pause) {
@@ -823,7 +780,7 @@ private fun Segmented(options: List<String>, selected: Int, enabled: Boolean = t
 
 @Composable
 private fun SectionLabel(text: String) =
-    Text(text, color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.2.sp, modifier = Modifier.padding(start = 6.dp, top = 12.dp, bottom = 2.dp))
+    Text(text, color = Color(0xFFC9CCD4), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp, top = 14.dp, bottom = 2.dp))
 
 @Composable
 private fun SettingCard(content: @Composable ColumnScope.() -> Unit) =
@@ -852,7 +809,7 @@ private fun SettingRow(
         IconTile(color, icon)
         Column(Modifier.padding(start = 14.dp, end = 8.dp).weight(1f)) {
             Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            if (desc != null) Text(desc, color = Muted, fontSize = 12.5.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 1.dp))
+            if (desc != null) Text(desc, color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 1.dp))
         }
         trailing()
     }
@@ -865,9 +822,9 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), containerColor = SheetBg, contentColor = Color.White) {
         KeepBarsHidden()
         Column(Modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth().padding(start = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Pengaturan baca", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                Box(Modifier.size(34.dp).clip(RoundedCornerShape(11.dp)).background(SheetChip).clickable(onClick = onDismiss), Alignment.Center) { Icon(Ic.Close, "Tutup", tint = Color(0xFFD7D9DF), modifier = Modifier.size(18.dp)) }
+            Row(Modifier.fillMaxWidth().padding(start = 6.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Pengaturan baca", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(SheetChip).clickable(onClick = onDismiss), Alignment.Center) { Icon(Ic.Close, "Tutup", tint = Color(0xFFD7D9DF), modifier = Modifier.size(19.dp)) }
             }
 
             SectionLabel("Auto-scroll")

@@ -72,7 +72,7 @@ fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Uni
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                 item("pills", "pills") { Box(Modifier.padding(horizontal = 12.dp)) { Pills(tabs, s) { sel = it } } }
                 if (hv.spotlight.isNotEmpty()) item("spot", "spot") { Box(Modifier.padding(horizontal = 12.dp)) { Spotlight(hv.spotlight, onOpen) } }
-                item("chat", "chat") { ChatPromo(onChat, Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
+                item("chat", "chat") { ChatPromo(onChat, Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) }
                 item("t-rec", "title") { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Rekomendasi") } }
                 item("s-rec", "shelf") { SeriesShelf(rec, onOpen) }
                 item("t-upd", "title") { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Update Komik", onMore) } }

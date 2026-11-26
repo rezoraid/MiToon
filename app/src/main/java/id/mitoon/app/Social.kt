@@ -458,9 +458,11 @@ private fun CommentRow(c: Comment, mine: Boolean, feed: CommentFeed, isReply: Bo
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(c.user.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false).clickable(onClick = openAuthor))
                 StatusBadges(c.user.verified, c.user.isOwner, c.user.premium, size = 14.dp)
-                RoleBadge(roleFor(c.user.level), 16.dp, Modifier.padding(start = 6.dp))
-                LevelChip(c.user.level, Modifier.padding(start = 4.dp), size = 9)
                 Text("  ·  $whenText", color = Muted, fontSize = 12.sp, maxLines = 1)
+            }
+            Row(Modifier.padding(top = 6.dp, bottom = 3.dp).heightIn(min = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                RoleBadge(roleFor(c.user.level), 18.dp)
+                LevelChip(c.user.level, size = 9)
             }
             if (c.replyTo.isNotBlank()) Text("Membalas ${c.replyTo}", color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
             Text(c.body, color = Color.White, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 3.dp))

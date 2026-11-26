@@ -26,16 +26,18 @@ private val R16 = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
 
 /** Halaman akun: kartu profil (foto bulat, nama, status Owner/Premium, peran + level, XP) lalu menu dalam kartu berkelompok + Keluar. */
 @Composable
-fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit, onAccount: () -> Unit, onRoles: () -> Unit = {}, onAdmin: () -> Unit = {}, onPrivacy: () -> Unit = {}) {
+fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit, onAccount: () -> Unit, onRoles: () -> Unit = {}, onAdmin: () -> Unit = {}, onPrivacy: () -> Unit = {}, onPremium: () -> Unit = {}) {
     val user = Auth.user
     if (user == null) { VisitorProfile(onBack); return }
     Column(Modifier.fillMaxSize().background(Bg)) {
         SubTopBar("Akun", onBack)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             // ---- kartu profil
-            Column(Modifier.fillMaxWidth().clip(R16).border(1.dp, CardLine, R16).background(CardBg).clickable(onClick = onEdit).padding(16.dp)) {
+            Box(Modifier.fillMaxWidth().clip(R16).border(1.dp, CardLine, R16).background(CardBg).clickable(onClick = onEdit)) {
+              ProfileBackdrop(user.id, user.theme, user.headerV, user.headerBlur, user.headerPos, 140.dp)
+              Column(Modifier.fillMaxWidth().padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Avatar(user.id, user.name, user.avatarV, 72.dp, shape = androidx.compose.foundation.shape.CircleShape)
+                    FramedAvatar(user.id, user.name, user.avatarV, 72.dp, user.frame)
                     Column(Modifier.weight(1f).padding(start = 16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(user.name, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
@@ -46,17 +48,20 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
                     }
                     Icon(Ic.Right, null, tint = Muted, modifier = Modifier.size(24.dp))
                 }
-                Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.padding(top = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     RoleTag(user.level, iconSize = 22.dp)
-                    LevelChip(user.level, Modifier.padding(start = 8.dp), size = 11)
+                    LevelChip(user.level, Modifier, size = 11)
                 }
                 if (user.bio.isNotBlank()) Text(user.bio, color = Color(0xFFD7D9DE), fontSize = 13.sp, lineHeight = 19.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 12.dp))
                 XpBar(user, Modifier.padding(top = 14.dp))
                 ProfileStreak(Modifier.padding(top = 14.dp))
+              }
             }
 
             Spacer(Modifier.height(14.dp))
             MenuGroup {
+                PremiumMenuRow(user, onPremium)
+                MenuDivider()
                 MenuRow(Ic.Person, "Pengaturan Profil", onEdit)
                 MenuDivider()
                 MenuRow(Ic.Lock, "Privasi", onPrivacy)
@@ -74,6 +79,18 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
             MenuGroup { MenuRow(Ic.Logout, "Keluar") { Auth.logout() } }
             Spacer(Modifier.height(16.dp))
         }
+    }
+}
+
+@Composable
+private fun PremiumMenuRow(user: AuthUser, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 16.dp, horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(22.dp), Alignment.Center) { PremiumBadge(size = 22.dp) }
+        Column(Modifier.weight(1f).padding(start = 16.dp)) {
+            Text("MiToon Premium", color = Color.White, fontSize = 16.sp)
+            premiumStatusText(user)?.let { Text(it, color = Color(0xFFFFC53D), fontSize = 12.sp) }
+        }
+        Icon(Ic.Right, null, tint = Muted, modifier = Modifier.size(22.dp))
     }
 }
 

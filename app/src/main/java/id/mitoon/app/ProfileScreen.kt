@@ -25,6 +25,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
@@ -48,7 +51,7 @@ private fun cooldownText(ms: Long): String {
 
 /** Pengaturan Profil: foto, nama (nickname), dan username. */
 @Composable
-fun ProfileEditScreen(onBack: () -> Unit) {
+fun ProfileEditScreen(onBack: () -> Unit, onPremium: () -> Unit = {}, onStyle: () -> Unit = {}) {
     val user = Auth.user
     if (user == null) { Box(Modifier.fillMaxSize().background(Bg)); return }
     val ctx = LocalContext.current
@@ -90,7 +93,30 @@ fun ProfileEditScreen(onBack: () -> Unit) {
         }
     }
     var avatarUri by remember { mutableStateOf<Uri?>(null) }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) avatarUri = uri }
+    /** GIF animasi (khusus Premium, maks. 2 MB) diunggah apa adanya; tanpa pemotongan. */
+    fun uploadGif(uri: Uri) {
+        busy = true; notice = null
+        scope.launch {
+            try {
+                val max = 2 * 1024 * 1024
+                val bytes = withContext(Dispatchers.IO) {
+                    ctx.contentResolver.openInputStream(uri)?.use { ins ->
+                        val out = ByteArrayOutputStream(); val buf = ByteArray(16 * 1024); var total = 0
+                        while (true) { val n = ins.read(buf); if (n < 0) break; total += n; if (total > max) return@use null; out.write(buf, 0, n) }
+                        out.toByteArray()
+                    }
+                }
+                if (bytes == null) notice = false to "GIF terlalu besar (maks. 2 MB)"
+                else { Auth.update(Net.api.putAvatar(bytes.toRequestBody("image/gif".toMediaType())).data); notice = true to "Foto profil GIF diperbarui" }
+            } catch (e: CancellationException) { throw e } catch (e: Exception) { notice = false to e.friendly() } finally { busy = false }
+        }
+    }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val gif = ctx.contentResolver.getType(uri) == "image/gif"
+        if (gif && user.premium) uploadGif(uri)
+        else { if (gif) notice = true to "GIF animasi khusus Premium, jadi dipakai sebagai gambar diam"; avatarUri = uri }
+    }
     fun removePhoto() {
         val oldV = user.avatarV
         notice = true to "Foto profil dihapus"
@@ -143,7 +169,7 @@ fun ProfileEditScreen(onBack: () -> Unit) {
             ) {
                 // ---- foto: selalu di tengah; ketuk untuk ganti/hapus
                 Box(Modifier.size(120.dp).clip(CircleShape).clickable(enabled = !busy) { photoMenu = true }, Alignment.Center) {
-                    Avatar(user.id, user.name, user.avatarV, 120.dp, shape = CircleShape)
+                    FramedAvatar(user.id, user.name, user.avatarV, 120.dp, user.frame)
                     if (busy) Box(Modifier.fillMaxSize().background(Color(0x99000000)), Alignment.Center) {
                         CircularProgressIndicator(Modifier.size(30.dp), color = Color.White, strokeWidth = 3.dp)
                     }
@@ -174,6 +200,14 @@ fun ProfileEditScreen(onBack: () -> Unit) {
                     if (locked) "Bisa diganti lagi dalam ${cooldownText(leftMs)}" else "Bisa diganti sekali setiap 7 hari",
                     locked, onClick = { dialogErr = null; editUser = true })
                 HorizontalDivider(color = Line)
+                Row(Modifier.fillMaxWidth().clickable { if (user.premium) onStyle() else onPremium() }.padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Tampilan Premium", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text(if (user.premium) "Tema, frame avatar, dan background header" else "Khusus Premium · lihat paket", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 3.dp))
+                    }
+                    PremiumBadge(Modifier.padding(start = 12.dp), 20.dp)
+                }
+                HorizontalDivider(color = Line)
                 if (user.verified) {
                     Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
@@ -203,6 +237,8 @@ fun ProfileEditScreen(onBack: () -> Unit) {
             Column {
                 MenuItem("Pilih dari galeri") { photoMenu = false; picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
                 if (user.avatarV > 0) MenuItem("Hapus foto") { photoMenu = false; removePhoto() }
+                if (!user.premium) Text("Foto GIF animasi: khusus Premium", color = Muted, fontSize = 12.sp,
+                    modifier = Modifier.fillMaxWidth().clip(R6).clickable { photoMenu = false; onPremium() }.padding(vertical = 10.dp, horizontal = 4.dp))
             }
         },
         confirmButton = {}, dismissButton = { TextButton({ photoMenu = false }) { Text("Batal", color = Muted) } }

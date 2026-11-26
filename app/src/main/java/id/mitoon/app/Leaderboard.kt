@@ -228,7 +228,7 @@ private fun PodiumSlot(e: RankEntry, mine: Boolean, onOpen: (Long) -> Unit, modi
             Text(if (mine) "${e.name} (kamu)" else e.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
             StatusBadges(e.verified, e.isOwner, e.premium, size = 13.dp)
         }
-        LevelChip(e.level, Modifier.padding(top = 4.dp))
+        LevelChip(e.level, Modifier.padding(top = 8.dp, bottom = 2.dp))
         Text("${num(e.weekXp)} XP", color = c, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
         Box(Modifier.padding(top = 10.dp).fillMaxWidth().height(base).clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
             .background(Brush.verticalGradient(listOf(c.copy(alpha = 0.30f), CardBg)))) {
@@ -249,7 +249,7 @@ private fun RankRow(e: RankEntry, mine: Boolean, topXp: Int, onOpen: (Long) -> U
                 Text(if (mine) "${e.name} (kamu)" else e.name, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                 StatusBadges(e.verified, e.isOwner, e.premium, size = 14.dp)
             }
-            Row(Modifier.padding(top = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(top = 8.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                 LevelChip(e.level)
                 Bar(e.weekXp.toFloat() / topXp, if (mine) Color.White else Color(0xFF7C8090), Modifier.padding(start = 8.dp).weight(1f), 3.dp)
             }

@@ -159,6 +159,14 @@ interface Api {
     @PATCH("v1/auth/me") suspend fun updateProfile(@Body b: ProfileReq): Env<AuthUser>
     @PUT("v1/auth/me/avatar") suspend fun putAvatar(@Body jpeg: RequestBody): Env<AuthUser>
     @DELETE("v1/auth/me/avatar") suspend fun deleteAvatar(): Env<AuthUser>
+    // ---- Premium (Sociabuzz) ----
+    @GET("v1/premium/plans") suspend fun premiumPlans(): Env<PremiumCatalog>
+    @POST("v1/premium/orders") suspend fun premiumCreate(@Body b: PremiumOrderReq): PremiumOrderRes
+    @GET("v1/premium/orders/latest") suspend fun premiumLatest(): LatestOrderRes
+    @GET("v1/premium/orders/{id}") suspend fun premiumOrderStatus(@Path("id") id: String): PremiumOrderRes
+    @PATCH("v1/auth/me/style") suspend fun updateStyle(@Body b: StyleReq): Env<AuthUser>
+    @PUT("v1/auth/me/header") suspend fun putHeader(@Body jpeg: RequestBody): Env<AuthUser>
+    @DELETE("v1/auth/me/header") suspend fun deleteHeader(): Env<AuthUser>
     @GET("v1/comments") suspend fun comments(@Query("target") target: String, @Query("limit") limit: Int = 20, @Query("before") before: Long? = null): Env<CommentPage>
     @GET("v1/comments/{id}/replies") suspend fun replies(@Path("id") id: Long, @Query("after") after: Long? = null, @Query("limit") limit: Int = 20): Env<CommentPage>
     @POST("v1/comments") suspend fun addComment(@Body b: CommentReq): CommentRes

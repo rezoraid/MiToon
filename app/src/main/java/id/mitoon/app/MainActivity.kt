@@ -142,9 +142,9 @@ private fun AppScaffold() {
             popEnterTransition = { fadeIn(tween(240)) + slideInHorizontally(tween(320, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { -it / 8 } },
             popExitTransition = { if (initialState.isTab() && targetState.isTab()) fadeOut(tween(120)) else fadeOut(tween(220)) + slideOutHorizontally(tween(320, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it / 5 } }) {
             composable("home") {
-                HomeScreen({ nav.detail(it) }, { nav.navigate("search") }) {
+                HomeScreen({ nav.detail(it) }, { nav.navigate("search") }, {
                     nav.navigate("explore") { popUpTo("home"); launchSingleTop = true; restoreState = true }
-                }
+                }, { if (Auth.isGuest) GuestGate.ask(GUEST_PREMIUM) else nav.navigate("premium") { launchSingleTop = true } })
             }
             composable("explore") { ExploreScreen({ nav.detail(it) }, { nav.navigate("search") }) }
             composable("library") {
@@ -156,12 +156,14 @@ private fun AppScaffold() {
                 NotificationsScreen(nav::popBackStack) { o -> if (o.chapterId != null) nav.reader(o.seriesId, o.chapterId) else nav.detail(o.seriesId) }
             }
             composable("search") { SearchScreen(nav::popBackStack) { nav.detail(it) } }
-            composable("profile") { ProfileScreen(nav::popBackStack, { nav.navigate("profile/edit") }, { nav.navigate("profile/history") }, { nav.navigate("profile/account") }, { nav.navigate("profile/roles") }, { nav.navigate("admin") }, { nav.navigate("profile/privacy") }) }
+            composable("profile") { ProfileScreen(nav::popBackStack, { nav.navigate("profile/edit") }, { nav.navigate("profile/history") }, { nav.navigate("profile/account") }, { nav.navigate("profile/roles") }, { nav.navigate("admin") }, { nav.navigate("profile/privacy") }, { nav.navigate("premium") { launchSingleTop = true } }) }
+            composable("premium") { PremiumScreen(nav::popBackStack) { nav.navigate("profile/style") { launchSingleTop = true } } }
+            composable("profile/style") { PremiumStyleScreen(nav::popBackStack) { nav.navigate("premium") { launchSingleTop = true } } }
             composable("profile/privacy") { PrivacyScreen(nav::popBackStack) }
             composable("admin") { AdminScreen(nav::popBackStack) }
             composable("admin/series/{id}") { e -> AdminSeriesEditScreen(e.arguments?.getString("id")?.toLongOrNull() ?: 0L, nav::popBackStack) }
             composable("profile/roles") { RolesScreen(nav::popBackStack) }
-            composable("profile/edit") { ProfileEditScreen(nav::popBackStack) }
+            composable("profile/edit") { ProfileEditScreen(nav::popBackStack, { nav.navigate("premium") { launchSingleTop = true } }, { nav.navigate("profile/style") { launchSingleTop = true } }) }
             composable("profile/history") {
                 ActivityHistoryScreen(nav::popBackStack,
                     { o -> if (o.chapterId != null) nav.reader(o.seriesId, o.chapterId) else nav.detail(o.seriesId) },

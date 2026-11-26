@@ -28,6 +28,8 @@ import java.util.Locale
     val id: Long = 0, val username: String = "", val displayName: String = "", val bio: String = "", val avatarV: Int = 0,
     val xp: Long = 0, val level: Int = 1, val joinedAt: Long = 0, val commentCount: Int = 0,
     val verified: Boolean = false, val isOwner: Boolean = false, val premium: Boolean = false, val readingHidden: Boolean = false,
+    /** Tampilan profil Premium (kosong = bawaan) */
+    val theme: String = "", val frame: String = "", val headerV: Int = 0, val headerBlur: Int = 0, val headerPos: Int = 50,
     /** Streak membaca; null bila pemiliknya menyembunyikan aktivitas bacanya. */
     val streak: StreakRes? = null
 ) { val name: String get() = displayName.ifBlank { username } }
@@ -68,17 +70,20 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
             u == null -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(Modifier.size(26.dp), Color.White, strokeWidth = 2.dp) }
             else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp)) {
                 item("head") {
+                    val styled = u.premium && (u.theme.isNotEmpty() || u.headerV > 0)
+                    Box(Modifier.fillMaxWidth().then(if (styled) Modifier.padding(top = 12.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) else Modifier)) {
+                    if (styled) ProfileBackdrop(u.id, u.theme, u.headerV, u.headerBlur, u.headerPos, 230.dp, fade = Bg)
                     Column(Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Avatar(u.id, u.name, u.avatarV, 104.dp, shape = CircleShape)
+                        FramedAvatar(u.id, u.name, u.avatarV, 104.dp, if (u.premium) u.frame else "")
                         Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(u.name, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                             if (u.verified) VerifiedBadge(Modifier.padding(start = 6.dp), 20.dp)
                         }
                         Text("@${u.username}", color = Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
                         StatusLabels(u.isOwner, u.premium, Modifier.padding(top = 8.dp), iconSize = 20.dp, textSize = 13)
-                        Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.padding(top = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             LevelChip(u.level, size = 12)
-                            RoleTag(u.level, Modifier.padding(start = 10.dp), iconSize = 24.dp)
+                            RoleTag(u.level, Modifier, iconSize = 24.dp)
                         }
                         if (u.bio.isNotBlank()) Text(u.bio, color = Color(0xFFD7D9DE), fontSize = 14.sp, lineHeight = 20.sp, textAlign = TextAlign.Center, maxLines = 4, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(top = 14.dp, start = 16.dp, end = 16.dp))
@@ -103,6 +108,7 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
                                 Stat(remember(u.joinedAt) { SimpleDateFormat("MMM yyyy", Locale("id", "ID")).format(Date(u.joinedAt)) }, "Bergabung", Modifier.weight(1f))
                             }
                         }
+                    }
                     }
                     HorizontalDivider(color = Line)
                     Text("Sedang dibaca", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -311,7 +312,7 @@ private fun BubbleBody(m: ChatMsg, mine: Boolean, head: Boolean, whenText: Strin
     val timeColor = if (mine) Color(0xFFB4B7C2) else Muted
     val sending = m.id <= 0
     val bg = if (mine) (if (sending) Color(0xB33B3F4C) else Color(0xFF3B3F4C)) else Color(0xFF23252C)
-    Column(modifier.widthIn(min = 64.dp, max = 290.dp).width(androidx.compose.foundation.layout.IntrinsicSize.Max).clip(shape).background(bg).padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 6.dp)) {
+    Column(modifier.widthIn(min = 64.dp, max = 290.dp).width(androidx.compose.foundation.layout.IntrinsicSize.Max).background(bg, shape).padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 6.dp)) {
         if (head) {
             // baris 1: nama + centang verified (kalau ada)
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -320,16 +321,16 @@ private fun BubbleBody(m: ChatMsg, mine: Boolean, head: Boolean, whenText: Strin
                 if (m.user.verified || m.user.isOwner) VerifiedBadge(Modifier.padding(start = 5.dp), 14.dp)
             }
             // baris 2: badge-badge (owner, premium, peran, level)
-            Row(Modifier.padding(top = 3.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (m.user.isOwner) OwnerBadge(Modifier, 14.dp)
-                if (m.user.premium) PremiumBadge(Modifier, 14.dp)
-                RoleBadge(roleFor(m.user.level), 16.dp)
+            Row(Modifier.padding(top = 6.dp, bottom = 8.dp).heightIn(min = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (m.user.isOwner) OwnerBadge(Modifier, 15.dp)
+                if (m.user.premium) PremiumBadge(Modifier, 15.dp)
+                RoleBadge(roleFor(m.user.level), 18.dp)
                 LevelChip(m.user.level, size = 9)
             }
         }
         m.replyTo?.let { ReplyQuote(it, onLight = false) }
         Text(m.body, color = fg, fontSize = 14.5.sp, lineHeight = 20.sp)
-        Text(whenText, color = timeColor, fontSize = 10.sp, maxLines = 1, modifier = Modifier.align(Alignment.End).padding(top = 3.dp))
+        Text(whenText, color = timeColor, fontSize = 10.sp, maxLines = 1, modifier = Modifier.align(Alignment.End).padding(top = 2.dp))
     }
 }
 

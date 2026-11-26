@@ -50,17 +50,17 @@ class Role(val title: String, val minLevel: Int, val glyph: RoleGlyph, val color
 
 /** Urut naik menurut level. Ambang sama dengan tema bingkai level di [LevelChip]. */
 val Roles: List<Role> = listOf(
-    Role("Newbie", 1, RoleGlyph.Page, listOf(Color(0xFF8EE3A0), Color(0xFF2FA865)), "Baru membuka halaman pertama."),
-    Role("Page Turner", 5, RoleGlyph.Book, listOf(Color(0xFF7FE0F5), Color(0xFF1E9BC4)), "Mulai rajin membuka chapter."),
-    Role("Bookworm", 10, RoleGlyph.Bookmark, listOf(Color(0xFFF0B27A), Color(0xFFB5651D)), "Selalu menyimpan tempat bacamu."),
-    Role("Panel Hunter", 20, RoleGlyph.Panels, listOf(Color(0xFFA9B4FF), Color(0xFF5B63E6)), "Tidak melewatkan satu panel pun."),
-    Role("Binge Reader", 35, RoleGlyph.Flame, listOf(Color(0xFFFFA48A), Color(0xFFFF4D6A)), "Maraton baca adalah keahlianmu."),
-    Role("Series Master", 50, RoleGlyph.Stack, listOf(Color(0xFFFFD98A), Color(0xFFFF9F43)), "Rak seri demi rak kamu tamatkan. Api kecil menyala di atas lencana levelmu."),
-    Role("Sensei", 100, RoleGlyph.Pen, listOf(Color(0xFFFFF1C2), Color(0xFFE8C972), Color(0xFFB8903A)), "Tingkat emas. Karangan daun emas melingkari lencana levelmu."),
-    Role("Curator", 500, RoleGlyph.Gem, listOf(Color(0xFFB6F5E0), Color(0xFF3FD1A1), Color(0xFF1E8F6B)), "Tingkat zamrud. Aurora zamrud, sinar cahaya berputar, dan kristal tumbuh dari lencana levelmu."),
-    Role("Legend", 1000, RoleGlyph.Star, listOf(Color(0xFFC4E0FF), Color(0xFF5AA9FF), Color(0xFF3B6FE0)), "Tingkat safir. Planet bercincin, komet yang mengorbit, bulan sabit, dan sinar cahaya berputar."),
-    Role("Mythic", 3000, RoleGlyph.Bolt, listOf(Color(0xFFFFC2F0), Color(0xFFB58CFF), Color(0xFF7A4DE0)), "Tingkat ametis. Galaksi spiral berputar, lingkaran cahaya, bulan sabit, dan bintang jatuh."),
-    Role("Eternal", 5000, RoleGlyph.Infinity, listOf(Color(0xFFFF8AD8), Color(0xFFFFD98A), Color(0xFF8AFFD1), Color(0xFF8AC8FF), Color(0xFFC79BFF)), "Tingkat tertinggi. Sinar prisma berputar, galaksi, dua cincin komet, sayap cahaya, dan mahkota.", sweep = true)
+    Role("Newbie", 1, RoleGlyph.Page, listOf(Color(0xFFBFDFCB), Color(0xFF5E9C7A)), "Baru membuka halaman pertama."),
+    Role("Page Turner", 5, RoleGlyph.Book, listOf(Color(0xFFB4DCE6), Color(0xFF3F8FA6)), "Mulai rajin membuka chapter."),
+    Role("Bookworm", 10, RoleGlyph.Bookmark, listOf(Color(0xFFE6C9A8), Color(0xFF9C6B45)), "Selalu menyimpan tempat bacamu."),
+    Role("Panel Hunter", 20, RoleGlyph.Panels, listOf(Color(0xFFABC0E0), Color(0xFF4F6A9A)), "Tidak melewatkan satu panel pun."),
+    Role("Binge Reader", 35, RoleGlyph.Flame, listOf(Color(0xFFF4B3C0), Color(0xFFD1506E)), "Maraton baca adalah keahlianmu."),
+    Role("Series Master", 50, RoleGlyph.Stack, listOf(Color(0xFFF8D2A8), Color(0xFFE0773F)), "Rak seri demi rak kamu tamatkan. Api kecil menyala di atas lencana levelmu."),
+    Role("Sensei", 100, RoleGlyph.Pen, listOf(Color(0xFFF6E8C6), Color(0xFFD4AC62), Color(0xFF9A7430)), "Tingkat emas. Karangan daun tipis di kedua sisi lencana levelmu."),
+    Role("Curator", 500, RoleGlyph.Gem, listOf(Color(0xFFA6EDE4), Color(0xFF2FB5B0), Color(0xFF16787F)), "Tingkat zamrud. Cahaya toska lembut dan kristal kecil menghiasi lencana levelmu."),
+    Role("Legend", 1000, RoleGlyph.Star, listOf(Color(0xFFC3CFFF), Color(0xFF6D86F2), Color(0xFF3A47B8)), "Tingkat nila. Planet mungil dan cincin orbit tipis dengan komet kecil."),
+    Role("Mythic", 3000, RoleGlyph.Bolt, listOf(Color(0xFFEBC4FF), Color(0xFFB06CF2), Color(0xFF6A34B8)), "Tingkat anggrek. Cincin orbit, bulan sabit, dan kilau halus."),
+    Role("Eternal", 5000, RoleGlyph.Infinity, listOf(Color(0xFFF7A8C4), Color(0xFFF3D39A), Color(0xFF9EE8CC), Color(0xFF9CC6F2), Color(0xFFC9A6F5)), "Tingkat tertinggi. Warna prisma yang berganti pelan, dua cincin orbit, dan mahkota kecil.", sweep = true)
 )
 
 fun roleFor(level: Int): Role = Roles.last { level >= it.minLevel }
@@ -167,7 +167,7 @@ fun RoleBadge(role: Role, size: Dp = 28.dp, modifier: Modifier = Modifier, locke
     // Peran Sensei ke atas di ukuran besar hidup: halo berdenyut, bintang berkelip, percikan mengorbit (makin tinggi makin ramai);
     // Eternal juga memutar warna prismanya. Digambar dari jam animasi bersama [LvClock].
     val tier = Roles.indexOf(role)
-    val live = !locked && size >= 36.dp && tier >= 6
+    val live = false
     DisposableEffect(live) { if (live) LvClock.users++; onDispose { if (live) LvClock.users-- } }
     Canvas(modifier.size(size)) {
         val s = this.size.minDimension
@@ -182,9 +182,9 @@ fun RoleBadge(role: Role, size: Dp = 28.dp, modifier: Modifier = Modifier, locke
         if (live) {
             val pulse = 0.5f - 0.5f * cos(2f * PI.toFloat() * cycle(ms, 3200))
             val halo = if (role.sweep) cycleColor(role.colors, cycle(ms, 6500)) else role.colors[role.colors.size / 2]
-            val hr = s * (0.62f + 0.1f * (tier - 6) / 4f + 0.04f * pulse)
-            drawCircle(Brush.radialGradient(listOf(halo.copy(alpha = 0.4f + 0.3f * pulse), halo.copy(alpha = 0.12f), Color.Transparent), c, hr), hr, c)
-            if (tier >= 8) nebula(ms, s, s, role.colors, 2, 0.2f)
+            val hr = s * (0.56f + 0.06f * (tier - 6) / 4f + 0.03f * pulse)
+            drawCircle(Brush.radialGradient(listOf(halo.copy(alpha = 0.22f + 0.16f * pulse), halo.copy(alpha = 0.07f), Color.Transparent), c, hr), hr, c)
+            if (tier >= 8) nebula(ms, s, s, role.colors, 2, 0.12f)
         }
         drawCircle(if (locked) Color(0xFF3A3C44) else if (role.sweep) Color(0xFF3A2F5C) else rim, s / 2f)
         if (live && role.sweep) rotate(cycle(ms, 9000) * 360f, c) { drawCircle(medal, s / 2f - s * 0.06f) }
@@ -199,8 +199,8 @@ fun RoleBadge(role: Role, size: Dp = 28.dp, modifier: Modifier = Modifier, locke
         withTransform({ translate(o, o); scale(g, g, Offset.Zero) }) { glyph(role.glyph, glyphFill, ink) }
         if (live) {
             // bintang berkelip di sekitar medali, percikan mengorbit tepi
-            starfield(3 + tier - 6, ms, s * 1.3f, s * 1.3f, tier, Color.White, s * 0.028f, Offset(-s * 0.15f, -s * 0.15f))
-            val n = 1 + (tier - 6) / 2
+            starfield(2 + (tier - 6) / 2, ms, s * 1.3f, s * 1.3f, tier, Color.White, s * 0.028f, Offset(-s * 0.15f, -s * 0.15f))
+            val n = 1 + (tier - 6) / 4
             for (k in 0 until n) {
                 val ang = cycle(ms, 4600 + k * 1300) * 2f * PI.toFloat() + k * 2.4f
                 for (j in 0 until 6) {
@@ -218,7 +218,7 @@ fun RoleTag(level: Int, modifier: Modifier = Modifier, iconSize: Dp = 22.dp, tex
     val r = roleFor(level)
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         RoleBadge(r, iconSize)
-        Text(r.title, color = Color(0xFFD7D9DE), fontSize = textSize.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.padding(start = 6.dp))
+        Text(r.title, color = Color(0xFFD7D9DE), fontSize = textSize.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.padding(start = 7.dp))
     }
 }
 
@@ -236,7 +236,7 @@ fun RolesScreen(onBack: () -> Unit) {
                 Column(Modifier.fillMaxWidth().clip(R6).border(1.dp, Color(0xFF3A3C44), R6).background(CardBg).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     RoleBadge(cur, 84.dp)
                     Text(cur.title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
-                    LevelChip(user.level, Modifier.padding(top = 8.dp), size = 12)
+                    LevelChip(user.level, Modifier.padding(top = 14.dp), size = 12)
                     Text(
                         if (next != null) "Peran berikutnya: ${next.title} di Lv. ${next.minLevel} (${next.minLevel - user.level} level lagi)" else "Kamu sudah mencapai peran tertinggi.",
                         color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 10.dp)
@@ -255,7 +255,7 @@ fun RolesScreen(onBack: () -> Unit) {
                     RoleBadge(r, 46.dp)
                     Column(Modifier.weight(1f).padding(start = 14.dp)) {
                         Text(r.title, color = r.colors.first(), fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        LvPill(r.minLevel, range, Modifier.padding(top = 5.dp), size = 11)
+                        LvPill(r.minLevel, range, Modifier.padding(top = 9.dp, bottom = 3.dp), size = 11)
                         Text(r.desc, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 6.dp))
                     }
                     when {

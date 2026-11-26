@@ -1,0 +1,44 @@
+name: mitoon
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+services:
+  api:
+    build: .
+    env_file: .env
+    environment:
+      PORT: "3000"
+      DATABASE_URL: postgres://scraper:${POSTGRES_PASSWORD:?isi POSTGRES_PASSWORD di .env}@postgres:5432/scraper
+      REDIS_URL: redis://redis:6379
+    ports: ["${PORT:-3000}:3000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    restart: unless-stopped
+    logging: *logging
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: scraper
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?isi POSTGRES_PASSWORD di .env}
+      POSTGRES_DB: scraper
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scraper -d scraper"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  pgdata:

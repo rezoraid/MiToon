@@ -1,0 +1,17 @@
+{
+  "framework": null,
+  "installCommand": "npm install",
+  "buildCommand": "npm run build && npm run migrate",
+  "outputDirectory": "public",
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api"
+    }
+  ]
+}

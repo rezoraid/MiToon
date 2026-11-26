@@ -27,6 +27,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.geometry.Offset
@@ -91,24 +95,35 @@ object Xp {
     }
 }
 
-/**
- * Tema pill level bergaya kosmik, satu per peran (lihat [Roles]). Tier rendah: pill gradien berwarna dengan kilau yang lewat;
- * makin tinggi makin "luar angkasa": bintang berkelip -> nebula -> bintang jatuh -> komet -> galaksi spiral (Mythic, Eternal).
- */
 private class PillTheme(
-    val fill: List<Color>, val space: Boolean, val rim: List<Color>, val text: Color, val glow: Color,
-    /** putaran bingkai (ms), 0 = diam */ val spinMs: Int, val aura: Float,
+    val fill: List<Color>, val space: Boolean, val rim: List<Color>, val rimV: List<Color>, val text: Color, val glow: Color,
+    val spinMs: Int, val aura: Float, val bw: Float,
     val stars: Int, val nebula: Int, val shoot: Boolean, val comets: Int, val spiral: Boolean,
-    /** hiasan yang keluar dari pill (null di bawah Lv. 50) */ val flair: Flair?
+    val flair: Flair
 )
 
-private val PillStars = intArrayOf(0, 1, 1, 2, 3, 3, 4, 5, 6, 7, 9)
-private val PillNebula = intArrayOf(0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 3)
+private val PillStars = intArrayOf(2, 3, 3, 4, 4, 5, 5, 6, 7, 8, 10)
+private val PillNebula = intArrayOf(0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 3)
 private val PillSpin = intArrayOf(0, 0, 0, 0, 0, 0, 16000, 14000, 13000, 12000, 10000)
+private val PillAura = floatArrayOf(0.55f, 0.6f, 0.65f, 0.7f, 0.8f, 0.95f, 1.05f, 1.15f, 1.3f, 1.45f, 1.65f)
+
+private val PillPal: List<List<Color>> = listOf(
+    listOf(Color(0xFFD6FF9E), Color(0xFF58C84A), Color(0xFF1E6B34)),
+    listOf(Color(0xFFBFF3FF), Color(0xFF2EA8F0), Color(0xFF1457A8)),
+    listOf(Color(0xFFFFE0EC), Color(0xFFF27CA6), Color(0xFFA02A5E)),
+    listOf(Color(0xFFFFC9C2), Color(0xFFD8343C), Color(0xFF7A0F1E)),
+    listOf(Color(0xFFFFD1E8), Color(0xFFE0489A), Color(0xFF80185A)),
+    listOf(Color(0xFFFFE9A0), Color(0xFFFF8A1F), Color(0xFFC2300F)),
+    listOf(Color(0xFFFFF1B8), Color(0xFFF2B632), Color(0xFF8A5A0C)),
+    listOf(Color(0xFFB8FFF0), Color(0xFF19C9A6), Color(0xFF0B6B66)),
+    listOf(Color(0xFFDDE8FF), Color(0xFF5C8CFF), Color(0xFF2A2F9E)),
+    listOf(Color(0xFFFFE08A), Color(0xFFFF4F5E), Color(0xFF9C1034)),
+    listOf(Color(0xFFFF9ED2), Color(0xFFFFD68A), Color(0xFF8AF0C8), Color(0xFF8AC4FF), Color(0xFFC49AFF))
+)
 
 private fun pillTheme(level: Int): PillTheme {
     val i = roleIndex(level)
-    val cols = Roles[i].colors
+    val cols = PillPal[i]
     val dark = cols.last()
     val mid = cols[cols.size / 2]
     val space = i >= 6
@@ -116,14 +131,15 @@ private fun pillTheme(level: Int): PillTheme {
     val fill = when {
         i == 10 -> listOf(Color(0xFF1A1230), Color(0xFF2B1A4A), Color(0xFF12223F))
         space -> listOf(lerp(dark, deep, 0.82f), lerp(dark, Color(0xFF0B0B1C), 0.62f), lerp(dark, deep, 0.82f))
-        else -> listOf(lerp(dark, Color.Black, 0.3f), lerp(mid, Color.White, 0.08f))
+        else -> listOf(lerp(dark, Color.Black, 0.38f), lerp(dark, Color.Black, 0.1f))
     }
     return PillTheme(
         fill = fill, space = space, rim = cols + cols.first(),
+        rimV = listOf(lerp(cols.first(), Color.White, 0.5f), mid, lerp(dark, Color.Black, 0.4f)),
         text = if (space) lerp(cols.first(), Color.White, 0.7f) else Color.White,
-        glow = mid, spinMs = PillSpin[i], aura = 0f,
-        stars = 0, nebula = 0, shoot = false, comets = 0, spiral = false,
-        flair = if (i >= 5) Flair(i, flairPower(level), cols) else null
+        glow = mid, spinMs = PillSpin[i], aura = PillAura[i], bw = 0.21f + 0.012f * i,
+        stars = PillStars[i], nebula = PillNebula[i], shoot = i >= 8, comets = if (i == 10) 2 else if (i == 9) 1 else 0, spiral = i == 10,
+        flair = Flair(i, flairPower(level), cols)
     )
 }
 
@@ -140,7 +156,7 @@ object LvClock {
     fun Run() {
         LaunchedEffect(Unit) {
             snapshotFlow { users > 0 }.collectLatest { on ->
-                if (on) while (true) withFrameNanos { ms = it / 1_000_000 }
+                if (on) { var last = 0L; while (true) withFrameNanos { val t = it / 1_000_000; if (t - last >= 33) { last = t; ms = t } } }
             }
         }
     }
@@ -241,72 +257,66 @@ private fun DrawScope.shootingStar(ms: Long, w: Float, h: Float, period: Int, of
 @Composable
 fun LevelChip(level: Int, modifier: Modifier = Modifier, size: Int = 10) = LvPill(level, "Lv. $level", modifier, size)
 
-/**
- * Pill level bergaya kosmik. [level] menentukan tema (peran); [text] bebas ("Lv. 25", "Lv. 50 – 149", dst.).
- * Semua efek digambar dari [LvClock] di fase draw, jadi tidak memicu recompose maupun relayout.
- */
 @Composable
 fun LvPill(level: Int, text: String, modifier: Modifier = Modifier, size: Int = 10) {
     val t = remember(level) { pillTheme(level) }
     DisposableEffect(Unit) { LvClock.users++; onDispose { LvClock.users-- } }
     val base = LocalTextStyle.current
     val unit = size
-    val shadow = Shadow(Color(0x88000000), Offset(0f, 1f), 2f)
+    val shadow = Shadow(Color(0xCC000000), Offset(0f, 1.5f), 3f)
     Text(text, color = t.text, fontSize = size.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, style = base.copy(shadow = shadow),
         modifier = modifier
-            .drawBehind {
-                val fl = t.flair ?: return@drawBehind
-                drawFlair(fl, 0f, 0f, this.size.width, this.size.height, unit.dp.toPx(), LvClock.ms)
-            }
-            .drawBehind {
-                if (t.aura > 0f) {
-                    val ms = LvClock.ms
-                    val pulse = 0.7f + 0.3f * (0.5f - 0.5f * cos(TAU * cycle(ms, 4200)))
-                    val gc = if (t.rim.size > 4) cycleColor(t.rim, cycle(ms, 12000)) else t.glow
-                    for (n in 1..3) {
-                        val g = n * 1.5.dp.toPx()
-                        drawRoundRect(gc.copy(alpha = (t.aura * pulse * 0.16f / n).coerceAtMost(0.4f)), Offset(-g, -g),
-                            Size(this.size.width + 2 * g, this.size.height + 2 * g), CornerRadius(this.size.height / 2f + g))
-                    }
+            .zIndex(-1f)
+            .drawWithContent {
+                val w = this.size.width; val h = this.size.height; val u = unit.dp.toPx(); val ms = LvClock.ms
+                val gc = if (t.rim.size > 4) cycleColor(t.rim, cycle(ms, 12000)) else t.glow
+                val pulse = 0.78f + 0.22f * (0.5f - 0.5f * cos(TAU * cycle(ms, 3800)))
+                drawRoundRect(Color.Black.copy(alpha = 0.34f), Offset(0f, u * 0.16f), Size(w, h), CornerRadius(h / 2f))
+                for (n in 1..3) {
+                    val g = n * u * 0.2f
+                    drawRoundRect(gc.copy(alpha = (t.aura * pulse * 0.22f / n).coerceAtMost(0.5f)), Offset(-g, -g), Size(w + 2 * g, h + 2 * g), CornerRadius(h / 2f + g))
                 }
+                flairBack(t.flair, w, h, u, ms)
+                drawContent()
+                flairFront(t.flair, w, h, u, ms)
             }
             .clip(RoundedCornerShape(50))
             .drawBehind {
                 val w = this.size.width; val h = this.size.height
                 val c = Offset(w / 2f, h / 2f)
                 val r = h / 2f
+                val u = unit.dp.toPx()
                 val ms = LvClock.ms
-                val b = if (t.space) 1.4.dp.toPx() else 0.8.dp.toPx()
+                val b = t.bw * u
                 val d = maxOf(w, h)
                 val iw = w - 2 * b; val ih = h - 2 * b
-                if (t.space) {
-                    rotate(if (t.spinMs > 0) cycle(ms, t.spinMs) * 360f else 0f, c) {
-                        drawRect(Brush.sweepGradient(t.rim, c), Offset(c.x - d, c.y - d), Size(d * 2, d * 2))
-                    }
-                    drawRoundRect(Brush.horizontalGradient(t.fill), Offset(b, b), Size(iw, ih), CornerRadius(r - b))
-                } else {
-                    drawRoundRect(Brush.horizontalGradient(t.fill), cornerRadius = CornerRadius(r))
-                }
-                clipRect(b, b, w - b, h - b) {
+                if (t.space) rotate(if (t.spinMs > 0) cycle(ms, t.spinMs) * 360f else 0f, c) {
+                    drawRect(Brush.sweepGradient(t.rim, c), Offset(c.x - d, c.y - d), Size(d * 2, d * 2))
+                } else drawRoundRect(Brush.verticalGradient(t.rimV, 0f, h), cornerRadius = CornerRadius(r))
+                drawRoundRect(Brush.horizontalGradient(t.fill), Offset(b, b), Size(iw, ih), CornerRadius(r - b))
+                drawRoundRect(Color.Black.copy(alpha = 0.5f), Offset(b, b), Size(iw, ih), CornerRadius(r - b), style = Stroke(maxOf(0.7f, u * 0.06f)))
+                clipPath(Path().apply { addRoundRect(RoundRect(b, b, w - b, h - b, CornerRadius(r - b))) }) {
                     if (t.nebula > 0) nebula(ms, iw, ih, t.rim, t.nebula, 0.1f + 0.03f * t.nebula, Offset(b, b))
                     if (t.spiral) spiralGalaxy(ms, w, h, t.rim, 0.42f)
-                    if (t.stars > 0) starfield(t.stars, ms, iw, ih, level % 7 + 3, if (t.space) t.text else Color.White, 0.7.dp.toPx(), Offset(b, b))
+                    if (t.stars > 0) starfield(t.stars, ms, iw, ih, level % 7 + 3, if (t.space) t.text else Color.White, u * 0.08f, Offset(b, b))
                     if (t.shoot) shootingStar(ms + level * 131L, w, h, 6400, 900)
-                    drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = if (t.space) 0.07f else 0.18f), Color.Transparent), 0f, h * 0.62f))
+                    drawRect(Brush.verticalGradient(listOf(Color.Transparent, t.glow.copy(alpha = 0.38f)), h * 0.45f, h))
+                    drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = if (t.space) 0.12f else 0.28f), Color.Transparent, Color.Black.copy(alpha = 0.3f)), 0f, h))
                     val p = cycle(ms + level * 397L, 5200)
                     if (p < 0.4f) {
                         val k = p / 0.4f
                         val fade = minOf(1f, k * 4f, (1f - k) * 4f)
                         val band = h * 2f
                         val x = -band + k * (w + band * 2)
-                        drawRect(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.3f * fade), Color.Transparent), Offset(x, 0f), Offset(x + band, h)))
+                        drawRect(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.34f * fade), Color.Transparent), Offset(x, 0f), Offset(x + band, h)))
                     }
                 }
-                if (!t.space) drawRoundRect(Color.White.copy(alpha = 0.2f), cornerRadius = CornerRadius(r), style = Stroke(0.8.dp.toPx()))
-                if (t.comets > 0) orbitComet(ms, w, h, 6200, Color.White, 0.9.dp.toPx())
-                if (t.comets > 1) orbitComet(ms, w, h, 8800, t.glow, 0.8.dp.toPx(), 0.5f)
+                drawRoundRect(Color.Black.copy(alpha = 0.6f), cornerRadius = CornerRadius(r), style = Stroke(u * 0.16f))
+                drawRoundRect(Color.White.copy(alpha = 0.38f), Offset(b * 0.5f, b * 0.5f), Size(w - b, h - b), CornerRadius(r - b * 0.5f), style = Stroke(u * 0.05f))
+                if (t.comets > 0) orbitComet(ms, w, h, 6200, Color.White, u * 0.1f)
+                if (t.comets > 1) orbitComet(ms, w, h, 8800, t.glow, u * 0.09f, 0.5f)
             }
-            .padding(horizontal = (size * 0.8f).dp, vertical = (size * 0.2f).dp))
+            .padding(horizontal = (size * 0.9f).dp, vertical = (size * 0.3f).dp))
 }
 
 /** Centang verifikasi (segel biru bergelombang + centang putih), digambar sendiri tanpa paket ikon tambahan. */

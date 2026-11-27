@@ -294,7 +294,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onSearch: () -> Unit, onGenre: 
                                 Text(title, color = Color.White, fontSize = 20.sp, lineHeight = 25.sp, fontWeight = FontWeight.Bold, maxLines = 4, overflow = TextOverflow.Ellipsis)
                                 rating?.takeIf { it > 0 }?.let { r ->
                                     val five = if (r > 5) r / 2 else r
-                                    Text(buildAnnotatedString {
+                                    androidx.compose.material3.Text(buildAnnotatedString {
                                         for (i in 1..5) withStyle(SpanStyle(color = if (i <= Math.round(five)) Star else Color(0xFF55585F))) { append("★") }
                                         withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) { append("  %.1f".format(r)) }
                                     }, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
@@ -712,7 +712,7 @@ private fun BottomBar(
     Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)).padding(start = 12.dp, end = 12.dp, bottom = 12.dp).glass(shape).noTap().padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 10.dp)) {
         // Baris 1: posisi halaman + slider (lebih tinggi supaya mudah digeser)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(buildAnnotatedString {
+            androidx.compose.material3.Text(buildAnnotatedString {
                 withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) { append("$page") }
                 withStyle(SpanStyle(color = Muted)) { append(" / $total") }
             }, fontSize = 13.sp, modifier = Modifier.widthIn(min = 56.dp))

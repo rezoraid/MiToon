@@ -470,7 +470,7 @@ private fun BubbleBody(m: ChatMsg, mine: Boolean, head: Boolean, whenText: Strin
         }
         m.replyTo?.let { ReplyQuote(it, onLight = false) }
         val sid = remember(m.body) { Stickers.id(m.body) }
-        if (sid != null) StickerImage(sid, 128.dp, Modifier.padding(vertical = 2.dp)) else Text(linkified(m.body), color = fg, fontSize = 14.5.sp, lineHeight = 20.sp)
+        if (sid != null) StickerImage(sid, 128.dp, Modifier.padding(vertical = 2.dp)) else androidx.compose.material3.Text(linkified(m.body), color = fg, fontSize = 14.5.sp, lineHeight = 20.sp)
         Text(whenText, color = timeColor, fontSize = 10.sp, maxLines = 1, modifier = Modifier.align(Alignment.End).padding(top = 2.dp))
     }
 }

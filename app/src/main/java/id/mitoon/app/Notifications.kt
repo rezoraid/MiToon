@@ -217,7 +217,7 @@ private fun ActivityRow(n: NotifItem, onAvatar: () -> Unit, onClick: () -> Unit)
                     if (like) "Komentarmu disukai! \uD83D\uDC4D" else "Komentarmu dibalas! \uD83D\uDCAC",
                     color = Soft, fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis
                 )
-                Text(buildAnnotatedString {
+                androidx.compose.material3.Text(buildAnnotatedString {
                     withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color.White)) { append(n.actor.name) }
                     append(if (like) " menyukai komentarmu" else " membalas komentarmu")
                 }, color = Soft, fontSize = 14.sp, lineHeight = 20.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))

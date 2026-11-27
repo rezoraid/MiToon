@@ -194,6 +194,7 @@ interface Api {
     @Headers("Cache-Control: no-cache") @GET("v1/chat") suspend fun chat(): Env<List<ChatMsg>>
     @POST("v1/chat") suspend fun sendChat(@Body b: ChatReq): Env<ChatMsg>
     @DELETE("v1/chat/{id}") suspend fun deleteChat(@Path("id") id: Long): Env<Ok>
+    @POST("v1/chat/{id}/report") suspend fun reportChat(@Path("id") id: Long, @Body b: ChatReportReq): Env<Ok>
     // ---- Admin (owner only) ----
     @GET("v1/admin/stats") suspend fun adminStats(): Env<AdminStats>
     @GET("v1/admin/series") suspend fun adminSeries(@Query("q") q: String? = null, @Query("provider") provider: String? = null, @Query("page") page: Int = 1, @Query("limit") limit: Int = 30): Env<AdminSeriesPage>

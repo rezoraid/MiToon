@@ -70,6 +70,14 @@ import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.withLink
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -90,6 +98,7 @@ import retrofit2.HttpException
 @Serializable data class ChatReply(val id: Long, val userName: String = "", val body: String = "")
 @Serializable data class ChatMsg(val id: Long, val body: String, val createdAt: Long = 0, val user: CommentUser = CommentUser(), val replyTo: ChatReply? = null)
 @Serializable data class ChatReq(val body: String, val replyTo: Long? = null)
+@Serializable data class ChatReportReq(val reason: String = "")
 
 /** Server hanya menyimpan (dan mengirim) sebanyak ini; klien ikut memotong tampilan ke jumlah yang sama. */
 const val CHAT_LIMIT = 50
@@ -204,6 +213,16 @@ object ChatState {
                 sendError = e.friendly()
                 persist()
             }
+        }
+    }
+
+    /** Laporkan pesan orang lain ke admin. */
+    fun report(m: ChatMsg, onDone: (String) -> Unit) {
+        if (m.id <= 0) return
+        MainScope().launch {
+            try { Net.api.reportChat(m.id, ChatReportReq()); onDone("Laporan terkirim. Terima kasih!") }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { onDone(if (e is HttpException && e.code() == 404) "Pesan sudah tidak ada" else e.friendly()) }
         }
     }
 
@@ -349,7 +368,25 @@ private fun ChatBubble(m: ChatMsg, head: Boolean, mine: Boolean, onReply: (ChatM
     val whenText = remember(m.createdAt) { clock(m.createdAt) }
     var menu by remember { mutableStateOf(false) }
     val canDelete = !sending && (mine || Auth.user?.isOwner == true)
-    val press = Modifier.pointerInput(m.id, canDelete) { if (canDelete) detectTapGestures(onLongPress = { menu = true }) }
+    val press = Modifier.pointerInput(m.id, sending) { if (!sending) detectTapGestures(onLongPress = { menu = true }) }
+    val ctx = LocalContext.current
+    val clip = LocalClipboardManager.current
+    val isSticker = remember(m.body) { Stickers.id(m.body) != null }
+    val menuUi: @Composable () -> Unit = {
+        DropdownMenu(menu, { menu = false }) {
+            if (!isSticker) DropdownMenuItem({ Text("Salin") }, {
+                menu = false
+                clip.setText(AnnotatedString(m.body))
+                android.widget.Toast.makeText(ctx, "Pesan disalin", android.widget.Toast.LENGTH_SHORT).show()
+            })
+            if (!mine && !sending) DropdownMenuItem({ Text("Laporkan") }, {
+                menu = false
+                if (Auth.isGuest) GuestGate.ask("Masuk dengan Google dulu untuk melaporkan pesan.")
+                else ChatState.report(m) { android.widget.Toast.makeText(ctx, it, android.widget.Toast.LENGTH_SHORT).show() }
+            })
+            if (canDelete) DropdownMenuItem({ Text("Hapus") }, { menu = false; ChatState.delete(m) })
+        }
+    }
 
     // Geser ke kanan untuk membalas: pesan ikut bergeser, ikon balas muncul di kiri, lepas setelah melewati ambang.
     val scope = rememberCoroutineScope()
@@ -383,7 +420,7 @@ private fun ChatBubble(m: ChatMsg, head: Boolean, mine: Boolean, onReply: (ChatM
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
                     Box(Modifier.weight(1f, fill = false)) {
                         BubbleBody(m, mine = true, head = head, whenText = if (sending) "…" else whenText, modifier = Modifier.then(press), onUser = { if (m.user.id > 0) openUser(m.user.id) })
-                        DropdownMenu(menu, { menu = false }) { DropdownMenuItem({ Text("Hapus") }, { menu = false; ChatState.delete(m) }) }
+                        menuUi()
                     }
                     if (head) Avatar(m.user.id, m.user.name, m.user.avatarV, 32.dp, Modifier.clickable { if (m.user.id > 0) openUser(m.user.id) })
                     else Spacer(Modifier.width(32.dp))
@@ -394,7 +431,7 @@ private fun ChatBubble(m: ChatMsg, head: Boolean, mine: Boolean, onReply: (ChatM
                     else Spacer(Modifier.width(32.dp))
                     Box(Modifier.weight(1f, fill = false)) {
                         BubbleBody(m, mine = false, head = head, whenText = whenText, modifier = Modifier.then(press), onUser = { if (m.user.id > 0) openUser(m.user.id) })
-                        DropdownMenu(menu, { menu = false }) { DropdownMenuItem({ Text("Hapus") }, { menu = false; ChatState.delete(m) }) }
+                        menuUi()
                     }
                 }
             }
@@ -433,7 +470,7 @@ private fun BubbleBody(m: ChatMsg, mine: Boolean, head: Boolean, whenText: Strin
         }
         m.replyTo?.let { ReplyQuote(it, onLight = false) }
         val sid = remember(m.body) { Stickers.id(m.body) }
-        if (sid != null) StickerImage(sid, 128.dp, Modifier.padding(vertical = 2.dp)) else Text(m.body, color = fg, fontSize = 14.5.sp, lineHeight = 20.sp)
+        if (sid != null) StickerImage(sid, 128.dp, Modifier.padding(vertical = 2.dp)) else Text(linkified(m.body), color = fg, fontSize = 14.5.sp, lineHeight = 20.sp)
         Text(whenText, color = timeColor, fontSize = 10.sp, maxLines = 1, modifier = Modifier.align(Alignment.End).padding(top = 2.dp))
     }
 }
@@ -532,6 +569,32 @@ private fun ChatBackdrop() {
             }) {
                 with(painters[pick]) { draw(androidx.compose.ui.geometry.Size(icon, icon), colorFilter = tint) }
             }
+        }
+    }
+}
+
+private val URL_RE = Regex("""(?i)\b((?:https?://|www\.)[^\s<>"]+)""")
+private val LINK_COLOR = Color(0xFF6CB6FF)
+
+/** Ubah URL di dalam pesan menjadi tautan yang bisa diketuk (dibuka di browser). Tanda baca di ujung URL tidak ikut. */
+@Composable
+private fun linkified(text: String): AnnotatedString {
+    val uri = LocalUriHandler.current
+    return remember(text) {
+        if (!URL_RE.containsMatchIn(text)) return@remember AnnotatedString(text)
+        buildAnnotatedString {
+            var last = 0
+            for (m in URL_RE.findAll(text)) {
+                var raw = m.value
+                while (raw.isNotEmpty() && raw.last() in ".,;:!?)]}'\"") raw = raw.dropLast(1)
+                if (raw.length < 4) continue
+                val start = m.range.first
+                append(text.substring(last, start))
+                val url = if (raw.startsWith("www.", true)) "https://$raw" else raw
+                withLink(LinkAnnotation.Url(url, TextLinkStyles(SpanStyle(color = LINK_COLOR, textDecoration = TextDecoration.Underline))) { runCatching { uri.openUri(url) } }) { append(raw) }
+                last = start + raw.length
+            }
+            append(text.substring(last))
         }
     }
 }

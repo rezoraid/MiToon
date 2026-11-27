@@ -177,11 +177,12 @@ fun ProfileBackdrop(userId: Long, theme: String, headerV: Int, blur: Int, pos: I
             val req = remember(userId, headerV) { ImageRequest.Builder(ctx).data(headerUrl(userId, headerV)).memoryCacheKey("hdr:$userId:$headerV").build() }
             AsyncImage(req, null, Modifier.fillMaxSize().then(if (blur > 0) Modifier.blur(blur.dp, BlurredEdgeTreatment.Unbounded) else Modifier),
                 contentScale = ContentScale.Crop, alignment = BiasAlignment(bias, bias))
-            Box(Modifier.fillMaxSize().background(Color(0x4D000000))) // peredam supaya teks tetap terbaca
         }
         if (t != null) Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(t.a.copy(if (headerV > 0) 0.22f else 0.42f), t.b.copy(if (headerV > 0) 0.08f else 0.16f)))))
-        if (fade != null) Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, fade))))
-        else if (headerV > 0) Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0x73000000)))))
+        if (headerV > 0) {
+            // Gradasi gelap berlapis supaya teks selalu terbaca dan kotak header tampak rapi; bawahnya melebur ke warna halaman bila [fade] diisi.
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x4D000000), 0.5f to Color(0x8C000000), 1f to (fade ?: Color(0xCC000000)))))
+        } else if (fade != null) Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, fade))))
     }
 }
 

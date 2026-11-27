@@ -72,7 +72,7 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
                 item("head") {
                     val styled = u.premium && (u.theme.isNotEmpty() || u.headerV > 0)
                     Box(Modifier.fillMaxWidth()) {
-                    if (styled) ProfileBackdrop(u.id, u.theme, u.headerV, u.headerBlur, u.headerPos, androidx.compose.ui.unit.Dp.Unspecified, Modifier.matchParentSize(), fade = null)
+                    if (styled) ProfileBackdrop(u.id, u.theme, u.headerV, u.headerBlur, u.headerPos, androidx.compose.ui.unit.Dp.Unspecified, Modifier.matchParentSize(), fade = Bg)
                     Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 28.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         FramedAvatar(u.id, u.name, u.avatarV, 104.dp, if (u.premium) u.frame else "")
                         Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {

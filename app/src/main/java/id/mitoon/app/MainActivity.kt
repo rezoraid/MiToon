@@ -119,7 +119,8 @@ private fun AppScaffold() {
     GuestGateHost()
     val openNotif: () -> Unit = { if (Auth.isGuest) GuestGate.ask(GUEST_NOTIF) else nav.navigate("notifications") { launchSingleTop = true } }
     val openChat: () -> Unit = { nav.navigate("chat") { launchSingleTop = true } }
-    CompositionLocalProvider(LocalOpenUser provides openUser, LocalOpenNotif provides openNotif, LocalOpenChat provides openChat) {
+    val openPremium: () -> Unit = { nav.navigate("premium") { launchSingleTop = true } }
+    CompositionLocalProvider(LocalOpenUser provides openUser, LocalOpenNotif provides openNotif, LocalOpenChat provides openChat, LocalOpenPremium provides openPremium) {
     Scaffold(containerColor = Bg, bottomBar = {
         // Saat keyboard terbuka (mis. mengetik di Global Chat) bilah bawah disembunyikan supaya kolom tulis tepat di atas keyboard.
         val imeOpen = WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0

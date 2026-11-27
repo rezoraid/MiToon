@@ -474,12 +474,14 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
     }
     var confirm by remember(chapterId) { mutableStateOf(false) }
     var autoTried by remember(chapterId) { mutableStateOf(false) }
+    var deadPages by remember(chapterId) { mutableIntStateOf(0) }
+    var reported by remember(chapterId) { mutableStateOf(false) }
     val doRefetch: () -> Unit = {
         refetching = true
         scope.launch {
             val r = try { runCatching { Net.refetchChapter(chapterId) } } finally { refetching = false }
             left = Net.refetchLeft("c:$chapterId")
-            r.getOrNull()?.let { fresh = it; reloadNonce++; toast(ctx, "Diperbarui: ${it.images.size} halaman (sisa $left hari ini)") } ?: toast(ctx, "Gagal mengambil ulang")
+            r.getOrNull()?.let { fresh = it; deadPages = 0; reloadNonce++; toast(ctx, "Diperbarui: ${it.images.size} halaman (sisa $left hari ini)") } ?: toast(ctx, "Gagal mengambil ulang")
         }
     }
     val refetch = {
@@ -585,6 +587,15 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
         advance(n, false)
     }
 
+    LaunchedEffect(c?.images?.size, deadPages, refetching) {
+        val cc = c ?: return@LaunchedEffect
+        if (reported || local != null || refetching) return@LaunchedEffect
+        if (cc.images.isEmpty() || deadPages * 10 >= cc.images.size * 6) {
+            reported = true
+            runCatching { Net.api.chapterBroken(chapterId, BrokenReq(seriesId)) }
+        }
+    }
+
     Box(Modifier.fillMaxSize()) {
         when {
             res == null -> Box(Modifier.fillMaxSize(), Alignment.Center) { MascotLoading(size = 150.dp) }
@@ -594,6 +605,7 @@ fun ReaderScreen(seriesId: String, chapterId: String, onBack: () -> Unit, onSeri
                 LazyColumn(Modifier.fillMaxSize().nestedScroll(barsByScroll).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { bars = !bars }, listState) {
                     itemsIndexed(c.images, key = { i, u -> "$i|$u" }) { i, url ->
                         ReaderPage(url, imgHeaders, reloadNonce) {
+                            deadPages++
                             if (i == 0 && !autoTried && left > 0 && local == null && !refetching) { autoTried = true; doRefetch() }
                         }
                     }

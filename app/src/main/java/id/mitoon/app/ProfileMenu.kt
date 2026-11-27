@@ -34,7 +34,7 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             // ---- kartu profil
             Box(Modifier.fillMaxWidth().clip(R16).border(1.dp, CardLine, R16).background(CardBg).clickable(onClick = onEdit)) {
-              ProfileBackdrop(user.id, user.theme, user.headerV, user.headerBlur, user.headerPos, 140.dp)
+              ProfileBackdrop(user.id, user.theme, user.headerV, user.headerBlur, user.headerPos, androidx.compose.ui.unit.Dp.Unspecified, Modifier.matchParentSize(), fade = null)
               Column(Modifier.fillMaxWidth().padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     FramedAvatar(user.id, user.name, user.avatarV, 72.dp, user.frame)

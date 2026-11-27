@@ -137,7 +137,7 @@ fun HistoryCommentRow(m: MyComment, onOpen: (CommentOrigin) -> Unit) {
             Text(o?.title?.ifBlank { "Seri" } ?: "Memuat…", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val where = (if (m.target.startsWith("c:")) o?.chapterNumber?.let { "Chapter $it" } ?: "Chapter" else "Halaman seri") + (if (m.parentId != null) " · Balasan" else "")
             Text("$where · ${agoText(m.createdAt)}", color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 1.dp))
-            Text(m.body, color = Color(0xFFD7D9DE), fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+            Text(Stickers.label(m.body), color = Color(0xFFD7D9DE), fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
         }
     }
 }

@@ -68,6 +68,8 @@ import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -169,7 +171,7 @@ object ChatState {
         val body = text.trim()
         if (body.isEmpty()) return
         val target = replying?.takeIf { it.id > 0 }
-        val ref = target?.let { ChatReply(it.id, it.user.name, it.body.replace(Regex("\\s+"), " ").take(120)) }
+        val ref = target?.let { ChatReply(it.id, it.user.name, Stickers.label(it.body).replace(Regex("\\s+"), " ").take(120)) }
         val tmp = ChatMsg(id = -(++seq), body = body, createdAt = System.currentTimeMillis(), user = me(), replyTo = ref)
         replying = null
         sendError = null
@@ -212,6 +214,20 @@ object ChatState {
 }
 
 // ---------------------------------------------------------------- banner di Beranda
+private val chatNamePalette = listOf(
+    Color(0xFFFF8A80), Color(0xFFFFB86B), Color(0xFFFFD54F), Color(0xFF9CCC65), Color(0xFF4DD0A8),
+    Color(0xFF4FC3F7), Color(0xFF7C9CFF), Color(0xFFB388FF), Color(0xFFF48FB1), Color(0xFFA1887F)
+)
+fun chatNameColor(userId: Long): Color = chatNamePalette[((userId * 2654435761L) ushr 8).toInt().and(0x7fffffff) % chatNamePalette.size]
+
+@Composable
+private fun ChatTile(size: androidx.compose.ui.unit.Dp) {
+    val r = RoundedCornerShape(size * 0.32f)
+    Box(Modifier.size(size).clip(r).background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF7C5CFF), Color(0xFF3FA9F5)))).border(1.dp, Color(0x33FFFFFF), r), Alignment.Center) {
+        Icon(Ic.Comment, null, tint = Color.White, modifier = Modifier.size(size * 0.55f))
+    }
+}
+
 /** Baris ringkas Public Chat di Beranda: pesan terbaru dan jumlah pesan yang belum dibaca. */
 @Composable
 fun ChatPromo(onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -225,18 +241,22 @@ fun ChatPromo(onClick: () -> Unit, modifier: Modifier = Modifier) {
             .clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(Modifier.size(36.dp)) {
-            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)).background(Color(0xFF2B2E37)), Alignment.Center) {
-                Icon(Ic.Comment, null, tint = Color.White, modifier = Modifier.size(20.dp))
-            }
-            if (online) Box(Modifier.align(Alignment.TopEnd).size(10.dp).background(CardBg, CircleShape).padding(2.dp).background(Color(0xFF30D158), CircleShape))
+        Box(Modifier.size(44.dp)) {
+            ChatTile(44.dp)
+            if (online) Box(Modifier.align(Alignment.BottomEnd).size(14.dp).background(CardBg, CircleShape).padding(2.5.dp).background(Color(0xFF30D158), CircleShape))
         }
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            Text("Public Chat", color = Color.White, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-            Text(
-                if (last != null) "${last.user.name}: ${last.body.replace(Regex("\\s+"), " ")}" else if (ChatState.error != null) "Ketuk untuk membuka obrolan" else "Belum ada pesan, sapa duluan!",
-                color = if (unread > 0) Color(0xFFE2E4EA) else Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis
-            )
+            Text("Public Chat", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+            if (last != null) Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                Avatar(last.user.id, last.user.name, last.user.avatarV, 18.dp)
+                Text(
+                    buildAnnotatedString {
+                        withStyle(SpanStyle(color = chatNameColor(last.user.id), fontWeight = FontWeight.Bold)) { append(last.user.name) }
+                        append(": ${Stickers.label(last.body).replace(Regex("\\s+"), " ")}")
+                    },
+                    color = if (unread > 0) Color(0xFFE2E4EA) else Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp)
+                )
+            } else Text(if (ChatState.error != null) "Ketuk untuk membuka obrolan" else "Belum ada pesan, sapa duluan!", color = Muted, fontSize = 12.sp, maxLines = 1, modifier = Modifier.padding(top = 3.dp))
         }
         if (unread > 0) Box(
             Modifier.heightIn(min = 20.dp).widthIn(min = 20.dp).clip(CircleShape).background(Color(0xFFE5484D)).padding(horizontal = 6.dp),
@@ -274,7 +294,7 @@ fun ChatScreen(onBack: () -> Unit) {
                 Text("Public Chat", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
                 Text("Ngobrol bareng semua pembaca", color = Muted, fontSize = 11.sp, maxLines = 1)
             }
-            Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(Line), Alignment.Center) { Icon(Ic.Comment, null, tint = Color.White, modifier = Modifier.size(18.dp)) }
+            ChatTile(38.dp)
         }
         HorizontalDivider(color = Line, thickness = 1.dp)
 
@@ -399,7 +419,7 @@ private fun BubbleBody(m: ChatMsg, mine: Boolean, head: Boolean, whenText: Strin
         if (head) {
             // baris 1: nama + centang verified (kalau ada)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(m.user.name, color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                Text(m.user.name, color = chatNameColor(m.user.id), fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false).clickable(onClick = onUser))
                 if (m.user.verified || m.user.isOwner) VerifiedBadge(Modifier.padding(start = 5.dp), 14.dp)
             }
@@ -412,7 +432,8 @@ private fun BubbleBody(m: ChatMsg, mine: Boolean, head: Boolean, whenText: Strin
             }
         }
         m.replyTo?.let { ReplyQuote(it, onLight = false) }
-        Text(m.body, color = fg, fontSize = 14.5.sp, lineHeight = 20.sp)
+        val sid = remember(m.body) { Stickers.id(m.body) }
+        if (sid != null) StickerImage(sid, 128.dp, Modifier.padding(vertical = 2.dp)) else Text(m.body, color = fg, fontSize = 14.5.sp, lineHeight = 20.sp)
         Text(whenText, color = timeColor, fontSize = 10.sp, maxLines = 1, modifier = Modifier.align(Alignment.End).padding(top = 2.dp))
     }
 }
@@ -428,7 +449,7 @@ private fun ReplyQuote(r: ChatReply, onLight: Boolean) {
         Icon(Ic.Reply, null, tint = bar, modifier = Modifier.padding(start = 8.dp).size(14.dp))
         Column(Modifier.weight(1f).padding(start = 8.dp, end = 10.dp, top = 6.dp, bottom = 6.dp)) {
             Text(r.userName.ifBlank { "Pengguna" }, color = if (onLight) Color(0xFF3A3C44) else Color(0xFFE2E4EA), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(r.body, color = if (onLight) Color(0xFF55575F) else Muted, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(Stickers.label(r.body), color = if (onLight) Color(0xFF55575F) else Muted, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -455,11 +476,12 @@ private fun ChatComposer(modifier: Modifier = Modifier) {
             Icon(Ic.Reply, null, tint = Muted, modifier = Modifier.size(16.dp))
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
                 Text("Membalas ${target.user.name}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(target.body.replace('\n', ' '), color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(Stickers.label(target.body).replace('\n', ' '), color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             IconButton({ ChatState.replying = null }, Modifier.size(32.dp)) { Icon(Ic.Close, "Batal membalas", tint = Muted, modifier = Modifier.size(16.dp)) }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StickerButton({ id -> ChatState.send(Stickers.token(id)) {} })
             OutlinedTextField(text, { if (it.length <= CHAT_MAX_LEN) text = it }, Modifier.weight(1f).focusRequester(focus), maxLines = 4, shape = RoundedCornerShape(16.dp), enabled = !muted,
                 placeholder = { Text("Tulis pesan…", color = Muted) },
                 colors = OutlinedTextFieldDefaults.colors(

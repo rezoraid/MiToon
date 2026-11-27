@@ -68,12 +68,12 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
                 TextButton({ reload++ }) { Text("Coba lagi", color = Color.White, fontWeight = FontWeight.Bold) }
             }
             u == null -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(Modifier.size(26.dp), Color.White, strokeWidth = 2.dp) }
-            else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp)) {
+            else -> LazyColumn(Modifier.fillMaxSize()) {
                 item("head") {
                     val styled = u.premium && (u.theme.isNotEmpty() || u.headerV > 0)
-                    Box(Modifier.fillMaxWidth().then(if (styled) Modifier.padding(top = 12.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) else Modifier)) {
-                    if (styled) ProfileBackdrop(u.id, u.theme, u.headerV, u.headerBlur, u.headerPos, 230.dp, fade = Bg)
-                    Column(Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.fillMaxWidth()) {
+                    if (styled) ProfileBackdrop(u.id, u.theme, u.headerV, u.headerBlur, u.headerPos, androidx.compose.ui.unit.Dp.Unspecified, Modifier.matchParentSize(), fade = null)
+                    Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 28.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         FramedAvatar(u.id, u.name, u.avatarV, 104.dp, if (u.premium) u.frame else "")
                         Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(u.name, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
@@ -111,10 +111,10 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
                     }
                     }
                     HorizontalDivider(color = Line)
-                    Text("Sedang dibaca", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))
+                    Text("Sedang dibaca", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp))
                 }
                 if (items.isEmpty()) item("empty") {
-                    Box(Modifier.fillMaxWidth().padding(vertical = 32.dp), Alignment.Center) {
+                    Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 32.dp), Alignment.Center) {
                         when {
                             loading -> CircularProgressIndicator(Modifier.size(22.dp), Color.White, strokeWidth = 2.dp)
                             u.readingHidden -> Text(if (u.id == Auth.user?.id) "Daftar bacaanmu disembunyikan. Atur di menu Privasi." else "Daftar bacaan disembunyikan oleh pemilik akun.", color = Muted, fontSize = 14.sp, textAlign = TextAlign.Center)
@@ -123,7 +123,7 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
                         }
                     }
                 }
-                items(items, key = { it.seriesId }) { r -> ReadRow(r, onOpen); HorizontalDivider(color = Line) }
+                items(items, key = { it.seriesId }) { r -> Column(Modifier.padding(horizontal = 16.dp)) { ReadRow(r, onOpen); HorizontalDivider(color = Line) } }
                 if (hasMore) item("more") {
                     LaunchedEffect(items.size) { loadReading(items.lastOrNull()?.readAt) }
                     Box(Modifier.fillMaxWidth().padding(16.dp), Alignment.Center) { CircularProgressIndicator(Modifier.size(22.dp), Color.White, strokeWidth = 2.dp) }

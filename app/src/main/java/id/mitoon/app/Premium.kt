@@ -167,11 +167,11 @@ private fun headerUrl(userId: Long, v: Int) = "${BuildConfig.API_BASE_URL}v1/use
  * Tanpa tema dan tanpa gambar = kosong (tidak menggambar apa pun). Blur memakai Modifier.blur (Android 12+; di bawahnya gambar tampil tajam).
  */
 @Composable
-fun ProfileBackdrop(userId: Long, theme: String, headerV: Int, blur: Int, pos: Int, height: Dp, modifier: Modifier = Modifier, fade: Color = CardBg) {
+fun ProfileBackdrop(userId: Long, theme: String, headerV: Int, blur: Int, pos: Int, height: Dp, modifier: Modifier = Modifier, fade: Color? = CardBg) {
     val t = ProfileThemes[theme]
     if (t == null && headerV <= 0) return
     val ctx = LocalContext.current
-    Box(modifier.fillMaxWidth().height(height).clipToBounds()) {
+    Box(modifier.then(if (height == Dp.Unspecified) Modifier else Modifier.fillMaxWidth().height(height)).clipToBounds()) {
         if (headerV > 0) {
             val bias = pos.coerceIn(0, 100) / 50f - 1f // satu slider: hanya sumbu yang berlebih (atas-bawah / kiri-kanan) yang bergeser
             val req = remember(userId, headerV) { ImageRequest.Builder(ctx).data(headerUrl(userId, headerV)).memoryCacheKey("hdr:$userId:$headerV").build() }
@@ -180,7 +180,8 @@ fun ProfileBackdrop(userId: Long, theme: String, headerV: Int, blur: Int, pos: I
             Box(Modifier.fillMaxSize().background(Color(0x4D000000))) // peredam supaya teks tetap terbaca
         }
         if (t != null) Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(t.a.copy(if (headerV > 0) 0.22f else 0.42f), t.b.copy(if (headerV > 0) 0.08f else 0.16f)))))
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, fade))))
+        if (fade != null) Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, fade))))
+        else if (headerV > 0) Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0x73000000)))))
     }
 }
 
@@ -480,7 +481,7 @@ fun PremiumStyleScreen(onBack: () -> Unit, onPremium: () -> Unit) {
 
             // ---- pratinjau
             Box(Modifier.fillMaxWidth().clip(PremiumShape).border(1.dp, CardLine, PremiumShape).background(CardBg)) {
-                ProfileBackdrop(user.id, user.theme, user.headerV, blur.roundToInt(), pos.roundToInt(), 150.dp)
+                ProfileBackdrop(user.id, user.theme, user.headerV, blur.roundToInt(), pos.roundToInt(), Dp.Unspecified, Modifier.matchParentSize(), fade = null)
                 Column(Modifier.fillMaxWidth().padding(vertical = 18.dp, horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     FramedAvatar(user.id, user.name, user.avatarV, 88.dp, user.frame)
                     Text(user.name, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 10.dp))

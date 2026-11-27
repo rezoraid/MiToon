@@ -129,6 +129,7 @@ import java.security.MessageDigest
     val title: String, val body: String? = null, val url: String? = null, val expiresAt: String? = null
 )
 @Serializable data class Ok(val ok: Boolean = true)
+@Serializable data class BrokenReq(val seriesId: String)
 @Serializable data class PushSettings(val enabled: Boolean = true, val newChapter: Boolean = true)
 @Serializable data class PushLogItem(val kind: String = "", val title: String = "", val body: String = "", val seriesId: String? = null, val ok: Boolean = true, val error: String? = null, val createdAt: Long = 0)
 @Serializable data class AdminPush(val configured: Boolean = false, val settings: PushSettings = PushSettings(), val log: List<PushLogItem> = emptyList())
@@ -171,6 +172,13 @@ interface Api {
     @GET("v1/comments/{id}/replies") suspend fun replies(@Path("id") id: Long, @Query("after") after: Long? = null, @Query("limit") limit: Int = 20): Env<CommentPage>
     @POST("v1/comments") suspend fun addComment(@Body b: CommentReq): CommentRes
     @PUT("v1/comments/{id}/vote") suspend fun voteComment(@Path("id") id: Long, @Body b: VoteReq): Env<VoteRes>
+    @POST("v1/chapters/{id}/broken") suspend fun chapterBroken(@Path("id") id: String, @Body b: BrokenReq): Env<Ok>
+    @GET("v1/stickers/global") suspend fun stickersGlobal(): Env<List<StickerRef>>
+    @GET("v1/stickers/mine") suspend fun stickersMine(): Env<List<StickerRef>>
+    @POST("v1/stickers/mine") suspend fun addMySticker(@Body img: RequestBody): Env<StickerRef>
+    @DELETE("v1/stickers/mine/{id}") suspend fun deleteMySticker(@Path("id") id: Long): Env<Ok>
+    @POST("v1/admin/stickers") suspend fun adminAddSticker(@Body img: RequestBody): Env<StickerRef>
+    @DELETE("v1/admin/stickers/{id}") suspend fun adminDeleteSticker(@Path("id") id: Long): Env<Ok>
     @POST("v1/xp/event") suspend fun xpEvent(@Body b: XpReq): Env<XpRes>
     @GET("v1/xp/streak") suspend fun streak(): Env<StreakRes>
     @GET("v1/xp/leaderboard") suspend fun leaderboard(@Query("limit") limit: Int = 50): Env<RankBoard>
@@ -622,7 +630,7 @@ object Net {
                 val req = chain.request()
                 val t = Auth.token
                 val rel = req.url.encodedPath.removePrefix(basePath)
-                val priv = req.url.host == apiHost && PUBLIC.none { rel.startsWith(it) }
+                val priv = req.url.host == apiHost && (rel.endsWith("/broken") || PUBLIC.none { rel.startsWith(it) })
                 chain.proceed(if (t != null && priv) req.newBuilder().header("Authorization", "Bearer $t").build() else req)
             }
             .addInterceptor { chain ->

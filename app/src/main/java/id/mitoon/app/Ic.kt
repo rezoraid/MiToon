@@ -47,6 +47,7 @@ object Ic {
     val StarOn = icon("StarOn") { both("M12 3.6l2.5 5.2 5.7.8-4.1 4 1 5.7L12 16.6l-5.1 2.7 1-5.7-4.1-4 5.7-.8z", 2.4f) }
     val Download = icon("Download") { line("M12 3.8v10.6", 2.8f); line("M7.2 10.2L12 15l4.8-4.8", 2.8f); line("M5 19.6h14", 2.8f) }
     val DownloadOn = icon("DownloadOn") { line("M12 3.4v11.6", 3.3f); line("M7 10.2L12 15.2l5-5", 3.3f); line("M4.6 19.8h14.8", 3.4f) }
+    val Sticker = icon("Sticker") { line("M7 3.8h6.8c.5 0 1 .2 1.4.6l4.4 4.4c.4.4.6.9.6 1.4V17a3.2 3.2 0 0 1-3.2 3.2H7A3.2 3.2 0 0 1 3.8 17V7A3.2 3.2 0 0 1 7 3.8z", 2.2f); line("M20 10h-3.6A2.4 2.4 0 0 1 14 7.6V4", 2.2f); line("M8.6 14.2c.9 1.3 2.1 2 3.4 2s2.5-.7 3.4-2", 2.2f); line("M9 10.6v.05M13 10.6v.05", 2.8f) }
     val Check = icon("Check") { line("M5.2 12.8L10 17.4L18.8 7.2", 3.1f) }
     val Trophy = icon("Trophy") { line("M7.6 3.8h8.8v5.4a4.4 4.4 0 0 1-8.8 0z", 2.4f); line("M7.6 5.8H4.5v1.3a3.5 3.5 0 0 0 3.3 3.5", 2.2f); line("M16.4 5.8h3.1v1.3a3.5 3.5 0 0 1-3.3 3.5", 2.2f); line("M12 13.6v3.6", 2.4f); line("M8.2 20.2h7.6", 2.8f) }
     val TrophyOn = icon("TrophyOn") { eo("M7.4 3.8h9.2v5.4a4.6 4.6 0 0 1-9.2 0z"); line("M7.6 5.8H4.5v1.3a3.5 3.5 0 0 0 3.3 3.5", 2.2f); line("M16.4 5.8h3.1v1.3a3.5 3.5 0 0 1-3.3 3.5", 2.2f); line("M12 13.6v3.6", 2.6f); line("M8.2 20.2h7.6", 2.8f) }

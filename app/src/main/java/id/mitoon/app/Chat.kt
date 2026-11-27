@@ -249,7 +249,7 @@ fun ChatPromo(onClick: () -> Unit, modifier: Modifier = Modifier) {
             Text("Public Chat", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
             if (last != null) Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                 Avatar(last.user.id, last.user.name, last.user.avatarV, 18.dp)
-                Text(
+                androidx.compose.material3.Text(
                     buildAnnotatedString {
                         withStyle(SpanStyle(color = chatNameColor(last.user.id), fontWeight = FontWeight.Bold)) { append(last.user.name) }
                         append(": ${Stickers.label(last.body).replace(Regex("\\s+"), " ")}")

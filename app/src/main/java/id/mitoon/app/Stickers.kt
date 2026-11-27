@@ -108,9 +108,11 @@ fun StickerImage(id: Long, size: Dp, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun StickerButton(onPick: (Long) -> Unit, modifier: Modifier = Modifier, shape: Shape = RoundedCornerShape(16.dp)) {
+fun StickerButton(onPick: (Long) -> Unit, modifier: Modifier = Modifier, shape: Shape = RoundedCornerShape(16.dp), bare: Boolean = false) {
     var open by remember { mutableStateOf(false) }
-    Box(modifier.size(56.dp).clip(shape).background(Color(0xFF2A2C32)).clickable { open = true }, Alignment.Center) {
+    if (bare) IconButton({ open = true }, modifier.size(48.dp)) {
+        Icon(Ic.Sticker, "Stiker", tint = Muted, modifier = Modifier.size(26.dp))
+    } else Box(modifier.size(56.dp).clip(shape).background(Color(0xFF2A2C32)).clickable { open = true }, Alignment.Center) {
         Icon(Ic.Sticker, "Stiker", tint = Color.White, modifier = Modifier.size(26.dp))
     }
     if (open) StickerSheet({ open = false }) { id -> open = false; onPick(id) }

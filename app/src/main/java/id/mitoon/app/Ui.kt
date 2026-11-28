@@ -174,6 +174,30 @@ fun SeriesShelf(vm: PagedVm, onOpen: (Series) -> Unit, upCount: Int = 0) {
     }
 }
 
+/** Rak "Lanjutkan Membaca": maks. 10 komik terakhir dibaca (dari Library.entries, urut readAt terbaru). Disembunyikan bila belum ada riwayat. */
+private const val CONTINUE_MAX = 10
+
+@Composable
+fun ContinueReadingShelf(onOpen: (LibEntry) -> Unit) {
+    // Library.entries adalah state Compose: otomatis berubah saat Library.open/advance dipanggil (selesai/ganti chapter di reader).
+    val entries = Library.entries
+    val list = remember(entries) {
+        entries.values.filter { it.readAt > 0 && it.lastChapterId != null }.sortedByDescending { it.readAt }.take(CONTINUE_MAX)
+    }
+    if (list.isEmpty()) return
+    val cardW = ((androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp - 24 - 14) / 3f).dp
+    Column(Modifier.fillMaxWidth()) {
+        Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Lanjutkan Membaca") }
+        LazyRow(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(ShelfGap)) {
+            items(list, key = { it.id }) { e ->
+                Box(Modifier.width(cardW)) {
+                    SeriesCard(e.toSeries(), false, sub = e.lastChapterNumber?.takeIf { it.isNotBlank() }?.let { "Ch. $it" }, showRating = false) { onOpen(e) }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun SeriesCard(s: Series, up: Boolean, sub: String? = null, showRating: Boolean = true, badge: Int = 0, onClick: () -> Unit) {
     Box(Modifier.fillMaxWidth().aspectRatio(COVER_RATIO).clip(R6).clickable(onClick = onClick)) {

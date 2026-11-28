@@ -683,6 +683,17 @@ class MiToonApp : Application(), ImageLoaderFactory {
         CommentHistory.init(this)
         Updates.init(this)
         Updates.schedule(this)
+        StreakReminder.init(this)
+        StreakReminder.schedule(this)
+        registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
+            override fun onActivityStarted(activity: android.app.Activity) { Fg.started++ }
+            override fun onActivityStopped(activity: android.app.Activity) { if (Fg.started > 0) Fg.started-- }
+            override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: android.os.Bundle?) {}
+            override fun onActivityResumed(activity: android.app.Activity) {}
+            override fun onActivityPaused(activity: android.app.Activity) {}
+            override fun onActivitySaveInstanceState(activity: android.app.Activity, outState: android.os.Bundle) {}
+            override fun onActivityDestroyed(activity: android.app.Activity) {}
+        })
         Push.init(this)
         // Urutan penting: header gambar dulu (kecil, sekaligus membuka koneksi pertama), lalu data layar utama.
         // Prefetch spekulatif (detail/chapter lanjutan) menunggu beberapa detik di dalam Net supaya tidak berebut dengan layar yang terlihat.

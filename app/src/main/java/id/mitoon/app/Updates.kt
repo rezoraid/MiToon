@@ -38,6 +38,8 @@ class UpdateWorker(ctx: Context, p: WorkerParameters) : CoroutineWorker(ctx, p) 
 
 object Updates {
     private const val CHANNEL = "updates"
+    /** Channel untuk balasan chat & pengingat streak. */
+    const val SOCIAL = "social"
     private lateinit var prefs: SharedPreferences
     private val mutex = Mutex()
     private var lastRun = 0L
@@ -45,6 +47,8 @@ object Updates {
     var fresh by mutableStateOf<Map<String, Int>>(emptyMap()); private set
     var pendingOpen by mutableStateOf<String?>(null)
     var askNotif: (() -> Unit)? = null
+    /** Notifikasi balasan chat diketuk -> buka layar Chat. */
+    var pendingChat by mutableStateOf(false)
 
     fun init(ctx: Context) {
         prefs = ctx.getSharedPreferences("updates", Context.MODE_PRIVATE)
@@ -52,6 +56,9 @@ object Updates {
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) nm.createNotificationChannel(NotificationChannel(CHANNEL, "Chapter baru", NotificationManager.IMPORTANCE_DEFAULT).apply {
             description = "Pemberitahuan chapter baru dari komik di bookmark"
+        })
+        if (Build.VERSION.SDK_INT >= 26) nm.createNotificationChannel(NotificationChannel(SOCIAL, "Balasan & pengingat", NotificationManager.IMPORTANCE_DEFAULT).apply {
+            description = "Balasan pesan di Public Chat dan pengingat streak membaca"
         })
     }
 
@@ -144,6 +151,19 @@ object Updates {
         val n = NotificationCompat.Builder(ctx, CHANNEL).setSmallIcon(R.drawable.ic_notif).setAutoCancel(true).setContentIntent(pi)
             .setContentTitle(title).setContentText(body).setStyle(NotificationCompat.BigTextStyle().bigText(body)).build()
         runCatching { nm.notify((title + body).hashCode(), n) }
+    }
+
+    /** Ada yang membalas pesanmu di Public Chat (topic pribadi `u_<id>`). Tidak ditampilkan bila layar Chat sedang terbuka di depan. */
+    fun onChatReply(ctx: Context, name: String, body: String, msgId: Long) {
+        if (!::prefs.isInitialized) init(ctx)
+        if (Fg.on && ChatState.visible) return
+        val nm = NotificationManagerCompat.from(ctx)
+        if (!nm.areNotificationsEnabled() || body.isBlank()) return
+        val open = Intent(ctx, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP; putExtra("open", "chat") }
+        val pi = PendingIntent.getActivity(ctx, 3001, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val n = NotificationCompat.Builder(ctx, SOCIAL).setSmallIcon(R.drawable.ic_notif).setAutoCancel(true).setContentIntent(pi)
+            .setContentTitle("${name.ifBlank { "Seseorang" }} membalas pesanmu").setContentText(body).setStyle(NotificationCompat.BigTextStyle().bigText(body)).build()
+        runCatching { nm.notify("chatreply", (msgId % 100_000L).toInt(), n) }
     }
 
     /** Juara papan XP mingguan (topic pribadi `u_<id>`): satu notifikasi per minggu. Ketuk = buka app di tab Ranking. */

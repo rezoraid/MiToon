@@ -41,6 +41,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -121,6 +122,8 @@ object ChatState {
     var sendError by mutableStateOf<String?>(null)
     /** Pesan yang sedang dibalas (diisi lewat geser ke kanan); dikosongkan setelah terkirim atau ditutup. */
     var replying by mutableStateOf<ChatMsg?>(null)
+    /** Layar Chat sedang tampil (dipakai agar notifikasi balasan tidak muncul saat sedang dibaca). */
+    @Volatile var visible = false
 
     private var seq = 0L
     private var prefs: SharedPreferences? = null
@@ -151,6 +154,13 @@ object ChatState {
         if (seenId < 0) return 0
         val me = Auth.user?.id
         return rows.count { it.id > seenId && it.user.id != me }
+    }
+
+    /** Pesan baru (belum dilihat) yang membalas pesan kita, untuk tanda "@" di Beranda seperti WhatsApp. */
+    val unreadReplies: Int get() {
+        if (seenId < 0) return 0
+        val me = Auth.user?.id?.takeIf { it > 0 } ?: return 0
+        return rows.count { m -> m.id > seenId && m.user.id != me && m.replyTo?.let { chatReplyUserId(it) == me } == true }
     }
 
     private fun trim(l: List<ChatMsg>) = l.distinctBy { it.id }.sortedBy { it.id }.takeLast(CHAT_LIMIT)
@@ -292,10 +302,19 @@ fun ChatPromo(onClick: () -> Unit, modifier: Modifier = Modifier) {
                 )
             } else Text(if (ChatState.error != null) "Ketuk untuk membuka obrolan" else "Belum ada pesan, sapa duluan!", color = Muted, fontSize = 12.sp, maxLines = 1, modifier = Modifier.padding(top = 3.dp))
         }
-        if (unread > 0) Box(
-            Modifier.heightIn(min = 20.dp).widthIn(min = 20.dp).clip(CircleShape).background(Color(0xFFE5484D)).padding(horizontal = 6.dp),
-            Alignment.Center
-        ) { Text(if (unread > 99) "99+" else "$unread", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1) }
+        if (unread > 0) {
+            // Ada yang membalas pesanmu: tanda "@" di sebelah jumlah belum dibaca (seperti WhatsApp).
+            if (ChatState.unreadReplies > 0) {
+                Box(Modifier.size(20.dp).clip(CircleShape).background(Color(0xFFE5484D)), Alignment.Center) {
+                    Text("@", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                }
+                Spacer(Modifier.width(4.dp))
+            }
+            Box(
+                Modifier.heightIn(min = 20.dp).widthIn(min = 20.dp).clip(CircleShape).background(Color(0xFFE5484D)).padding(horizontal = 6.dp),
+                Alignment.Center
+            ) { Text(if (unread > 99) "99+" else "$unread", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1) }
+        }
         else Icon(Ic.Right, null, tint = Muted, modifier = Modifier.size(16.dp))
     }
 }
@@ -306,6 +325,7 @@ fun ChatScreen(onBack: () -> Unit) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
+    DisposableEffect(Unit) { ChatState.visible = true; onDispose { ChatState.visible = false } }
     // Polling selama layar ini tampil (berhenti otomatis saat pindah tab).
     LaunchedEffect(Unit) { while (true) { ChatState.refresh(); delay(CHAT_POLL_MS) } }
 

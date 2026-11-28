@@ -49,7 +49,7 @@ fun TopBar(title: String, onBack: (() -> Unit)?, action: @Composable () -> Unit 
 private const val SHELF_PAGE = 24
 
 @Composable
-fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Unit, onChat: () -> Unit = {}) {
+fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Unit, onChat: () -> Unit = {}, onContinue: (LibEntry) -> Unit = {}) {
     val hv: HomeVm = viewModel()
     var sel by rememberSaveable { mutableStateOf("beranda") }
     val s = if (sel == "sorotan" || sel == "populer") "beranda" else sel // nilai lama dari versi sebelumnya
@@ -73,6 +73,8 @@ fun HomeScreen(onOpen: (Series) -> Unit, onSearch: () -> Unit, onMore: () -> Uni
                 item("pills", "pills") { Box(Modifier.padding(horizontal = 12.dp)) { Pills(tabs, s) { sel = it } } }
                 if (hv.spotlight.isNotEmpty()) item("spot", "spot") { Box(Modifier.padding(horizontal = 12.dp)) { Spotlight(hv.spotlight, onOpen) } }
                 item("chat", "chat") { ChatPromo(onChat, Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) }
+                // Rak hanya muncul bila ada riwayat baca; ContinueReadingShelf tidak menggambar apa pun saat kosong.
+                if (Library.entries.values.any { it.readAt > 0 && it.lastChapterId != null }) item("continue", "continue") { ContinueReadingShelf(onContinue) }
                 item("t-rec", "title") { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Rekomendasi") } }
                 item("s-rec", "shelf") { SeriesShelf(rec, onOpen) }
                 item("t-upd", "title") { Box(Modifier.padding(horizontal = 12.dp)) { SectionTitle("Update Komik", onMore) } }

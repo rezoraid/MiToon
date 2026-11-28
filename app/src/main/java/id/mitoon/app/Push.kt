@@ -63,6 +63,7 @@ object Push {
 class MiToonMessaging : FirebaseMessagingService() {
     override fun onMessageReceived(m: RemoteMessage) {
         val d = m.data
+        if (d["type"] == "chatreply") { Updates.onChatReply(applicationContext, d["name"].orEmpty(), d["body"].orEmpty(), d["msgId"]?.toLongOrNull() ?: 0L); return }
         if (d["type"] == "toprank") { Updates.onTopRank(applicationContext, d["rank"]?.toIntOrNull() ?: 0, d["weekXp"]?.toIntOrNull() ?: 0); return }
         if (d["type"] == "broadcast") { Updates.onBroadcast(applicationContext, d["title"].orEmpty(), d["body"].orEmpty(), d["seriesId"]); return }
         val sid = d["seriesId"] ?: return

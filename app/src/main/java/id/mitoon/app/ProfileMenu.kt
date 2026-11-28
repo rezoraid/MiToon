@@ -26,7 +26,7 @@ private val R16 = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
 
 /** Halaman akun: kartu profil (foto bulat, nama, status Owner/Premium, peran + level, XP) lalu menu dalam kartu berkelompok + Keluar. */
 @Composable
-fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit, onAccount: () -> Unit, onRoles: () -> Unit = {}, onAdmin: () -> Unit = {}, onPrivacy: () -> Unit = {}, onStyle: () -> Unit = {}) {
+fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit, onAccount: () -> Unit, onRoles: () -> Unit = {}, onAdmin: () -> Unit = {}, onPrivacy: () -> Unit = {}, onStyle: () -> Unit = {}, onStats: () -> Unit = {}) {
     val user = Auth.user
     if (user == null) { VisitorProfile(onBack); return }
     Column(Modifier.fillMaxSize().background(Bg)) {
@@ -69,6 +69,8 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
                 MenuRow(Ic.Lock, "Privasi", onPrivacy)
                 MenuDivider()
                 MenuRow(Ic.Star, "Peran & Lencana", onRoles)
+                MenuDivider()
+                MenuRow(Ic.Trophy, "Statistik Membaca", onStats)
                 MenuDivider()
                 MenuRow(Ic.List, "Riwayat Aktivitas", onHistory)
                 MenuDivider()

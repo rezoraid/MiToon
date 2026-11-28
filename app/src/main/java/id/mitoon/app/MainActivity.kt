@@ -41,11 +41,13 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         safeSeriesId(intent.getStringExtra("series"))?.let { Updates.pendingOpen = it }
+        if (intent.getStringExtra("open") == "chat") Updates.pendingChat = true
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         safeSeriesId(intent?.getStringExtra("series"))?.let { Updates.pendingOpen = it }
+        if (savedInstanceState == null && intent?.getStringExtra("open") == "chat") Updates.pendingChat = true
         Updates.askNotif = { if (android.os.Build.VERSION.SDK_INT >= 33) notifPerm.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
         // Aplikasi selalu gelap: ikon status/navigasi harus terang, apa pun mode sistem perangkat.
         enableEdgeToEdge(
@@ -110,7 +112,8 @@ private fun AppScaffold() {
     // Ikon akun di header membuka halaman profil.
     val appCtx = androidx.compose.ui.platform.LocalContext.current
     val bookmarkCount = Library.entries.values.count { it.bookmarked }
-    LaunchedEffect(bookmarkCount > 0) { if (bookmarkCount > 0) Updates.ensurePermission(appCtx) }
+    LaunchedEffect(bookmarkCount > 0, Streak.current > 0) { if (bookmarkCount > 0 || Streak.current > 0) Updates.ensurePermission(appCtx) }
+    LaunchedEffect(Updates.pendingChat) { if (Updates.pendingChat) { Updates.pendingChat = false; nav.navigate("chat") { launchSingleTop = true } } }
     LaunchedEffect(Updates.pendingOpen) { Updates.pendingOpen?.let { Updates.pendingOpen = null; nav.detail(it) } }
     LaunchedEffect(Auth.menuOpen) { if (Auth.menuOpen) { Auth.menuOpen = false; nav.navigate("profile") { launchSingleTop = true } } }
     val openUser: (Long) -> Unit = { id -> if (id == Auth.user?.id) nav.navigate("profile") { launchSingleTop = true } else nav.navigate("user/$id") { launchSingleTop = true } }
@@ -145,7 +148,7 @@ private fun AppScaffold() {
             composable("home") {
                 HomeScreen({ nav.detail(it) }, { nav.navigate("search") }, {
                     nav.navigate("explore") { popUpTo("home"); launchSingleTop = true; restoreState = true }
-                }, openChat)
+                }, openChat, { e -> e.lastChapterId?.let { nav.reader(e.id, it) } ?: nav.detail(e.id) })
             }
             composable("explore") { ExploreScreen({ nav.detail(it) }, { nav.navigate("search") }) }
             composable("library") {
@@ -157,7 +160,8 @@ private fun AppScaffold() {
                 NotificationsScreen(nav::popBackStack) { o -> if (o.chapterId != null) nav.reader(o.seriesId, o.chapterId) else nav.detail(o.seriesId) }
             }
             composable("search") { SearchScreen(nav::popBackStack) { nav.detail(it) } }
-            composable("profile") { ProfileScreen(nav::popBackStack, { nav.navigate("profile/edit") }, { nav.navigate("profile/history") }, { nav.navigate("profile/account") }, { nav.navigate("profile/roles") }, { nav.navigate("admin") }, { nav.navigate("profile/privacy") }, { nav.navigate("profile/style") { launchSingleTop = true } }) }
+            composable("profile") { ProfileScreen(nav::popBackStack, { nav.navigate("profile/edit") }, { nav.navigate("profile/history") }, { nav.navigate("profile/account") }, { nav.navigate("profile/roles") }, { nav.navigate("admin") }, { nav.navigate("profile/privacy") }, { nav.navigate("profile/style") { launchSingleTop = true } }, { nav.navigate("profile/stats") { launchSingleTop = true } }) }
+            composable("profile/stats") { ReadingStatsScreen(nav::popBackStack) { nav.detail(it) } }
             composable("profile/style") { PremiumStyleScreen(nav::popBackStack) }
             composable("profile/privacy") { PrivacyScreen(nav::popBackStack) }
             composable("admin") { AdminScreen(nav::popBackStack) }

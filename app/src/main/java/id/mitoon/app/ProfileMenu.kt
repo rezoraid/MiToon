@@ -26,7 +26,7 @@ private val R16 = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
 
 /** Halaman akun: kartu profil (foto bulat, nama, status Owner/Premium, peran + level, XP) lalu menu dalam kartu berkelompok + Keluar. */
 @Composable
-fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit, onAccount: () -> Unit, onRoles: () -> Unit = {}, onAdmin: () -> Unit = {}, onPrivacy: () -> Unit = {}, onPremium: () -> Unit = {}) {
+fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit, onAccount: () -> Unit, onRoles: () -> Unit = {}, onAdmin: () -> Unit = {}, onPrivacy: () -> Unit = {}, onStyle: () -> Unit = {}) {
     val user = Auth.user
     if (user == null) { VisitorProfile(onBack); return }
     Column(Modifier.fillMaxSize().background(Bg)) {
@@ -34,7 +34,7 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             // ---- kartu profil
             Box(Modifier.fillMaxWidth().clip(R16).border(1.dp, CardLine, R16).background(CardBg).clickable(onClick = onEdit)) {
-              ProfileBackdrop(user.id, user.theme, user.headerV, user.headerBlur, user.headerPos, androidx.compose.ui.unit.Dp.Unspecified, Modifier.matchParentSize(), fade = null)
+              ProfileBackdrop(user.theme, androidx.compose.ui.unit.Dp.Unspecified, Modifier.matchParentSize(), fade = null)
               Column(Modifier.fillMaxWidth().padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     FramedAvatar(user.id, user.name, user.avatarV, 72.dp, user.frame)
@@ -60,8 +60,10 @@ fun ProfileScreen(onBack: () -> Unit, onEdit: () -> Unit, onHistory: () -> Unit,
 
             Spacer(Modifier.height(14.dp))
             MenuGroup {
-                PremiumMenuRow(user, onPremium)
-                MenuDivider()
+                if (user.premium) {
+                    PremiumMenuRow(user, onStyle)
+                    MenuDivider()
+                }
                 MenuRow(Ic.Person, "Pengaturan Profil", onEdit)
                 MenuDivider()
                 MenuRow(Ic.Lock, "Privasi", onPrivacy)

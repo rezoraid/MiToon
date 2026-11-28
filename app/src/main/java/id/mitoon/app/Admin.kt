@@ -27,7 +27,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun AdminScreen(onBack: () -> Unit) {
     var tab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Ringkasan", "Komik", "User", "Komentar", "Chat", "Stiker", "Informasi", "Push")
+    val tabs = listOf("Ringkasan", "Komik", "User", "Komentar", "Chat", "Informasi", "Push")
     Column(Modifier.fillMaxSize().background(Bg)) {
         Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) }
@@ -45,9 +45,8 @@ fun AdminScreen(onBack: () -> Unit) {
             2 -> AdminUsersTab()
             3 -> AdminCommentsTab()
             4 -> AdminChatTab()
-            5 -> AdminStickerTab()
-            6 -> AdminAnnounceTab()
-            7 -> AdminPushTab()
+            5 -> AdminAnnounceTab()
+            6 -> AdminPushTab()
         }
     }
 }
@@ -449,7 +448,7 @@ private fun AdminCommentsTab() {
                     Avatar(c.userId, c.username, c.avatarV, 38.dp, Modifier.clickable { openUser(c.userId) })
                     Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
                         Text(c.displayName.ifBlank { c.username } + "  @${c.username}", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                        Text(Stickers.label(c.body), color = Color(0xFFD7D8DD), fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp))
+                        Text(c.body, color = Color(0xFFD7D8DD), fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp))
                         Text((if (c.parentId != null) "Balasan · " else "") + commentTargetLabel(c.target) + " · " + agoText(c.createdAt), color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
                     }
                     IconButton({ delete = c }, Modifier.size(36.dp)) { Icon(Ic.Trash, "Hapus", tint = RedText) }
@@ -954,7 +953,7 @@ private fun AdminChatTab() {
                     Avatar(m.user.id, m.user.name, m.user.avatarV, 36.dp, Modifier.clickable { openUser(m.user.id) })
                     Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
                         Text("${m.user.name} · Lv ${m.user.level}", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Text(Stickers.label(m.body), color = Color.White, fontSize = 14.sp)
+                        Text(m.body, color = Color.White, fontSize = 14.sp)
                     }
                     TextButton({
                         scope.launch {

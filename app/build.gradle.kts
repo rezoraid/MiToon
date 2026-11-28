@@ -81,7 +81,6 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("io.coil-kt:coil-gif:2.7.0") // mascot loading (GIF animasi)
-    implementation("com.google.zxing:core:3.5.3") // QR pembayaran QRIS (digambar sendiri di Compose)
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-kotlinx-serialization:2.11.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

@@ -180,7 +180,7 @@ object ChatState {
         val body = text.trim()
         if (body.isEmpty()) return
         val target = replying?.takeIf { it.id > 0 }
-        val ref = target?.let { ChatReply(it.id, it.user.name, Stickers.label(it.body).replace(Regex("\\s+"), " ").take(120), it.user.id) }
+        val ref = target?.let { ChatReply(it.id, it.user.name, it.body.replace(Regex("\\s+"), " ").take(120), it.user.id) }
         val tmp = ChatMsg(id = -(++seq), body = body, createdAt = System.currentTimeMillis(), user = me(), replyTo = ref)
         replying = null
         sendError = null
@@ -286,7 +286,7 @@ fun ChatPromo(onClick: () -> Unit, modifier: Modifier = Modifier) {
                 androidx.compose.material3.Text(
                     buildAnnotatedString {
                         withStyle(SpanStyle(color = chatNameColor(last.user.id), fontWeight = FontWeight.Bold)) { append(last.user.name) }
-                        append(": ${Stickers.label(last.body).replace(Regex("\\s+"), " ")}")
+                        append(": ${last.body.replace(Regex("\\s+"), " ")}")
                     },
                     color = if (unread > 0) Color(0xFFE2E4EA) else Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp)
                 )
@@ -386,10 +386,9 @@ private fun ChatBubble(m: ChatMsg, head: Boolean, mine: Boolean, onReply: (ChatM
     val press = Modifier.pointerInput(m.id, sending) { if (!sending) detectTapGestures(onLongPress = { menu = true }) }
     val ctx = LocalContext.current
     val clip = LocalClipboardManager.current
-    val isSticker = remember(m.body) { Stickers.id(m.body) != null }
     val menuUi: @Composable () -> Unit = {
         DropdownMenu(menu, { menu = false }) {
-            if (!isSticker) DropdownMenuItem({ Text("Salin") }, {
+            DropdownMenuItem({ Text("Salin") }, {
                 menu = false
                 clip.setText(AnnotatedString(m.body))
                 android.widget.Toast.makeText(ctx, "Pesan disalin", android.widget.Toast.LENGTH_SHORT).show()
@@ -484,8 +483,7 @@ private fun BubbleBody(m: ChatMsg, mine: Boolean, head: Boolean, whenText: Strin
             }
         }
         m.replyTo?.let { ReplyQuote(it) }
-        val sid = remember(m.body) { Stickers.id(m.body) }
-        if (sid != null) StickerImage(sid, 128.dp, Modifier.padding(vertical = 2.dp)) else androidx.compose.material3.Text(linkified(m.body), color = fg, fontSize = 14.5.sp, lineHeight = 20.sp)
+        androidx.compose.material3.Text(linkified(m.body), color = fg, fontSize = 14.5.sp, lineHeight = 20.sp)
         Text(whenText, color = timeColor, fontSize = 10.sp, maxLines = 1, modifier = Modifier.align(Alignment.End).padding(top = 2.dp))
     }
 }
@@ -501,7 +499,7 @@ private fun ReplyQuote(r: ChatReply) {
         Box(Modifier.width(3.dp).fillMaxHeight().background(c))
         Column(Modifier.weight(1f).padding(start = 8.dp, end = 10.dp, top = 5.dp, bottom = 5.dp)) {
             Text(if (mine) "Kamu" else r.userName.ifBlank { "Pengguna" }, color = c, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(Stickers.label(r.body), color = Color(0xFFD0D3DB), fontSize = 12.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(r.body, color = Color(0xFFD0D3DB), fontSize = 12.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -530,13 +528,12 @@ private fun ChatComposer(modifier: Modifier = Modifier) {
                 Box(Modifier.width(3.dp).fillMaxHeight().background(tc))
                 Column(Modifier.weight(1f).padding(start = 10.dp, top = 6.dp, bottom = 6.dp)) {
                     Text(if (Auth.user?.id == target.user.id) "Membalas dirimu" else "Membalas ${target.user.name}", color = tc, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(Stickers.label(target.body).replace('\n', ' '), color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(target.body.replace('\n', ' '), color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 IconButton({ ChatState.replying = null }, Modifier.size(36.dp)) { Icon(Ic.Close, "Batal membalas", tint = Muted, modifier = Modifier.size(16.dp)) }
             }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            StickerButton({ id -> ChatState.send(Stickers.token(id)) {} }, Modifier.padding(bottom = 4.dp), bare = true)
             OutlinedTextField(text, { if (it.length <= CHAT_MAX_LEN) text = it }, Modifier.weight(1f).focusRequester(focus), maxLines = 4, shape = RoundedCornerShape(16.dp), enabled = !muted,
                 placeholder = { Text("Tulis pesan…", color = Muted) },
                 colors = OutlinedTextFieldDefaults.colors(

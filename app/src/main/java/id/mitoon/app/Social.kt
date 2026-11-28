@@ -465,8 +465,7 @@ private fun CommentRow(c: Comment, mine: Boolean, feed: CommentFeed, isReply: Bo
                 LevelChip(c.user.level, size = 9)
             }
             if (c.replyTo.isNotBlank()) Text("Membalas ${c.replyTo}", color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
-            val sid = remember(c.body) { Stickers.id(c.body) }
-            if (sid != null) StickerImage(sid, 110.dp, Modifier.padding(top = 3.dp)) else Text(c.body, color = Color.White, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 3.dp))
+            Text(c.body, color = Color.White, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 3.dp))
             // Baris aksi: like · dislike · balas · (hapus). Digeser kiri sebesar padding chip supaya ikon sejajar dengan teks di atasnya.
             Row(Modifier.offset(x = (-8).dp).padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                 VoteChip(up = true, active = c.myVote == 1, count = c.likes) { feed.vote(c, 1) }
@@ -549,7 +548,6 @@ fun CommentComposer(feed: CommentFeed, modifier: Modifier = Modifier) {
         if (mutedUntil > System.currentTimeMillis()) Text("Kamu dibisukan ${muteUntilText(mutedUntil)} dan tidak bisa berkomentar.", color = Color(0xFFFFB86B), fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
         feed.sendError?.let { Text(it, color = Color.White, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp)) }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StickerButton({ id -> feed.send(Stickers.token(id), {}) {} }, shape = R6)
             OutlinedTextField(text, { if (it.length <= 1000) text = it }, Modifier.weight(1f).focusRequester(focus), maxLines = 4, shape = R6,
                 placeholder = { Text(if (reply != null) "Tulis balasan…" else "Tulis komentar…", color = Muted) },
                 colors = OutlinedTextFieldDefaults.colors(

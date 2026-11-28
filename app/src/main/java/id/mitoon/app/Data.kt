@@ -160,25 +160,13 @@ interface Api {
     @PATCH("v1/auth/me") suspend fun updateProfile(@Body b: ProfileReq): Env<AuthUser>
     @PUT("v1/auth/me/avatar") suspend fun putAvatar(@Body jpeg: RequestBody): Env<AuthUser>
     @DELETE("v1/auth/me/avatar") suspend fun deleteAvatar(): Env<AuthUser>
-    // ---- Premium (Sociabuzz) ----
-    @GET("v1/premium/plans") suspend fun premiumPlans(): Env<PremiumCatalog>
-    @POST("v1/premium/orders") suspend fun premiumCreate(@Body b: PremiumOrderReq): PremiumOrderRes
-    @GET("v1/premium/orders/latest") suspend fun premiumLatest(): LatestOrderRes
-    @GET("v1/premium/orders/{id}") suspend fun premiumOrderStatus(@Path("id") id: String): PremiumOrderRes
+    // ---- Premium ----
     @PATCH("v1/auth/me/style") suspend fun updateStyle(@Body b: StyleReq): Env<AuthUser>
-    @PUT("v1/auth/me/header") suspend fun putHeader(@Body jpeg: RequestBody): Env<AuthUser>
-    @DELETE("v1/auth/me/header") suspend fun deleteHeader(): Env<AuthUser>
     @GET("v1/comments") suspend fun comments(@Query("target") target: String, @Query("limit") limit: Int = 20, @Query("before") before: Long? = null): Env<CommentPage>
     @GET("v1/comments/{id}/replies") suspend fun replies(@Path("id") id: Long, @Query("after") after: Long? = null, @Query("limit") limit: Int = 20): Env<CommentPage>
     @POST("v1/comments") suspend fun addComment(@Body b: CommentReq): CommentRes
     @PUT("v1/comments/{id}/vote") suspend fun voteComment(@Path("id") id: Long, @Body b: VoteReq): Env<VoteRes>
     @POST("v1/chapters/{id}/broken") suspend fun chapterBroken(@Path("id") id: String, @Body b: BrokenReq): Env<Ok>
-    @GET("v1/stickers/global") suspend fun stickersGlobal(): Env<List<StickerRef>>
-    @GET("v1/stickers/mine") suspend fun stickersMine(): Env<List<StickerRef>>
-    @POST("v1/stickers/mine") suspend fun addMySticker(@Body img: RequestBody): Env<StickerRef>
-    @DELETE("v1/stickers/mine/{id}") suspend fun deleteMySticker(@Path("id") id: Long): Env<Ok>
-    @POST("v1/admin/stickers") suspend fun adminAddSticker(@Body img: RequestBody): Env<StickerRef>
-    @DELETE("v1/admin/stickers/{id}") suspend fun adminDeleteSticker(@Path("id") id: Long): Env<Ok>
     @POST("v1/xp/event") suspend fun xpEvent(@Body b: XpReq): Env<XpRes>
     @GET("v1/xp/streak") suspend fun streak(): Env<StreakRes>
     @GET("v1/xp/leaderboard") suspend fun leaderboard(@Query("limit") limit: Int = 50): Env<RankBoard>

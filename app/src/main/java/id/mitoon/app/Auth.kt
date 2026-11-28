@@ -47,7 +47,7 @@ import javax.crypto.spec.GCMParameterSpec
     /** Langganan berakhir (epoch ms); 0 = tidak ada langganan berbayar (pemberian owner = permanen) */
     val premiumUntil: Long = 0,
     /** Tampilan profil Premium (kosong = bawaan; hanya terisi selama Premium aktif) */
-    val theme: String = "", val frame: String = "", val headerV: Int = 0, val headerBlur: Int = 0, val headerPos: Int = 50,
+    val theme: String = "", val frame: String = "",
     /** centang verified disembunyikan dari tampilan publik oleh pemiliknya */
     val verifiedHidden: Boolean = false,
     val readingHidden: Boolean = false,
@@ -126,7 +126,7 @@ object Auth {
             displayName = prefs.getString("n", "").orEmpty(), bio = prefs.getString("b", "").orEmpty(), xp = if (prefs.contains("xpl")) prefs.getLong("xpl", 0L) else prefs.getInt("xp", 0).toLong(),
             level = prefs.getInt("lv", 1).coerceAtLeast(1), levelXp = prefs.getInt("lx", 0), levelNeed = prefs.getInt("ln", 20), verified = prefs.getBoolean("vf", false), isOwner = prefs.getBoolean("io", false), premium = prefs.getBoolean("pm", false),
             premiumUntil = prefs.getLong("pu", 0), theme = prefs.getString("th", "").orEmpty(), frame = prefs.getString("fr", "").orEmpty(),
-            headerV = prefs.getInt("hv", 0), headerBlur = prefs.getInt("hb", 0), headerPos = prefs.getInt("hp", 50), verifiedHidden = prefs.getBoolean("vh", false), readingHidden = prefs.getBoolean("rh", false)
+            verifiedHidden = prefs.getBoolean("vh", false), readingHidden = prefs.getBoolean("rh", false)
         ) else null
         usernameUnlockAt = if (token != null) prefs.getLong("x", 0) else 0L
     }
@@ -193,7 +193,7 @@ object Auth {
     }
 
     private fun SharedPreferences.Editor.putXp(u: AuthUser) { putLong("xpl", u.xp); remove("xp"); putInt("lv", u.level); putInt("lx", u.levelXp); putInt("ln", u.levelNeed); putBoolean("vf", u.verified); putBoolean("io", u.isOwner); putBoolean("pm", u.premium)
-        putLong("pu", u.premiumUntil); putString("th", u.theme); putString("fr", u.frame); putInt("hv", u.headerV); putInt("hb", u.headerBlur); putInt("hp", u.headerPos); putBoolean("vh", u.verifiedHidden); putBoolean("rh", u.readingHidden) }
+        putLong("pu", u.premiumUntil); putString("th", u.theme); putString("fr", u.frame); putBoolean("vh", u.verifiedHidden); putBoolean("rh", u.readingHidden) }
 
     private fun unlockAt(u: AuthUser): Long = if (u.usernameCooldownSec > 0) System.currentTimeMillis() + u.usernameCooldownSec * 1000 else 0L
 

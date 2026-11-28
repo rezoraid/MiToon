@@ -167,23 +167,3 @@ private fun ImageCropDialog(uri: Uri, title: String, aspect: Float, outW: Int, o
         }
     }
 }
-
-/** Gambar background header: lebar diperkecil (≤ 1080 px, tanpa dipotong; posisi diatur di app) lalu JPEG ≤ [maxBytes]. null = gagal / terlalu besar. */
-suspend fun encodeHeaderJpeg(ctx: Context, uri: Uri, maxBytes: Int = 440 * 1024): ByteArray? = withContext(Dispatchers.Default) {
-    val src = runCatching { loadCropSource(ctx, uri) }.getOrNull() ?: return@withContext null
-    try {
-        for (w in intArrayOf(1080, 800, 640)) {
-            val scale = (w.toFloat() / src.width).coerceAtMost(1f)
-            val bmp = if (scale < 1f) Bitmap.createScaledBitmap(src, (src.width * scale).toInt().coerceAtLeast(1), (src.height * scale).toInt().coerceAtLeast(1), true) else src
-            var q = 82
-            var bytes: ByteArray
-            do {
-                bytes = ByteArrayOutputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, q, it); it.toByteArray() }
-                q -= 8
-            } while (bytes.size > maxBytes && q >= 42)
-            if (bmp !== src) bmp.recycle()
-            if (bytes.size <= maxBytes) return@withContext bytes
-        }
-        null
-    } finally { src.recycle() }
-}

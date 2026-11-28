@@ -29,7 +29,7 @@ import java.util.Locale
     val xp: Long = 0, val level: Int = 1, val joinedAt: Long = 0, val commentCount: Int = 0,
     val verified: Boolean = false, val isOwner: Boolean = false, val premium: Boolean = false, val readingHidden: Boolean = false,
     /** Tampilan profil Premium (kosong = bawaan) */
-    val theme: String = "", val frame: String = "", val headerV: Int = 0, val headerBlur: Int = 0, val headerPos: Int = 50,
+    val theme: String = "", val frame: String = "",
     /** Streak membaca; null bila pemiliknya menyembunyikan aktivitas bacanya. */
     val streak: StreakRes? = null
 ) { val name: String get() = displayName.ifBlank { username } }
@@ -70,9 +70,9 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
             u == null -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(Modifier.size(26.dp), Color.White, strokeWidth = 2.dp) }
             else -> LazyColumn(Modifier.fillMaxSize()) {
                 item("head") {
-                    val styled = u.premium && (u.theme.isNotEmpty() || u.headerV > 0)
+                    val styled = u.premium && u.theme.isNotEmpty()
                     Box(Modifier.fillMaxWidth()) {
-                    if (styled) ProfileBackdrop(u.id, u.theme, u.headerV, u.headerBlur, u.headerPos, androidx.compose.ui.unit.Dp.Unspecified, Modifier.matchParentSize(), fade = Bg)
+                    if (styled) ProfileBackdrop(u.theme, androidx.compose.ui.unit.Dp.Unspecified, Modifier.matchParentSize(), fade = Bg)
                     Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 28.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         FramedAvatar(u.id, u.name, u.avatarV, 104.dp, if (u.premium) u.frame else "")
                         Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {

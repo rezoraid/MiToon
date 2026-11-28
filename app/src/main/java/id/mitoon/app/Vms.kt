@@ -116,15 +116,18 @@ object HomeMix {
     suspend fun hot(): List<Series> = Net.popular(1, POOL_LIMIT).take(20).shuffled().take(6)
 }
 
+/** Jumlah tab genre di Beranda (terbanyak dulu); daftar genre lengkap ada di filter Jelajah & halaman Cari. */
+const val HOME_GENRES = 60
+
 class HomeVm : ViewModel() {
     // Diisi dulu dari snapshot disk (instan), lalu disegarkan dari server.
     var spotlight by mutableStateOf(Net.readSnap("home-spotlight", seriesListSer).orEmpty()); private set
-    var genres by mutableStateOf(Net.genresSnap().sortedByDescending { it.count }.take(20)); private set
+    var genres by mutableStateOf(Net.genresSnap().sortedByDescending { it.count }.take(HOME_GENRES)); private set
 
     init {
         // Sorotan = 6 acak dari yang terpopuler; request sama dengan rak Populer -> digabung jadi satu.
         viewModelScope.launch { runCatching { HomeMix.hot() }.onSuccess { spotlight = it; Net.writeSnap("home-spotlight", seriesListSer, it) } }
-        viewModelScope.launch { runCatching { Net.genres().sortedByDescending { it.count }.take(20) }.onSuccess { genres = it } }
+        viewModelScope.launch { runCatching { Net.genres().sortedByDescending { it.count }.take(HOME_GENRES) }.onSuccess { genres = it } }
     }
 
     /** Ikut pull-to-refresh Beranda: sorotan & daftar genre disegarkan juga. */
@@ -133,7 +136,7 @@ class HomeVm : ViewModel() {
             Net.forceNet.incrementAndGet()
             try {
                 runCatching { HomeMix.hot() }.onSuccess { if (it.isNotEmpty()) { spotlight = it; Net.writeSnap("home-spotlight", seriesListSer, it) } }
-                runCatching { Net.genres().sortedByDescending { it.count }.take(20) }.onSuccess { if (it.isNotEmpty()) genres = it }
+                runCatching { Net.genres().sortedByDescending { it.count }.take(HOME_GENRES) }.onSuccess { if (it.isNotEmpty()) genres = it }
                 if (!Auth.isGuest) runCatching { Net.api.streak().data }.onSuccess { Streak.set(it) }
             } finally { Net.forceNet.decrementAndGet() }
         }

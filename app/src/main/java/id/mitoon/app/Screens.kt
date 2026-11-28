@@ -114,14 +114,14 @@ private fun FilterIcon(tint: Color) = Canvas(Modifier.size(22.dp)) {
     drawPath(p, tint, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
 }
 
-/** Hanya genre dasar yang umum dipakai (bukan puluhan genre). Genre aktif tetap tampil walau di luar daftar. */
-private val basicKeys = listOf("action", "adventure", "comedy", "drama", "fantasy", "horror", "isekai", "martialarts", "mystery", "romance", "schoollife", "scifi", "sliceoflife", "supernatural")
+/**
+ * SEMUA genre dari server (gabungan Shinigami + Lumos + Kiryuu): yang paling banyak seri dulu, sisanya urut abjad.
+ * Genre aktif selalu ikut tampil walau tidak ada di daftar.
+ */
 private fun basicGenres(all: List<Genre>, active: String?): List<Genre> {
-    fun key(g: Genre) = g.slug.filter { it.isLetterOrDigit() }.lowercase()
-    val picked = basicKeys.mapNotNull { k -> all.firstOrNull { key(it) == k } }
-    val base = if (picked.size >= 4) picked else all.take(14) // slug server beda dari dugaan -> pakai 14 genre terbanyak
-    val extra = all.firstOrNull { it.slug == active && it !in base }
-    return if (extra != null) base + extra else base
+    val sorted = all.distinctBy { it.slug }.sortedWith(compareByDescending<Genre> { it.count }.thenBy { it.name.lowercase() })
+    val extra = if (active != null && sorted.none { it.slug == active }) listOf(Genre(active, active.replace('-', ' ').replaceFirstChar { it.uppercase() })) else emptyList()
+    return sorted + extra
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -265,7 +265,7 @@ fun SearchScreen(onBack: () -> Unit, onOpen: (Series) -> Unit) {
                 Pills(basics.map { it.slug to it.name }, g) { genre = if (it == g) null else it }
                 SeriesGrid(vm, onOpen, modifier = Modifier.weight(1f))
             }
-            basics.isNotEmpty() -> Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            basics.isNotEmpty() -> Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text("Genre", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 10.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     basics.forEach { Chip(it.name, false) { genre = it.slug; kb?.hide() } }

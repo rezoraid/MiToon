@@ -164,9 +164,9 @@ interface Api {
     @GET("v1/latest") suspend fun latest(@Query("page") page: Int = 1, @Query("limit") limit: Int = 12, @Query("type") type: String? = null): Env<List<Series>>
     @GET("v1/popular") suspend fun popular(@Query("page") page: Int = 1, @Query("limit") limit: Int = 12): Env<List<Series>>
     @GET("v1/recommended") suspend fun recommended(@Query("page") page: Int = 1, @Query("limit") limit: Int = 12): Env<List<Series>>
-    @GET("v1/search") suspend fun search(@Query("q") q: String, @Query("page") page: Int = 1, @Query("limit") limit: Int = 12): Env<List<Series>>
+    @GET("v1/search") suspend fun search(@Query("q") q: String, @Query("page") page: Int = 1, @Query("limit") limit: Int = 30): Env<List<Series>>
     @GET("v1/genres") suspend fun genres(): Env<List<Genre>>
-    @GET("v1/genres/{slug}/series") suspend fun byGenre(@Path("slug") slug: String, @Query("page") page: Int = 1, @Query("limit") limit: Int = 12,
+    @GET("v1/genres/{slug}/series") suspend fun byGenre(@Path("slug") slug: String, @Query("page") page: Int = 1, @Query("limit") limit: Int = 30,
         @Query("sort") sort: String? = null, @Query("type") type: String? = null, @Query("status") status: String? = null): Env<List<Series>>
     @GET("v1/series/{id}") suspend fun detail(@Path("id") id: String): Env<Detail>
     @GET("v1/chapters/{id}") suspend fun chapter(@Path("id") id: String): Env<Content>

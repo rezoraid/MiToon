@@ -136,6 +136,29 @@ import java.security.MessageDigest
 @Serializable data class AdminPushPatch(val enabled: Boolean? = null, val newChapter: Boolean? = null)
 @Serializable data class AdminPushSend(val title: String, val body: String? = null, val seriesId: String? = null)
 @Serializable data class AdminPushSent(val sent: Boolean = true, val log: List<PushLogItem> = emptyList())
+/** `GET v1/admin/storage`: ukuran & pemakaian database (tab Database di Panel Admin). Semua ukuran dalam byte. */
+@Serializable data class StorageThresholds(val notice: Double = 0.7, val warning: Double = 0.8, val high: Double = 0.9, val critical: Double = 0.95)
+@Serializable data class StorageForecast(val bytesPerHour: Double = 0.0, val hoursToCritical: Double? = null)
+@Serializable data class StorageTable(
+    val name: String = "", val totalBytes: Long = 0, val heapBytes: Long = 0, val indexBytes: Long = 0, val toastBytes: Long = 0,
+    val rows: Long = 0, val deadRows: Long = 0
+)
+@Serializable data class StorageAvatars(val count: Int = 0, val bytes: Long = 0)
+@Serializable data class StorageBlobs(val avatars: StorageAvatars = StorageAvatars())
+@Serializable data class StorageBackupItem(val name: String = "", val bytes: Long = 0, val createdAt: String = "")
+@Serializable data class StorageBackups(val enabled: Boolean = false, val items: List<StorageBackupItem> = emptyList())
+@Serializable data class StorageEventItem(val createdAt: String = "", val kind: String = "", val dbBytes: Long? = null)
+@Serializable data class StorageMaintainReq(val mode: String = "auto")
+@Serializable data class StorageMaintainRes(val mode: String = "auto", val level: String = "ok", val skipped: Boolean = false, val beforeBytes: Long? = null, val afterBytes: Long? = null)
+/** `GET v1/users/:id/champions`: riwayat juara papan XP mingguan (Top 3) satu pengguna. `weekStart` = Senin 00.00 WIB (epoch ms). */
+@Serializable data class ChampionWeek(val weekStart: Long = 0, val rank: Int = 0, val weekXp: Int = 0)
+@Serializable data class ChampionHistory(val first: Int = 0, val second: Int = 0, val third: Int = 0, val recent: List<ChampionWeek> = emptyList())
+@Serializable data class AdminStorage(
+    val enabled: Boolean = true, val serverless: Boolean = false, val usedBytes: Long? = null, val limitBytes: Long = 0,
+    val usedPercent: Double? = null, val level: String = "ok", val thresholds: StorageThresholds = StorageThresholds(),
+    val forecast: StorageForecast? = null, val tables: List<StorageTable> = emptyList(), val blobs: StorageBlobs? = null,
+    val backups: StorageBackups = StorageBackups(), val lastMaintenance: StorageEventItem? = null, val checkedAt: String? = null
+)
 
 interface Api {
     @GET("v1/latest") suspend fun latest(@Query("page") page: Int = 1, @Query("limit") limit: Int = 12, @Query("type") type: String? = null): Env<List<Series>>
@@ -204,6 +227,11 @@ interface Api {
     @POST("v1/admin/logout-all") suspend fun adminLogoutAll(): Env<AdminRevokedCount>
     @GET("v1/admin/comments") suspend fun adminComments(@Query("q") q: String? = null, @Query("page") page: Int = 1, @Query("limit") limit: Int = 30): Env<AdminCommentsPage>
     @DELETE("v1/admin/comments/{id}") suspend fun adminDeleteComment(@Path("id") id: Long): Env<Ok>
+    @GET("v1/admin/storage") suspend fun adminStorage(): Env<AdminStorage>
+    @GET("v1/admin/storage/events") suspend fun adminStorageEvents(@Query("limit") limit: Int = 48, @Query("kind") kind: String? = null): Env<List<StorageEventItem>>
+    @POST("v1/admin/storage/maintain") suspend fun adminStorageMaintain(@Body b: StorageMaintainReq): Env<StorageMaintainRes>
+    @POST("v1/admin/storage/backups") suspend fun adminStorageBackup(): Env<StorageBackupItem>
+    @GET("v1/users/{id}/champions") suspend fun userChampions(@Path("id") id: Long): Env<ChampionHistory>
     @GET("v1/admin/push") suspend fun adminPush(): Env<AdminPush>
     @PUT("v1/admin/push") suspend fun adminPushSave(@Body b: AdminPushPatch): Env<AdminPush>
     @POST("v1/admin/push/send") suspend fun adminPushSend(@Body b: AdminPushSend): Env<AdminPushSent>

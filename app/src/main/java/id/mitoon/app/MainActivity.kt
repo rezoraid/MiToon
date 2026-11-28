@@ -104,6 +104,7 @@ private fun AppScaffold() {
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
     // Pil merah notifikasi (lonceng di header): cek tiap menit selama login, dan setiap kali pindah layar (kecuali saat sedang membuka halaman Notifikasi).
     val uid = Auth.user?.id
+    LaunchedEffect(uid) { Push.syncUser(uid) }
     LaunchedEffect(uid) { if (uid == null) NotifState.clear() else while (true) { NotifState.refresh(); kotlinx.coroutines.delay(60_000) } }
     LaunchedEffect(route) { if (uid != null && route != "notifications") NotifState.refresh() }
     // Ikon akun di header membuka halaman profil.

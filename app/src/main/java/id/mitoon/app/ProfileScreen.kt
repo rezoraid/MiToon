@@ -163,6 +163,8 @@ fun ProfileEditScreen(onBack: () -> Unit, onStyle: () -> Unit = {}) {
                 }
                 Text("@${user.username}", color = Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
                 StatusLabels(user.isOwner, user.premium, Modifier.padding(top = 10.dp), iconSize = 20.dp, textSize = 13)
+                RankTag(Net.rankBoard(Auth.token)?.me?.rank ?: 0, Modifier.padding(top = 8.dp), size = 12)
+                ChampionSection(user.id, Modifier.padding(top = 16.dp))
 
                 notice?.let { (ok, text) ->
                     Text(text, color = Color.White, fontSize = 13.sp, textAlign = TextAlign.Center,

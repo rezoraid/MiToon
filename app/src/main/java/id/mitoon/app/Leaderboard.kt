@@ -136,6 +136,58 @@ fun LeaderboardScreen(onSearch: () -> Unit) {
     }
 }
 
+/**
+ * Tag juara papan XP mingguan: kapsul emas (Top 1), perak (Top 2), perunggu (Top 3) dengan mahkota kecil.
+ * [rank] di luar 1..3 = tidak tampil. Berubah tiap Senin 00.00 WIB mengikuti reset papan.
+ */
+@Composable
+fun RankTag(rank: Int, modifier: Modifier = Modifier, size: Int = 10) {
+    if (rank !in 1..3) return
+    val c = medal(rank)
+    val shape = RoundedCornerShape(50)
+    Row(
+        modifier.clip(shape).background(Brush.horizontalGradient(listOf(c.copy(alpha = 0.30f), c.copy(alpha = 0.12f)))).border(1.dp, c.copy(alpha = 0.75f), shape)
+            .padding(horizontal = (size * 0.7f).dp, vertical = (size * 0.22f).dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Crown(c, Modifier.size(width = (size * 1.2f).dp, height = (size * 0.85f).dp))
+        Text("Top $rank", color = c, fontSize = size.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, modifier = Modifier.padding(start = (size * 0.4f).dp))
+    }
+}
+
+/**
+ * Riwayat juara mingguan di profil: berapa kali Top 1/2/3 + beberapa minggu terakhir. Memuat sendiri; tidak ada juara / gagal = tidak tampil.
+ */
+@Composable
+fun ChampionSection(userId: Long, modifier: Modifier = Modifier) {
+    var h by remember(userId) { mutableStateOf<ChampionHistory?>(null) }
+    LaunchedEffect(userId) {
+        try { h = Net.api.userChampions(userId).data } catch (e: CancellationException) { throw e } catch (_: Exception) { }
+    }
+    val c = h ?: return
+    if (c.first + c.second + c.third == 0) return
+    val fmt = remember { java.text.SimpleDateFormat("d MMM", java.util.Locale("id", "ID")).apply { timeZone = java.util.TimeZone.getTimeZone("Asia/Jakarta") } }
+    Column(modifier.fillMaxWidth().clip(R14).background(CardBg).border(1.dp, Line, R14).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("Juara mingguan", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            listOf(1 to c.first, 2 to c.second, 3 to c.third).forEach { (rank, n) ->
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("${n}×", color = if (n > 0) medal(rank) else Muted, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("Top $rank", color = Muted, fontSize = 12.sp)
+                }
+            }
+        }
+        c.recent.take(5).forEach { w ->
+            HorizontalDivider(color = Line)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RankTag(w.rank, size = 10)
+                Text("${fmt.format(java.util.Date(w.weekStart))} – ${fmt.format(java.util.Date(w.weekStart + 6 * 86_400_000L))}", color = Color(0xFFD7D9DE), fontSize = 13.sp, modifier = Modifier.weight(1f).padding(start = 10.dp))
+                Text("${num(w.weekXp)} XP", color = Muted, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
 @Composable
 private fun Bar(fraction: Float, color: Color, modifier: Modifier = Modifier, height: androidx.compose.ui.unit.Dp = 4.dp) {
     var go by remember { mutableStateOf(false) }

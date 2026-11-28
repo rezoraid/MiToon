@@ -48,7 +48,9 @@ import kotlinx.serialization.Serializable
 import retrofit2.HttpException
 
 // ---------------------------------------------------------------- model
-@Serializable data class CommentUser(val id: Long = 0, val username: String = "", val avatarV: Int = 0, val displayName: String = "", val level: Int = 1, val verified: Boolean = false, val isOwner: Boolean = false, val premium: Boolean = false) {
+@Serializable data class CommentUser(val id: Long = 0, val username: String = "", val avatarV: Int = 0, val displayName: String = "", val level: Int = 1, val verified: Boolean = false, val isOwner: Boolean = false, val premium: Boolean = false,
+    /** 1-3 = juara papan XP mingguan (tag emas/perak/perunggu); 0 = bukan juara */
+    val topRank: Int = 0) {
     val name: String get() = displayName.ifBlank { username }
 }
 @Serializable data class Comment(
@@ -463,6 +465,7 @@ private fun CommentRow(c: Comment, mine: Boolean, feed: CommentFeed, isReply: Bo
             Row(Modifier.padding(top = 6.dp, bottom = 3.dp).heightIn(min = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 RoleBadge(roleFor(c.user.level), 18.dp)
                 LevelChip(c.user.level, size = 9)
+                RankTag(c.user.topRank, size = 9)
             }
             if (c.replyTo.isNotBlank()) Text("Membalas ${c.replyTo}", color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
             Text(c.body, color = Color.White, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 3.dp))

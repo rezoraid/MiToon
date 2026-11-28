@@ -27,7 +27,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun AdminScreen(onBack: () -> Unit) {
     var tab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Ringkasan", "Komik", "User", "Komentar", "Chat", "Informasi", "Push")
+    val tabs = listOf("Ringkasan", "Komik", "User", "Komentar", "Chat", "Informasi", "Push", "Database")
     Column(Modifier.fillMaxSize().background(Bg)) {
         Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onBack) { Icon(Ic.Left, "Kembali", tint = Color.White) }
@@ -47,6 +47,7 @@ fun AdminScreen(onBack: () -> Unit) {
             4 -> AdminChatTab()
             5 -> AdminAnnounceTab()
             6 -> AdminPushTab()
+            7 -> AdminDatabaseTab()
         }
     }
 }
@@ -855,6 +856,264 @@ private fun PushSwitch(label: String, hint: String, on: Boolean, enabled: Boolea
             Text(hint, color = Muted, fontSize = 12.sp, lineHeight = 16.sp)
         }
         Switch(on, onChange, enabled = enabled, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Accent, uncheckedThumbColor = Color.White, uncheckedTrackColor = CardLine))
+    }
+}
+
+
+// ---------------------------------------------------------------- database
+
+private val DbLocale = java.util.Locale("id", "ID")
+private fun dbBytes(n: Long): String = when {
+    n >= 1_000_000_000L -> "%.2f GB".format(DbLocale, n / 1_000_000_000.0)
+    n >= 1_000_000L -> "%.1f MB".format(DbLocale, n / 1_000_000.0)
+    n >= 1_000L -> "%d KB".format(DbLocale, n / 1_000)
+    else -> "$n B"
+}
+private fun dbCount(n: Long): String = java.text.NumberFormat.getIntegerInstance(DbLocale).format(n)
+private fun dbPct(f: Double): String = "%.1f%%".format(DbLocale, f * 100)
+private fun dbLevelColor(level: String): Color = when (level) {
+    "notice" -> Color(0xFFE8C972); "warning" -> AmberText; "high" -> Color(0xFFFF8A5B); "critical" -> RedText; else -> Color(0xFF6BD08A)
+}
+private fun dbLevelLabel(level: String): String = when (level) {
+    "notice" -> "Perhatian"; "warning" -> "Waspada"; "high" -> "Tinggi"; "critical" -> "Kritis"; else -> "Aman"
+}
+private fun isoMs(s: String?): Long? = s?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+
+@Composable
+private fun UsageBar(fraction: Float, color: Color, modifier: Modifier = Modifier, height: androidx.compose.ui.unit.Dp = 8.dp) {
+    Box(modifier.fillMaxWidth().height(height).clip(RoundedCornerShape(50)).background(Color(0x1FFFFFFF))) {
+        Box(Modifier.fillMaxHeight().fillMaxWidth(fraction.coerceIn(0f, 1f)).clip(RoundedCornerShape(50)).background(color))
+    }
+}
+
+@Composable
+private fun DbCard(title: String, hint: String? = null, content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth().clip(R6).border(1.dp, CardLine, R6).background(CardBg).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+            if (hint != null) Text(hint, color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
+        }
+        content()
+    }
+}
+
+@Composable
+private fun DbLine(label: String, value: String, valueColor: Color = Color.White) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        Text(value, color = valueColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/** Tab Database: ukuran database, pemakaian terhadap batas, rincian data/index/lampiran, ukuran per tabel, foto profil, dan backup. Hanya lihat. */
+@Composable
+private fun AdminDatabaseTab() {
+    var data by remember { mutableStateOf<AdminStorage?>(null) }
+    var err by remember { mutableStateOf<String?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var samples by remember { mutableStateOf<List<Pair<Long, Long>>>(emptyList()) }
+    var busy by remember { mutableStateOf<String?>(null) }
+    var info by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
+    var confirm by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    fun load() {
+        loading = true; err = null
+        scope.launch {
+            runCatching { Net.api.adminStorage().data }
+                .onSuccess { data = it; loading = false }
+                .onFailure { err = it.friendly(); loading = false }
+            // Tren ukuran: sample per jam yang dicatat server (tidak ada di mode serverless). Gagal = grafik kosong, bukan error halaman.
+            runCatching { Net.api.adminStorageEvents(48, "sample").data }.onSuccess { ev ->
+                samples = ev.mapNotNull { e -> val t = isoMs(e.createdAt); val b = e.dbBytes; if (t != null && b != null) t to b else null }.sortedBy { it.first }
+            }
+        }
+    }
+    /** kind: "auto" | "aggressive" (pembersihan) | "backup". Pakai klien lambat: pembersihan + VACUUM bisa makan puluhan detik. */
+    fun runAction(kind: String) {
+        busy = kind; info = null
+        scope.launch {
+            runCatching {
+                if (kind == "backup") Net.slowApi.adminStorageBackup().data.let { "Backup dibuat: ${it.name} (${dbBytes(it.bytes)})" }
+                else Net.slowApi.adminStorageMaintain(StorageMaintainReq(kind)).data.let { r ->
+                    val before = r.beforeBytes; val after = r.afterBytes
+                    when {
+                        r.skipped -> "Dilewati: pembersihan lain sedang berjalan, atau pemantauan dimatikan di server."
+                        before != null && after != null && before > after -> "Selesai: ${dbBytes(before)} → ${dbBytes(after)} (hemat ${dbBytes(before - after)})"
+                        after != null -> "Selesai: tidak ada yang bisa dibersihkan, ukuran ${dbBytes(after)}."
+                        else -> "Selesai."
+                    }
+                }
+            }.onSuccess { info = true to it; load() }.onFailure { info = false to it.friendly() }
+            busy = null
+        }
+    }
+    LaunchedEffect(Unit) { load() }
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        if (loading && data == null) CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally), color = Accent)
+        if (err != null) Text(err!!, color = RedText, fontSize = 13.sp)
+        data?.let { d ->
+            val used = d.usedBytes
+            val limit = d.limitBytes
+            val color = dbLevelColor(d.level)
+
+            DbCard("Penggunaan database", "Ukuran seluruh database PostgreSQL dibanding batas paket hosting.") {
+                if (used == null) {
+                    Text("Ukuran belum bisa dibaca dari server.", color = AmberText, fontSize = 13.sp)
+                } else {
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(dbBytes(used), color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+                        Text("dari ${dbBytes(limit)}", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(start = 8.dp, bottom = 5.dp))
+                    }
+                    val frac = if (limit > 0) used.toDouble() / limit else 0.0
+                    UsageBar(frac.toFloat(), color, height = 10.dp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("${dbPct(d.usedPercent?.div(100) ?: frac)} terpakai", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        Text(dbLevelLabel(d.level), color = Color(0xFF17181C), fontSize = 11.sp, fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.clip(RoundedCornerShape(50)).background(color).padding(horizontal = 10.dp, vertical = 3.dp))
+                    }
+                    DbLine("Sisa ruang", dbBytes((limit - used).coerceAtLeast(0)))
+                    DbLine("Batas level", "Perhatian ${(d.thresholds.notice * 100).toInt()}% · Waspada ${(d.thresholds.warning * 100).toInt()}% · Tinggi ${(d.thresholds.high * 100).toInt()}% · Kritis ${(d.thresholds.critical * 100).toInt()}%")
+                    val f = d.forecast
+                    when {
+                        f == null -> {}
+                        f.hoursToCritical != null -> DbLine("Pertumbuhan", "+${dbBytes(f.bytesPerHour.toLong())}/jam · kritis ±${maxOf(1L, Math.round(f.hoursToCritical))} jam", AmberText)
+                        else -> DbLine("Pertumbuhan", "Stabil (24 jam terakhir)")
+                    }
+                    isoMs(d.checkedAt)?.let { DbLine("Diperiksa", agoText(it)) }
+                    if (!d.enabled) Text("Pemantauan & pembersihan otomatis dimatikan di server.", color = AmberText, fontSize = 12.sp)
+                }
+            }
+
+            DbCard("Tren ukuran", "Dicatat server tiap jam (sampai 48 sample terakhir).") {
+                if (samples.size < 2) Text("Belum cukup data. Grafik muncul setelah server mencatat minimal 2 sample (tiap jam; tidak ada di mode serverless).", color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
+                else {
+                    DbSizeChart(samples)
+                    val lo = samples.minOf { it.second }; val hi = samples.maxOf { it.second }
+                    Row(Modifier.fillMaxWidth()) {
+                        Text(agoText(samples.first().first), color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                        Text("sekarang", color = Muted, fontSize = 11.sp)
+                    }
+                    DbLine("Terendah", dbBytes(lo))
+                    DbLine("Tertinggi", dbBytes(hi))
+                    val delta = samples.last().second - samples.first().second
+                    DbLine("Perubahan", (if (delta >= 0) "+" else "−") + dbBytes(Math.abs(delta)), if (delta > 0) AmberText else Color(0xFF6BD08A))
+                }
+            }
+
+            val tables = d.tables
+            if (used != null && tables.isNotEmpty()) {
+                val heap = tables.sumOf { it.heapBytes }; val idx = tables.sumOf { it.indexBytes }; val toast = tables.sumOf { it.toastBytes }
+                val other = (used - heap - idx - toast).coerceAtLeast(0)
+                DbCard("Rincian ukuran", "Data = isi baris, Index = pencarian cepat, Lampiran = kolom besar (mis. foto). Lainnya = sistem, log, dan tabel kecil.") {
+                    listOf(
+                        Triple("Data tabel", heap, Color(0xFF7CB7FF)), Triple("Index", idx, Color(0xFFC4B0FF)),
+                        Triple("Lampiran (TOAST)", toast, Color(0xFFE8C972)), Triple("Lainnya", other, Color(0xFF7C8090))
+                    ).forEach { (label, size, c) ->
+                        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Row(Modifier.fillMaxWidth()) {
+                                Text(label, color = Color.White, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                                Text("${dbBytes(size)} · ${dbPct(if (used > 0) size.toDouble() / used else 0.0)}", color = Muted, fontSize = 12.sp)
+                            }
+                            UsageBar(if (used > 0) size.toFloat() / used else 0f, c, height = 5.dp)
+                        }
+                    }
+                }
+            }
+
+            d.blobs?.let { b ->
+                DbCard("Foto profil", "Disimpan langsung di database (kolom avatar).") {
+                    DbLine("Jumlah foto", dbCount(b.avatars.count.toLong()))
+                    DbLine("Total ukuran", dbBytes(b.avatars.bytes))
+                    if (b.avatars.count > 0) DbLine("Rata-rata per foto", dbBytes(b.avatars.bytes / b.avatars.count))
+                }
+            }
+
+            DbCard("Ukuran per tabel (${tables.size})", "Diurutkan dari yang terbesar. Jumlah baris adalah perkiraan PostgreSQL.") {
+                if (tables.isEmpty()) Text("Belum ada data tabel.", color = Muted, fontSize = 13.sp)
+                val top = tables.firstOrNull()?.totalBytes?.coerceAtLeast(1) ?: 1
+                tables.forEachIndexed { i, t ->
+                    if (i > 0) HorizontalDivider(color = Line)
+                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(t.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            Text(dbBytes(t.totalBytes), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
+                        UsageBar(t.totalBytes.toFloat() / top, Accent, height = 4.dp)
+                        Text("≈${dbCount(t.rows)} baris · data ${dbBytes(t.heapBytes)} · index ${dbBytes(t.indexBytes)} · lampiran ${dbBytes(t.toastBytes)}", color = Muted, fontSize = 11.sp, lineHeight = 15.sp)
+                        if (t.deadRows > 0) Text("${dbCount(t.deadRows)} baris mati (menunggu dibersihkan)", color = if (t.deadRows > t.rows && t.deadRows > 1000) AmberText else Muted, fontSize = 11.sp)
+                    }
+                }
+            }
+
+            DbCard("Pemeliharaan", "Pembersihan juga jalan otomatis di server; tombol ini untuk menjalankannya sekarang.") {
+                if (d.serverless) Text("Mode serverless: backup ke disk tidak tersedia (pakai endpoint export).", color = Muted, fontSize = 13.sp)
+                else {
+                    DbLine("Backup otomatis", if (d.backups.enabled) "Aktif" else "Mati")
+                    DbLine("Jumlah berkas", d.backups.items.size.toString())
+                    d.backups.items.firstOrNull()?.let { b ->
+                        DbLine("Terbaru", "${dbBytes(b.bytes)} · ${isoMs(b.createdAt)?.let { agoText(it) } ?: "-"}")
+                    }
+                }
+                val m = d.lastMaintenance
+                DbLine("Pembersihan terakhir", m?.let { x -> isoMs(x.createdAt)?.let { agoText(it) } } ?: "Belum pernah")
+                val canRun = busy == null && d.enabled
+                Button(
+                    { confirm = "auto" }, Modifier.fillMaxWidth().height(46.dp), enabled = canRun, shape = R6,
+                    colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = OnAccent, disabledContainerColor = CardLine, disabledContentColor = Muted)
+                ) {
+                    if (busy == "auto") CircularProgressIndicator(Modifier.size(18.dp), OnAccent, strokeWidth = 2.dp)
+                    else Text("Bersihkan sekarang", fontWeight = FontWeight.Bold)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        { confirm = "aggressive" }, Modifier.weight(1f).height(44.dp), enabled = canRun, shape = R6,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CardLine),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = RedText, disabledContentColor = Muted)
+                    ) { if (busy == "aggressive") CircularProgressIndicator(Modifier.size(18.dp), RedText, strokeWidth = 2.dp) else Text("Agresif", fontWeight = FontWeight.Bold) }
+                    OutlinedButton(
+                        { runAction("backup") }, Modifier.weight(1f).height(44.dp), enabled = busy == null && !d.serverless, shape = R6,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CardLine),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White, disabledContentColor = Muted)
+                    ) { if (busy == "backup") CircularProgressIndicator(Modifier.size(18.dp), Color.White, strokeWidth = 2.dp) else Text("Backup sekarang", fontWeight = FontWeight.Bold) }
+                }
+                info?.let { (ok, text) -> Text(text, color = if (ok) Color(0xFF6BD08A) else RedText, fontSize = 13.sp, lineHeight = 18.sp) }
+                if (busy != null) Text("Sedang berjalan, bisa sampai beberapa menit. Jangan tutup panel ini.", color = Muted, fontSize = 12.sp)
+            }
+
+            TextButton({ load() }, enabled = !loading) { Icon(Ic.Refresh, null, tint = Accent); Spacer(Modifier.width(6.dp)); Text(if (loading) "Memuat…" else "Refresh", color = Accent) }
+        }
+    }
+    when (confirm) {
+        "auto" -> AdminConfirm(
+            "Bersihkan database sekarang?",
+            "Menghapus data lama sesuai level saat ini: catatan view lama, riwayat XP harian lama, dan cache chapter komik yang lama tidak dibuka. Akun, komentar, pustaka, dan progres baca tidak disentuh. Bisa memakan waktu beberapa menit.",
+            "Jalankan", { confirm = null; runAction("auto") }, { confirm = null }
+        )
+        "aggressive" -> AdminConfirm(
+            "Pembersihan agresif?",
+            "Memakai aturan level Kritis: retensi paling pendek (view 30 hari, riwayat XP 14 hari), cache chapter dibuang lebih banyak (dalam kondisi darurat bisa dikosongkan penuh; terisi lagi otomatis dari sumber), dan seri basi 30 hari yang tidak dibaca atau disimpan siapa pun ikut dihapus. Pakai hanya saat database hampir penuh.",
+            "Jalankan", { confirm = null; runAction("aggressive") }, { confirm = null }
+        )
+    }
+}
+
+/** Grafik garis ukuran database ([points] = (waktu ms, byte), urut waktu). Skala otomatis dari terendah ke tertinggi. */
+@Composable
+private fun DbSizeChart(points: List<Pair<Long, Long>>, modifier: Modifier = Modifier) {
+    val lo = points.minOf { it.second }
+    val span = (points.maxOf { it.second } - lo).coerceAtLeast(1L)
+    val t0 = points.first().first
+    val t1 = points.last().first.coerceAtLeast(t0 + 1)
+    androidx.compose.foundation.Canvas(modifier.fillMaxWidth().height(110.dp)) {
+        val pad = 6.dp.toPx()
+        fun x(t: Long) = (t - t0).toFloat() / (t1 - t0) * size.width
+        fun y(v: Long) = size.height - pad - (v - lo).toFloat() / span * (size.height - 2 * pad)
+        val line = androidx.compose.ui.graphics.Path()
+        points.forEachIndexed { i, p -> if (i == 0) line.moveTo(x(p.first), y(p.second)) else line.lineTo(x(p.first), y(p.second)) }
+        val area = androidx.compose.ui.graphics.Path().apply { addPath(line); lineTo(x(t1), size.height); lineTo(x(t0), size.height); close() }
+        drawPath(area, androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Accent.copy(alpha = 0.32f), Color.Transparent)))
+        drawPath(line, Accent, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
     }
 }
 

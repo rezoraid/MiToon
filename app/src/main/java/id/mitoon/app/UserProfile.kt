@@ -28,6 +28,8 @@ import java.util.Locale
     val id: Long = 0, val username: String = "", val displayName: String = "", val bio: String = "", val avatarV: Int = 0,
     val xp: Long = 0, val level: Int = 1, val joinedAt: Long = 0, val commentCount: Int = 0,
     val verified: Boolean = false, val isOwner: Boolean = false, val premium: Boolean = false, val readingHidden: Boolean = false,
+    /** 1-3 = juara papan XP mingguan; 0 = bukan juara */
+    val topRank: Int = 0,
     /** Tampilan profil Premium (kosong = bawaan) */
     val theme: String = "", val frame: String = "",
     /** Streak membaca; null bila pemiliknya menyembunyikan aktivitas bacanya. */
@@ -81,6 +83,7 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
                         }
                         Text("@${u.username}", color = Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
                         StatusLabels(u.isOwner, u.premium, Modifier.padding(top = 8.dp), iconSize = 20.dp, textSize = 13)
+                        RankTag(u.topRank, Modifier.padding(top = 8.dp), size = 12)
                         Row(Modifier.padding(top = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             LevelChip(u.level, size = 12)
                             RoleTag(u.level, Modifier, iconSize = 24.dp)
@@ -110,6 +113,7 @@ fun UserProfileScreen(userId: Long, onBack: () -> Unit, onOpen: (ReadItem) -> Un
                         }
                     }
                     }
+                    ChampionSection(u.id, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp))
                     HorizontalDivider(color = Line)
                     Text("Sedang dibaca", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp))
                 }

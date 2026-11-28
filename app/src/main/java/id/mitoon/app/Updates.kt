@@ -146,6 +146,21 @@ object Updates {
         runCatching { nm.notify((title + body).hashCode(), n) }
     }
 
+    /** Juara papan XP mingguan (topic pribadi `u_<id>`): satu notifikasi per minggu. Ketuk = buka app di tab Ranking. */
+    fun onTopRank(ctx: Context, rank: Int, weekXp: Int) {
+        if (rank !in 1..3) return
+        if (!::prefs.isInitialized) init(ctx)
+        val nm = NotificationManagerCompat.from(ctx)
+        if (!nm.areNotificationsEnabled()) return
+        val open = Intent(ctx, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP }
+        val pi = PendingIntent.getActivity(ctx, 2000 + rank, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val title = "Kamu masuk Top $rank minggu lalu!"
+        val body = "Selamat! Kamu juara $rank di papan XP mingguan dengan ${java.text.NumberFormat.getIntegerInstance(java.util.Locale("id", "ID")).format(weekXp)} XP. Tag Top $rank terpasang di profilmu."
+        val n = NotificationCompat.Builder(ctx, CHANNEL).setSmallIcon(R.drawable.ic_notif).setAutoCancel(true).setContentIntent(pi)
+            .setContentTitle(title).setContentText(body).setStyle(NotificationCompat.BigTextStyle().bigText(body)).build()
+        runCatching { nm.notify(2000 + rank, n) }
+    }
+
     private fun notifyNew(ctx: Context, found: List<Pair<LibEntry, String>>) {
         val nm = NotificationManagerCompat.from(ctx)
         if (!nm.areNotificationsEnabled()) return

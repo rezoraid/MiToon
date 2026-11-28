@@ -173,7 +173,7 @@ object ChatState {
 
     private fun me(): CommentUser {
         val u = Auth.user ?: return CommentUser()
-        return CommentUser(u.id, u.username, u.avatarV, u.displayName, u.level, u.verified && !u.verifiedHidden, u.isOwner, u.premium)
+        return CommentUser(u.id, u.username, u.avatarV, u.displayName, u.level, u.verified && !u.verifiedHidden, u.isOwner, u.premium, Net.rankBoard(Auth.token)?.me?.rank?.takeIf { it in 1..3 } ?: 0)
     }
 
     fun send(text: String, onFail: (String) -> Unit) {
@@ -480,6 +480,7 @@ private fun BubbleBody(m: ChatMsg, mine: Boolean, head: Boolean, whenText: Strin
                 if (m.user.premium) PremiumBadge(Modifier, 15.dp)
                 RoleBadge(roleFor(m.user.level), 18.dp)
                 LevelChip(m.user.level, size = 9)
+                RankTag(m.user.topRank, size = 9)
             }
         }
         m.replyTo?.let { ReplyQuote(it) }

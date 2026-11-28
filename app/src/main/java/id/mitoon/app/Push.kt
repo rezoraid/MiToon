@@ -42,12 +42,28 @@ object Push {
         (have - want.keys).forEach { t -> fm.unsubscribeFromTopic(t).addOnSuccessListener { done.remove(t); save(done) } }
     }
 
+    /**
+     * Topic pribadi `u_<id>` untuk notifikasi khusus akun (mis. masuk Top 3 mingguan). Dipanggil tiap status login berubah:
+     * login = subscribe, logout / ganti akun = unsubscribe topic lama. Tanpa login (null) tidak ada topic.
+     */
+    @Synchronized
+    fun syncUser(id: Long?) {
+        if (!ready) return
+        val want = id?.takeIf { it > 0 }?.let { "u_$it" }
+        val have = prefs.getString("utopic", null)
+        if (want == have) return
+        val fm = runCatching { FirebaseMessaging.getInstance() }.getOrNull() ?: return
+        if (have != null) fm.unsubscribeFromTopic(have).addOnSuccessListener { if (prefs.getString("utopic", null) == have) prefs.edit().remove("utopic").apply() }
+        if (want != null) fm.subscribeToTopic(want).addOnSuccessListener { prefs.edit().putString("utopic", want).apply() }
+    }
+
     @Synchronized private fun save(s: Set<String>) { prefs.edit().putStringSet("topics", s.toSet()).apply() }
 }
 
 class MiToonMessaging : FirebaseMessagingService() {
     override fun onMessageReceived(m: RemoteMessage) {
         val d = m.data
+        if (d["type"] == "toprank") { Updates.onTopRank(applicationContext, d["rank"]?.toIntOrNull() ?: 0, d["weekXp"]?.toIntOrNull() ?: 0); return }
         if (d["type"] == "broadcast") { Updates.onBroadcast(applicationContext, d["title"].orEmpty(), d["body"].orEmpty(), d["seriesId"]); return }
         val sid = d["seriesId"] ?: return
         Updates.onPush(applicationContext, sid, d["title"] ?: m.notification?.title.orEmpty(), d["chapter"].orEmpty(), d["chapterId"].orEmpty())
